@@ -9,68 +9,10 @@
 namespace rparser {
 
 
-enum ResourceType {
-    RESOURCE_BGA=0,
-    RESOURCE_WAV=1
-};
-#define RESOURCE_TYPE_NUM 2
-
-
-
-class NoteData;
-/*
- * @description
- * only contains metadata about notefield.
- * (no relation with metadata, in fact.)
- */
-struct MetaData {
-    std::string sFilePath;
-
-    int iNoteCount;
-    float fLastNoteTime;
-
-    // @description basc BPM of the song
-    int iBPM;
-    // @description is bpm changes during song playing?
-    bool isBPMChanges;
-    int iMaxBPM;
-    int iMinBPM;
-    // @description is bomb object exists?
-    bool isBomb;
-    // @description is wrap object(negative bpm) exists?
-    bool isWrap;
-    bool isSTOP;
-    // @description is backspin scratch exists?
-    bool isBSS;
-    bool isCharge;
-    bool isHellCharge;
-    // @description is command exists/processed? (in case of BMS)
-    bool isCommand;
-
-    std::string sTitle;
-    std::string sArtist;
-    std::string sGenre;
-    std::string sBannerFile;
-    std::string sBackgroundFile;
-    std::string sStageFile;
-    std::string sMusicFile;
-    std::string sPreviewFile;
-
-    std::vector<std::string> resourceFiles[RESOURCE_TYPE_NUM];
-    
-    void Fill(const NoteData& nd);
-
-public:
-    Metadata() { isFilled=false; };
-};
-
-
-
 /*
  * @description
  * holds result for tapping note,
- * but it may not be necessary
- * -if you're not going to play/visualize, in most cases.
+ * but it may not be necessary if you're not going to play/visualize, in most cases.
  * but in case we need ...
  * performance won't be affected much by adding this struct, I believe.
  * but maybe we need to modify this structure, in case of addition of more features.
@@ -104,6 +46,11 @@ enum NoteType {
     NOTETYPE_FAKE
 }
 
+enum NoteChannelType {
+    NOTECHANNEL_WAV,
+    NOTECHANNEL_MIDI
+}
+
 struct Note {
     NoteResult result;
     NoteType type;
@@ -112,6 +59,7 @@ struct Note {
     float fDamage;
 
     // @description designates sound playing channel
+    NoteChannelType channeltype;
     int iChannel;
     float fVolume;
     float fLength;

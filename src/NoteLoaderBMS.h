@@ -6,14 +6,17 @@
 
 namespace rparser {
 
+// @description global error reason, defined in NoteLoader.cpp
+extern std::string ErrorString;
+
 namespace NoteLoaderBMS {
-    public:
+    bool LoadChart( const std::string& fpath, Chart& chart, bool processCmd=true );
+    bool ParseChart( const std::string& fpath, Chart& chart, bool processCmd=true );
 
-    bool LoadNoteData( const std::string& fpath, NoteData& nd, bool processCmd=true );
-    bool ParseNoteData( const char* p, int iLen, Notedata& nd, bool processCmd=true );
-
+    bool ParseNoteData( const char* p, int iLen, NoteData& nd, bool processCmd=true );
     bool LoadMetaData( const std::string& fpath, MetaData& md, bool processCmd=true );
     bool ParseMetaData( const char* p, int iLen, MetaData& md, bool processCmd=true );
+    bool ParseTimingData( const char* p, int iLen, TimingData& td, bool processCmd=true );
 }
 
 }
