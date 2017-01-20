@@ -1,6 +1,9 @@
 /*
  * by @lazykuna, MIT License.
  */
+ 
+#ifndef RPARSER_CHART_H
+#define RPARSER_CHART_H
 
 #include "NoteData.h"
 #include "MetaData.h"
@@ -45,6 +48,7 @@ private:
  */
 struct ChartMetaData {
     std::string sFilePath;
+    std::string sFormat;
 
     int iNoteCount;
     float fLastNoteTime;
@@ -81,3 +85,5 @@ struct ChartMetaData {
 
 
 }
+
+#endif

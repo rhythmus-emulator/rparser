@@ -20,3 +20,7 @@ namespace NoteLoaderBMS {
 }
 
 }
+
+//
+// expected to be used by NoteLoader module!
+//

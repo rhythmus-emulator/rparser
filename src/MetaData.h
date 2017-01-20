@@ -2,6 +2,9 @@
  * by @lazykuna, MIT License.
  */
 
+#ifndef RPARSER_METADATA_H
+#define RPARSER_METADATA_H
+
 #define MAX_RESOURCE_COUNT 10240
 
 namespace rparser {
@@ -11,7 +14,7 @@ namespace rparser {
  * contains metadata(header) part for song
  */
 class MetaData {
-    struct Resource;
+    class Resource;
 
     public:
     // @description supports int, string, float, double types.
@@ -32,7 +35,7 @@ class MetaData {
     Resource* GetBMPResource() { return GetResource("BMP"); };
     Resource* GetBGAResource() { return GetResource("BGA"); };
     Resource* GetWAVResource() { return GetResource("wAV"); };
-    Resource* GetMIDIResource() { return GetResource("MIDI"); };
+    MidiResource* GetMIDIResource() { return GetResource("MIDI"); };
     bool IsResourceExist(const std::string& key);
 
 
@@ -40,6 +43,7 @@ class MetaData {
     class Resource {
     private:
         std::string info[MAX_RESOURCE_COUNT];
+        std::string name;
         int nResourceCount;
     public:
         // @description is this resource contains any information?
@@ -52,14 +56,27 @@ class MetaData {
         Resource() { nResourceCount=0; }
     };
 
+    // TODO: should I support BGA resource type? (BM98 format)
+    struct BGAResource {
+    };
+
+    struct MidiChannel {
+        ww
+    }
+
     private:
     // @description
     // internal function; remove unused Resource pool from memory 
     // automatically called when IsResourceExist(); called.
     void UpdateResources();
     std::map<std::string, std::string> m_sAttributes;
-    std::map<std::string, Resource> m_Resources;
+
+    std::string m_BMPFiles[MAX_RESOURCE_COUNT];
+    std::string m_WAVFiles[MAX_RESOURCE_COUNT];
+    BGAResource m_BGARes[MAX_RESOURCE_COUNT];
+};
+
+
 }
 
-
-};
+#endif

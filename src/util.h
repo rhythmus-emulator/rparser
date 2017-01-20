@@ -2,6 +2,9 @@
  * by @lazykuna, MIT License.
  */
 
+#ifndef RPARSER_UTIL_H
+#define RPARSER_UTIL_H
+
 #include <stdio.h>
 #include <string>
 
@@ -36,3 +39,5 @@ int printf_utf8();
 #endif
 
 };
+
+#endif

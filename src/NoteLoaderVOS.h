@@ -20,3 +20,7 @@ namespace NoteLoaderVOS {
 }
 
 }
+
+//
+// expected to be used by NoteLoader module!
+//

@@ -2,6 +2,9 @@
  * by @lazykuna, MIT License.
  */
 
+#ifndef RPARSER_NOTEDATA_H
+#define RPARSER_NOTEDATA_H
+
  #include <map>
  #include <vector>
  #include "TimingData.h"
@@ -51,6 +54,10 @@ enum NoteChannelType {
     NOTECHANNEL_MIDI
 }
 
+/*
+ * @description
+ * A soundable/tappable object, mostly playable by player. 
+ */
 struct Note {
     NoteResult result;
     NoteType type;
@@ -62,7 +69,7 @@ struct Note {
     NoteChannelType channeltype;
     int iChannel;
     float fVolume;
-    float fLength;
+    int iDuration;  // in msec
     int iPitch;
 
     // @description time information won't be filled until you call FillTimingData()
@@ -83,7 +90,6 @@ public:
     typedef std::map<int, Note>::iterator trackiter;
     typedef std::map<int, Note>::const_iterator const_trackiter;
 
-    std::vector<Track> tracks;
     trackiter begin(int tracknum) { return tracks[tracknum]->begin(); };
     trackiter end(int tracknum) { return tracks[tracknum]->end(); };
     trackiter lower_bound(int tracknum, int row) { return tracks[tracknum]->lower_bound(row); };
@@ -100,7 +106,10 @@ public:
     void SearchAllNotes(std::vector<trackiter>& notelist);
     void SearchAllNotes(std::vector<trackiter>& notelist, int iStartRow, int iEndRow, bool bInclusive);
 
+    // @description fill all note's timing data from beat data.
     void FillTimingData(const TimingData& td);
+    // @description only use for VOS format!
+    void FillBeatData(const TimingData& td);
 
 
     /*
@@ -147,6 +156,9 @@ public:
     void Copy(const NoteData& nd);
     void Copy(const NoteData& nd, int iStartRow, int iEndRow);
 private:
-}
+    std::vector<Track> tracks;
+};
 
 }
+
+#endif

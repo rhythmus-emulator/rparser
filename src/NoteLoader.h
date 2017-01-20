@@ -2,6 +2,9 @@
  * by @lazykuna, MIT License.
  */
 
+#ifndef RPARSER_NOTELOADER_H
+#define RPARSER_NOTELOADER_H
+
 class Chart;
 class NoteData;
 class MetaData;
@@ -22,3 +25,5 @@ bool ParseMetaData( const char* p, int iLen, MetaData& md );
 bool ParseTimingData( const char* p, int iLen, TimingData& td );
 
 }
+
+#endif

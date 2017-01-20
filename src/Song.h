@@ -1,6 +1,9 @@
 /*
  * by @lazykuna, MIT License.
  */
+ 
+#ifndef RPARSER_SONG_H
+#define RPARSER_SONG_H
 
 #include "Chart.h"
 
@@ -29,6 +32,8 @@ public:
     int GetChartCount();
 
     ~Song();
+};
+
 }
 
-};
+#endif
