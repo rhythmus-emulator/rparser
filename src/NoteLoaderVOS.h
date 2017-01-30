@@ -4,6 +4,11 @@
 
 #include <string>
 
+class Chart;
+class NoteData;
+class MetaData;
+class TimingData;
+
 namespace rparser {
     
 // @description global error reason, defined in NoteLoader.cpp

@@ -8,6 +8,7 @@
  */
 
 #include "NoteLoaderVOS.h"
+#include "Chart.h"
 #include "util.h"
 #include <stdlib.h>
 #define MAX_READ_SIZE 512000

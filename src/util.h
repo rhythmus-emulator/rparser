@@ -38,6 +38,13 @@ int printf_utf8();
 #define printf printf_utf8
 #endif
 
+// @description
+// set global seed (mostly used for BMS parsing)
+void SetSeed(int seed);
+// @description
+// get seed
+int GetSeed();
+
 };
 
 #endif
