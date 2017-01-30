@@ -11,7 +11,7 @@ extern std::string ErrorString;
 
 namespace NoteLoaderVOS {
     bool LoadChart( const std::string& fpath, Chart& chart );
-    bool ParseChart( const std::string& fpath, Chart& chart );
+    bool ParseChart( const char* p, int iLen, Chart& chart );
 
     bool ParseNoteData( const char* p, int iLen, NoteData& nd );
     bool LoadMetaData( const std::string& fpath, MetaData& md );
