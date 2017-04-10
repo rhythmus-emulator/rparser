@@ -26,14 +26,14 @@ public:
     const char *p;
     ParseArg(const char *p, int iLen, bool autorelease=true)
     : p(p), p_org(p), iLen(iLen), autorelease(autorelease) {}
-    ~ParseArg() { if (autorelease) free(p); }
+    ~ParseArg() { if (autorelease) free(const_cast<char*>(p)); }
     void Reset() { p=p_org; }
-}
+};
 
 struct VOSHeader {
     int len;
     char desc[256];
-}
+};
 
 struct VOSNoteDataV2 {
     unsigned char dummy;
@@ -46,7 +46,7 @@ struct VOSNoteDataV2 {
     unsigned char islongnote;
     unsigned int duration;
     unsigned char dummy3; // 00|FF, note or BGM?
-}
+};
 
 struct VOSNoteDataV3 {
     unsigned int time;
@@ -57,32 +57,32 @@ struct VOSNoteDataV3 {
     unsigned char volume;
     unsigned char channel; // playable note?
     unsigned char dummy2;
-}
+};
 
-char* MIDISIG_BYTE[] = [
-    [0xFF, 0x21],
-    [0xFF, 0x03],
-    [0xFF, 0x2F]
-]
+char MIDISIG_BYTE[3][2] = {
+	{0xFF, 0x21},
+	{0xFF, 0x03},
+	{0xFF, 0x2F}
+};
 
-enum MIDISIG = [
-    MIDISIG_DUMMY, // output port
-    MIDISIG_TRACKNAME,
-    MIDISIG_END,
-    MIDISIG_DATA // includes all unknown other signatures
-];
+enum class MIDISIG: int {
+	MIDISIG_DUMMY=0, // output port
+	MIDISIG_TRACKNAME=1,
+	MIDISIG_END=2,
+	MIDISIG_DATA=3 // includes all unknown other signatures
+};
 
 #define MIDISIG_TYPES 3
 #define MIDISIG_LENGTH 3
 
 int ReadMSInt( const char **p );
-int GetMidiSignature(const char **_p, int *delta) {
+MIDISIG GetMidiSignature(const char **_p, int *delta) {
     const char *p = *_p;
     *delta = ReadMSInt(&p);
-    int r = MIDISIG_DATA;
+	MIDISIG r = MIDISIG::MIDISIG_DATA;
     for (int i=0; i<MIDISIG_TYPES; i++) {
         if (memcmp(p, MIDISIG_BYTE[i], MIDISIG_LENGTH) == 0) {
-            r = i;
+            r = (MIDISIG)i;
             break;
         }
     }
@@ -125,15 +125,15 @@ bool ParseChart( const char* p, int iLen, Chart& chart ) {
     nd = chart.GetNoteData();
     td = chart.GetTimingData();
 
-    if (!ParseMetaData(p, iLen, md)) {
+    if (!ParseMetaData(p, iLen, *md)) {
         //ErrorString = "Failed to parse MetaData during reading vos file.";
         return false;
     }
-    if (!ParseNoteData(p, iLen, nd)) {
+    if (!ParseNoteData(p, iLen, *nd)) {
         ErrorString = "Failed to parse NoteData during reading vos file.";
         return false;
     }
-    if (!ParseTimingData(p, iLen, td)) {
+    if (!ParseTimingData(p, iLen, *td)) {
         ErrorString = "Failed to parse TimingData during reading vos file.";
         return false;
     }
@@ -145,7 +145,7 @@ bool ParseMetaDataV2( const char* p, int iLen, MetaData& md );
 bool ParseMetaDataV3( const char* p, int iLen, MetaData& md );
 bool ParseNoteDataV2( const char* p, int iLen, NoteData& nd );
 bool ParseNoteDataV3( const char* p, int iLen, NoteData& nd );
-int DetectVersion( const char *p ) { return (int*)p; }
+int DetectVersion( const char *p ) { return *(int*)p; }
 
 bool ParseNoteData( const char* p, int iLen, NoteData& nd ) {
     int version = DetectVersion(p);
@@ -189,12 +189,12 @@ bool ParseTimingData( const char* p, int iLen, TimingData& td ) {
         int tracksize = *(int*)p;
         const char *p_track_end = p+tracksize;
 
-        int midisig = 0;
+        MIDISIG midisig = MIDISIG::MIDISIG_DUMMY;
         int delta = 0;
         int ticks = 0;  // 480 tick: 1 beat
-        while (midisig = GetMidiSignature(p, &delta) != MIDISIG_END) {
+        while ((midisig = GetMidiSignature(&p, &delta)) != MIDISIG::MIDISIG_END) {
             ticks += delta;
-            if (midisig == MIDISIG_DATA) {
+            if (midisig == MIDISIG::MIDISIG_DATA) {
                 // TODO: register midi signature with data in timeloader datas.
             }
         }
@@ -212,19 +212,19 @@ bool ParseMetaDataV2( const char* p, int iLen, MetaData& md )
     // 4 byte: version 02
     p += 4;
     // 4 byte: filename length
-    int fnamelen = (int*)p;
+    int fnamelen = *(int*)p;
     p += 4;
     p += fnamelen;
     // 4 byte: VOS track file length
-    int vosflen = (int*)p;
+    int vosflen = *(int*)p;
     p += 4;
     // parse metadatas [title, songartist, chartmaker, genre, unknown]
     // metadata consisted with frames
     // frame: length(short) + body
     int i = 0;
-    char meta_attrs[][32] = ["TITLE", "ARTIST", "SUBARTIST", "GENRE"]
+	char meta_attrs[][32] = { "TITLE", "ARTIST", "SUBARTIST", "GENRE" };
     while (i < 5) {
-        short len = (short*)p;
+        short len = *(short*)p;
         p += 2;
         if (len == 0) break;
         char body[256];
@@ -259,7 +259,7 @@ bool ParseMetaDataV2( const char* p, int iLen, MetaData& md )
     std::string title;
     for (int i=0; i<cnt_inst; i++) {
         p += 1;
-        midichannel_per_track[i] = (int*)p;
+        midichannel_per_track[i] = *(int*)p;
         p += 4;
     }
     for (int i=0; i<cnt_chart; i++) {
@@ -313,7 +313,7 @@ bool ParseMetaDataV3( const char* p, int iLen, MetaData& md )
     p += 12; // unknown null bytes
     // now position is 64(0x40), which means starting pos of header.
     // start to read METADATAS
-    char metadatas[][10] = ["TITLE", "ARTIST", "CHARTMAKER", "GENRE"];
+	char metadatas[][12] = { "TITLE", "ARTIST", "CHARTMAKER", "GENRE" };
     VOSHeader header;
     for (int i=0; i<4; i++) {
         header.len = *(int*)p; p+=4;

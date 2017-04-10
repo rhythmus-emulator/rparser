@@ -37,13 +37,13 @@ class BMSTree {
                 actived = false;
             }
         }
-        void ELSE (int val) {
+        void ELSE () {
             if (!actived) {
                 active = true;
                 actived = true;
             }
         }
-    }
+	};
     std::vector<Condition> conds;
 
     public:
@@ -51,23 +51,24 @@ class BMSTree {
         return (conds.size() == 0 || conds.back().active);
     }
 
+	// process only conditional statement
     bool ProcessStatement(const std::string& line) {
         // set seed first
         srand(rparser::GetSeed());
 
 		size_t space = line.find(' ');
-		std::string name = line.substr(0, space).lower();
-        std::string value = ""
+		std::string name = line.substr(0, space); lower(name);
+		std::string value = "";
         int isCond = 1;
         if (space != std::string::npos) value = line.substr(space+1);
 
         if (name == "#endif") {
             // pop out last statement (if exists)
             ASSERT(conds.size());
-            conds.pop();
+            conds.pop_back();
         } else if (name == "#if") {
             // starting of bms command
-            conds.push(Condition(atoi(value.c_str())));
+            conds.push_back(Condition(atoi(value.c_str())));
         } else if (name == "#else") {
             ASSERT(conds.size());
             conds.back().ELSE();
@@ -104,7 +105,7 @@ class BMSTree {
     }
 
     // just extracts BMS command, not process it.
-    void ExtractBMSCommand( const char* in, int iLen, std::vector<std::string> &out, std::vector &cmd ) {
+    void ExtractBMSCommand( const char* in, int iLen, std::vector<std::string> &out, std::vector<std::string> &cmd ) {
         // clear tree
         conds.clear();
 
@@ -126,11 +127,11 @@ class BMSTree {
             int isCommandExists = conds.size();
             ProcessStatement(line);
             isCommandExists |= conds.size();
-            if (isCommandExists) cmd += line_original;
-            else out.append(line);
+            if (isCommandExists) cmd.push_back(line_original);
+            else out.push_back(line);
         }
     }
-}
+};
 
 bool LoadChart( const std::string& fpath, Chart& chart, bool processCmd=true ) {
 

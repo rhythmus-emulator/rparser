@@ -8,6 +8,9 @@
 #include <stdio.h>
 #include <string>
 
+#include <assert.h>
+#define ASSERT assert
+
 namespace rparser {
 
 // @description
@@ -44,6 +47,9 @@ void SetSeed(int seed);
 // @description
 // get seed
 int GetSeed();
+
+
+void lower(std::string& s);
 
 };
 
