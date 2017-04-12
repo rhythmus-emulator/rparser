@@ -24,6 +24,15 @@ namespace NoteLoaderBMS {
     bool ParseTimingData( const char* p, int iLen, TimingData& td, bool processCmd=true );
 }
 
+
+#ifdef ZLIB
+namespace NoteLoaderBMSArchive {
+    bool IsGroupedArchive();
+    std::string GetArchiveRoot( const std::string& fpath );
+    bool LoadChart( const std::string& fpath, Chart& chart, bool processCmd=true );
+}
+#endif
+
 }
 
 //
