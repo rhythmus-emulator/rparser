@@ -50,6 +50,7 @@ int GetSeed();
 
 
 void lower(std::string& s);
+bool IsDirectory(const std::string& path);
 
 };
 
