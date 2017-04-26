@@ -1,22 +1,14 @@
 cmake_minimum_required(VERSION 3.0)
-project(rhythmus_bin)
+project(rparser)
 
-set (RPARSER_SOURCES
-    "src/Chart.cpp"
-    "src/MetaData.cpp"
-    "src/NoteData.cpp"
-    "src/NoteLoader.cpp"
-    "src/NoteLoaderBMS.cpp"
-    "src/NoteLoaderVOS.cpp"
-    "src/Song.cpp"
-    "src/TimingData.cpp"
-    "src/util.cpp")
-add_executable(rhythmus_bin ${RPARSER_SOURCES})
-
+# project common settings
 set(RPARSER_INCLUDE_DIRS
-    "src")
+    "include")
 include_directories(${RPARSER_INCLUDE_DIRS})
+link_directories("lib")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin/lib")
 
-
-
-
+# add subdirectories
+add_subdirectories("${PROJECT_SOURCE_DIR}/src")
+add_subdirectories("${PROJECT_SOURCE_DIR}/test")

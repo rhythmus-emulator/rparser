@@ -5,6 +5,14 @@
 #ifndef RPARSER_SONG_H
 #define RPARSER_SONG_H
 
+// you may want to support archive library.
+// (requires: zlip, libarchive)
+#define RPARSER_USE_ZIP
+#ifdef RPARSER_USE_ZIP
+#include <archive.h>
+#include <archive_entry.h>
+#endif
+
 #include "Chart.h"
 #include "util.h"
 #include <algorithm>
@@ -17,13 +25,18 @@ enum class SONGTYPE {
 	BMSON,
 	OSU,
 	VOS,
+	SM,
+	DTX,
+	OJM,
 };
 
 char *SongErrorCode[] = {
-	"No Error",
-	"No Save file format (or unsupported file format) specified",
+	"No Error",	// 0
+	"No Save file format (or unsupported file format) specified",	// 1
 	"The archive file isn't valid or supported one.",
-	"This archive file has password.",
+	"Corrupted archive file (or might have password)",
+	"This song archive file has no chart.",
+	"Unsupported song file format.",	// 5
 };
 
 /*
@@ -47,8 +60,8 @@ private:
 	// @description current song's file format
 	SONGTYPE m_SongType;
 
-	// @description zlib handle in case of archive
-	void* m_zlibHandle;
+	// @description archive handle in case of archive
+	struct archive * m_archive;
 	// @description error code
 	int m_errorcode;
 public:
@@ -64,19 +77,25 @@ public:
 
 	// @description
 	// save song file
+	// TODO: saving specific chart?
 	bool SaveSong(const std::string &path, SONGTYPE songtype = SONGTYPE::UNKNOWN);
-	bool SaveSongAsBms();
-	bool SaveSongAsBmsOn();
-	bool SaveSongAsOsu();
+	bool SaveSongAsBms(const std::string &path);
+	bool SaveSongAsBmsOn(const std::string &path);
+	bool SaveSongAsOsu(const std::string &path);
 	//bool SaveSongAsVos();	// - will not be implemented
 
 	// @description
 	// load song file
 	bool LoadSong(const std::string &path, SONGTYPE songtype = SONGTYPE::UNKNOWN);
-	bool LoadSongFromBms();
-	bool LoadSongFromBmsOn();
-	bool LoadSongFromOsu();
-	bool LoadSongFromVos();
+	bool LoadSongFromBms(const std::string &path);
+	bool LoadSongFromBmsOn(const std::string &path);
+	bool LoadSongFromOsu(const std::string &path);
+	bool LoadSongFromVos(const std::string &path);
+
+	// @description
+	// in case of loading(importing) single chart ...
+	// (won't clear previous chart data)
+	bool LoadChart(const std::string& path, SONGTYPE songtype = SONGTYPE::UNKNOWN);
 
 	// utilities
     void GetCharts(std::vector<Chart*>& charts);
@@ -92,10 +111,15 @@ public:
     ~Song();
 
 private:
-	// @description
-	// initalize song loading, like retaining zlib handle or finding base directory
-	bool LoadSongInit();
+	bool LoadFromArchive(const std::string &path);
+	bool PrepareArchiveRead(const std::string& path);
+	void ClearArchiveRead();
+	bool PrepareArchiveWrite(const std::string& path);
+	void ClearArchiveWrite();
 };
+
+SONGTYPE DetectSongTypeExtension(const std::string& fname);
+SONGTYPE DetectSongType(const std::string& path);
 
 }
 
