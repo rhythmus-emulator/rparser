@@ -1,4 +1,5 @@
 #include "Song.h"
+#include "MetaData.h"
 
 void rparser::Song::RegisterChart(Chart * c)
 {

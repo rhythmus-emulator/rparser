@@ -5,6 +5,8 @@
 #ifndef RPARSER_SONG_H
 #define RPARSER_SONG_H
 
+#include "MetaData.h"
+
 // you may want to support archive library.
 // (requires: zlip, libarchive)
 #define RPARSER_USE_ZIP
@@ -44,6 +46,7 @@ char *SongErrorCode[] = {
  * Song contains all charts using same(or similar) resources.
  * So all charts must be in same folder.
  */
+class SongMetaData;
 class Song {
 private:
     // @description Song object responsive for removing all chart datas when destroyed.
@@ -59,6 +62,9 @@ private:
 	std::string m_SongBaseDir;
 	// @description current song's file format
 	SONGTYPE m_SongType;
+
+	// @description in case of song has metadata
+	SongMetaData m_SongMeta;
 
 	// @description archive handle in case of archive
 	struct archive * m_archive;
@@ -116,6 +122,18 @@ private:
 	void ClearArchiveRead();
 	bool PrepareArchiveWrite(const std::string& path);
 	void ClearArchiveWrite();
+};
+
+/*
+ * @description
+ * Some type(like osu ...) of song file has metadata in song, not in chart.
+ * In that case, we use songmetadata to keep track of such format.
+ * This metadata will be ignored in case of unsupported format (like bms)
+ */
+class Metadata;
+class SongMetaData : public Metadata {
+	// @description should only show at extra stage
+	bool bExtraStage;
 };
 
 SONGTYPE DetectSongTypeExtension(const std::string& fname);

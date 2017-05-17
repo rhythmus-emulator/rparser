@@ -5,9 +5,9 @@
 #ifndef RPARSER_NOTEDATA_H
 #define RPARSER_NOTEDATA_H
 
- #include <map>
- #include <vector>
- #include "TimingData.h"
+#include <map>
+#include <vector>
+#include "TimingData.h"
 
 namespace rparser {
 
@@ -57,6 +57,7 @@ enum NoteChannelType {
 /*
  * @description
  * A soundable/tappable object, mostly playable by player. 
+ * (Not includes command or BGA info here!)
  */
 struct Note {
     NoteResult result;

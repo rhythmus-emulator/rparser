@@ -5,17 +5,47 @@
 #ifndef RPARSER_METADATA_H
 #define RPARSER_METADATA_H
 
-#define MAX_RESOURCE_COUNT 10240
+//#define MAX_CHANNEL_COUNT 10240
 
 namespace rparser {
+
+// TODO: for vos format
+struct MidiEvent {
+    int cmd;
+    int value;
+    unsigned long y;
+};
+struct SoundChannel {
+    // filename
+    std::map<int, std::string> fn;
+    // midi event, included program(instrument) setting
+    // should be ordered by y.
+    std::vector<MidiEvent> programs;
+};
+
+// TODO: should I support BGA resource type? (BM98 format)
+struct BGAHeader {
+    std::string fn;
+    int sx,sy,sw,sh;
+    int dx,dy,dw,dh;
+};
+struct BGAEvent {
+    unsigned long id;
+    unsigned long y;
+};
+struct BGAChannel {
+    std::map<int, BGAHeader> bga;
+    std::vector<BGAEvent> bga_events;
+    std::vector<BGAEvent> layer_events;
+    std::vector<BGAEvent> poor_events;
+};
+
 
 /*
  * @description
  * contains metadata(header) part for song
  */
 class MetaData {
-    class Resource;
-
     public:
     // @description supports int, string, float, double types.
     template<typename T>
@@ -30,50 +60,15 @@ class MetaData {
     bool IsAttributeExist(const std::string& key);
 
     // @description
-    // It returns valid Resource object pointer always (without exception)
-    Resource* GetResource(const std::string& key);
-    Resource* GetBMPResource() { return GetResource("BMP"); };
-    Resource* GetBGAResource() { return GetResource("BGA"); };
-    Resource* GetWAVResource() { return GetResource("wAV"); };
-    MidiResource* GetMIDIResource() { return GetResource("MIDI"); };
-    bool IsResourceExist(const std::string& key);
+    // It returns valid Channel object pointer always (without exception)
+    SoundChannel m_SoundChannel;
+    BGAChannel m_BGAChannel;
+    SoundChannel* GetSoundChannel() { return &m_SoundChannel; };
+    BGAChannel* GetBGAChannel() { return &m_BGAChannel; };
 
-
-    
-    class Resource {
-    private:
-        std::string info[MAX_RESOURCE_COUNT];
-        std::string name;
-        int nResourceCount;
-    public:
-        // @description is this resource contains any information?
-        bool IsEmpty();
-        // @description set resource data of index, and internally updates nResourceCount.
-        void SetData(int index, const std::string& data);
-        // @description set resource data of index to zero, and internally updates resource count.
-        void DeleteData(int index);
-        int GetDataCount() { return nResourceCount; };
-        Resource() { nResourceCount=0; }
-    };
-
-    // TODO: should I support BGA resource type? (BM98 format)
-    struct BGAResource {
-    };
-
-    struct MidiChannel {
-        ww
-    }
 
     private:
-    // @description
-    // internal function; remove unused Resource pool from memory 
-    // automatically called when IsResourceExist(); called.
-    void UpdateResources();
     std::map<std::string, std::string> m_sAttributes;
-
-    std::string m_BMPFiles[MAX_RESOURCE_COUNT];
-    std::string m_WAVFiles[MAX_RESOURCE_COUNT];
-    BGAResource m_BGARes[MAX_RESOURCE_COUNT];
 };
 
 
