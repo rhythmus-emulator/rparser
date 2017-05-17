@@ -17,7 +17,6 @@ namespace rparser {
  */
 class Chart {
 public:
-
     const MetaData* GetMetaData() const;
     const NoteData* GetNoteData() const;
     const TimingData* GetTimingData() const;
@@ -32,11 +31,17 @@ public:
 
     void ReadFromFile(const std::string& path);
     void Read(const char* p, int iLen);
+
+    // @description change resolution from here
+    void ChangeResolution(double newRes);
 private:
-    std::string sFilePath;
     MetaData m_Metadata;
     NoteData m_Notedata;
     TimingData m_Timingdata;
+
+    // not saved to file, just to store current chart state.
+    std::string sFilePath;
+    std::string sHash;      // updated when save/opened.
 };
 
 

@@ -66,8 +66,27 @@ class MetaData {
     SoundChannel* GetSoundChannel() { return &m_SoundChannel; };
     BGAChannel* GetBGAChannel() { return &m_BGAChannel; };
 
+    // @description
+    // general attributes, mainly used in playing
+    std::string sTitle;
+    std::string sSubTitle;
+    std::string sArtist;
+    std::string sSubArtist;
+    std::string sGenre;
+    std::string sChartName;         // NORMAL, HYPER, ANOTHER, ONI, ...
+    unsigned long iChart;           // Chart Difficulty (Used on BMS, etc...)
+    unsigned long iLevel;           // level of the song
+    double fBPM;                    // basic BPM (need to be filled automatically if not exists)
+    double fJudge;                  // judge difficulty
+    double fTotal;                  // guage total
+    std::string sBackImage;         // BG during playing
+    std::string sEyecatchImage;     // loading image
+    std::string sBannerImage;
+    std::string sPreviewMusic;
+    unsigned long iResolution;      // default value(BMS etc ..) is 15360 (or 240?)
 
     private:
+    // other metadata for some other purpose
     std::map<std::string, std::string> m_sAttributes;
 };
 
