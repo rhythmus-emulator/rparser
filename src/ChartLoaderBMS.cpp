@@ -1,6 +1,6 @@
 /* supports bms, bme, bml formats. */
 
-#include "NoteLoaderBMS.h"
+#include "NoteLoader.h"
 #include "Chart.h"
 #include "util.h"
 #include <vector>

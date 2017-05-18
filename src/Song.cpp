@@ -75,7 +75,7 @@ bool rparser::Song::LoadSong(const std::string & path, SONGTYPE songtype)
 	case SONGTYPE::UNKNOWN:
 		// first try to detect file format automatically
 		// then call recursively
-		m_SongType = DetectSongType(path);
+		m_SongType = TestSongType(path);
 		if (m_SongType == SONGTYPE::UNKNOWN) {
 			m_errorcode = 5;
 			break;
@@ -312,7 +312,7 @@ void rparser::Song::ClearArchiveRead()
 	}
 }
 
-rparser::SONGTYPE rparser::DetectSongTypeExtension(const std::string & fname)
+rparser::SONGTYPE rparser::TestSongTypeExtension(const std::string & fname)
 {
 	std::string ext = GetExtension(fname);
 	lower(ext);
@@ -334,7 +334,8 @@ rparser::SONGTYPE rparser::DetectSongTypeExtension(const std::string & fname)
 	return SONGTYPE::UNKNOWN;
 }
 
-rparser::SONGTYPE rparser::DetectSongType(const std::string& path)
+rparser::SONGTYPE rparser::TestSongType(const std::string& path)
 {
-	return SONGTYPE::UNKNOWN;
+	// TODO: in case of zip file, open it and test them all
+	return TestSongTypeExtension(path);
 }

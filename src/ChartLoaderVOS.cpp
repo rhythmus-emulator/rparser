@@ -7,7 +7,7 @@
  * So we have to crawl BPM(Tempo) data from MIDI. That may be a nasty thing. 
  */
 
-#include "NoteLoaderVOS.h"
+#include "NoteLoader.h"
 #include "Chart.h"
 #include "util.h"
 #include <stdlib.h>

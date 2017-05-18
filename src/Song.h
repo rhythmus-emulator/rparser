@@ -15,22 +15,11 @@
 #include <archive_entry.h>
 #endif
 
-#include "Chart.h"
 #include "util.h"
+#include "Chart.h"
 #include <algorithm>
 
 namespace rparser {
-
-enum class SONGTYPE {
-	UNKNOWN,
-	BMS,
-	BMSON,
-	OSU,
-	VOS,
-	SM,
-	DTX,
-	OJM,
-};
 
 char *SongErrorCode[] = {
 	"No Error",	// 0
@@ -49,6 +38,51 @@ struct FileData {
 };
 
 /* comment: may need to make 'save' module? */
+class SongReader {
+protected:
+	int error;
+	Song *s;
+public:
+	SongReader(Song *s): s(s), error(0) {};
+	virtual int Read(const std::string &path) = 0;
+	virtual int Test(const std::string &path) = 0;
+};
+
+class SongGeneralReader : public SongReader {
+public:
+	SongGeneralReader(Song *s): SongReader(s);
+	virtual int Read(const std::string &path);
+	virtual int Test(const std::string &path);
+};
+
+class SongArchiveReader : public SongReader {
+public:
+	SongArchiveReader(Song *s): SongReader(s);
+	virtual int Read(const std::string &path);
+	virtual int Test(const std::string &path);
+};
+
+class SongWriter {
+protected:
+	int error;
+	Song *s;
+public:
+	SongWriter(Song *s): s(s), error(0) {};
+	virtual int Write() = 0;
+};
+
+class SongGeneralWriter : public SongWriter {
+public:
+	SongGeneralWriter(Song *s): SongWriter(s) {};
+	virtual int Write();
+};
+
+class SongArchiveWriter : public SongWriter {
+	struct archive * pArchive;		// archive file handle
+public:
+	SongArchiveWriter(Song *s): SongWriter(s) {};
+	virtual int Write();
+};
 
 /*
  * @description
@@ -68,14 +102,19 @@ private:
 	std::vector<FileData> m_vFiles;
 
 	// not saved; just indicates current opening state.
-	SONGTYPE m_SongType;			// @description current song's file format
+	CHARTTYPE m_charttype;			// Detected chart format of this song
 	std::string sSongPath;			// current song archive or directory path
-	//bool bIsArchive;				// Is current song file loaded/saved in archive?
-	struct archive * pArchive;		// Used in case of archive file (is-archive?)
+	bool bIsArchive;				// Is current song file loaded/saved in archive?
 	bool bFastLoad;					// Enabled when OnlyChartLoad. chart won't be cached in m_vFiles, and you can't save file.
 	int iErrorcode;					// @description error code
 	bool bLoading;					// @description is song loading?
 	double dProgress;				// @description loading progress of file
+
+	// @description proper reader/writer pair which reads song file
+	// initialized when class begin setup.
+	std::vector<SongReader*> m_vSongHandlers;
+	SongReader* sr;					// current song reader
+	SongWriter* sw;					// current song writer
 public:
     // @description
     // register chart to Song array.
@@ -155,9 +194,7 @@ class SongMetaData : public Metadata {
 	bool bExtraStage;
 };
 
-
-SONGTYPE DetectSongTypeExtension(const std::string& fname);
-SONGTYPE DetectSongType(const std::string& path);
+SONGTYPE TestSongType(const std::string& path);
 
 }
 

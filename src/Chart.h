@@ -11,6 +11,17 @@
 
 namespace rparser {
 
+enum class CHARTTYPE {
+	UNKNOWN,
+	BMS,
+	BMSON,
+	OSU,
+	VOS,
+	SM,
+	DTX,
+	OJM,
+};
+
 /*
  * @description
  * chart data contains: notedata, timingdata, metadata
@@ -26,11 +37,14 @@ public:
     void SetFilePath(const std::string& fPath);
     std::string GetFilePath() const;
 
-    // @description copy from other chart data
-    void copy(const Chart& chart);
+    // @description clone myself to another chart
+    Chart* clone();
 
-    void ReadFromFile(const std::string& path);
-    void Read(const char* p, int iLen);
+    // @description read & write utilities
+    int Read(const std::string& path);
+    int Read(const char* p, int iLen);
+    int Write(const std::string& path);
+    int Write(std::stream& s);
 
     // @description change resolution from here
     void ChangeResolution(double newRes);
@@ -42,6 +56,7 @@ private:
     // not saved to file, just to store current chart state.
     std::string sFilePath;
     std::string sHash;      // updated when save/opened.
+    CHARTTYPE m_charttype;  // chart file type
 };
 
 
