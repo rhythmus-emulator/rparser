@@ -89,7 +89,7 @@ public:
  * Song contains all charts using same(or similar) resources.
  * So all charts must be in same folder.
  */
-class SongResource;
+class SongMetaData;
 class Song {
 private:
     // @description Song object responsive for removing all chart datas when destroyed.

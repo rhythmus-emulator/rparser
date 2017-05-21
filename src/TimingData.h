@@ -41,28 +41,12 @@ private:
 
 // BPM, STOP, WARP, MEASURE
 #define NUM_TIMINGOBJ_TYPE 4
-enum TYPE_TIMINGOBJ {
+enum class TYPE_TIMINGOBJ {
     TYPE_BPM,
     TYPE_STOP,
     TYPE_WARP,
     TYPE_MEASURE
-}
-
-struct MidiEvent {
-    // @description tick difference relative to previous object.
-    // used for load/saving, so edit this value instead editing beat attribute.
-    int tickoffset;
-    // @description channel which event occurs.
-    int channel;
-    // @description absolute beat for rendering/playing. calculated by Invalidate() function.
-    float beat;
-    // @description need to be calculated by Invalidate() function.
-    float time;
-    // @description mostly means command.
-    short status;
-    short data1;
-    short data2;
-}
+};
 
 /*
  * @description
@@ -73,9 +57,9 @@ struct MidiEvent {
 class TimingData {
 public:
     BpmObject* GetNextBpmObject(int iStartRow);
-    StopObject* GetNextBpmObject(int iStartRow);
-    WarpObject* GetNextBpmObject(int iStartRow);
-    MeasureObject* GetNextBpmObject(int iStartRow);
+    StopObject* GetNextStopObject(int iStartRow);
+    WarpObject* GetNextWarpObject(int iStartRow);
+    MeasureObject* GetNextMeasureObject(int iStartRow);
     void GetBpm();
 
     // measure related
@@ -100,8 +84,8 @@ private:
     // need to call UpdateSequentialObjs(); to use this array.
     std::vector<SequentialObject *> m_SequentialObjs;
     // @description
-    // contains special MIDI events.
-    std::vector<MidiEvent> m_MidiEvents;
+    // bar resolution of current song
+    int iRes;
 };
 
 }

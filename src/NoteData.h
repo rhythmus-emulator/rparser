@@ -44,9 +44,14 @@ enum NoteType {
     NOTETYPE_CHARGE,
     // @description head of hell-charge note
     NOTETYPE_HCHARGE,
+    // @description head of press-charge note, like pump
+    NOTETYPE_PCHARGE,
     NOTETYPE_MINE,
+    NOTETYPE_SHOCK,
     NOTETYPE_AUTOPLAY,
-    NOTETYPE_FAKE
+    NOTETYPE_FAKE,
+    // @description free score area, like osu / taigo
+    NOTETYPE_FREE
 }
 
 enum NoteChannelType {
@@ -73,6 +78,10 @@ struct Note {
     int iDuration;  // in msec
     int iPitch;
 
+    // @description x means track, y means bar - in Track based game.
+    int x;
+    int y;
+
     // @description time information won't be filled until you call FillTimingData()
     float fTime;
 
@@ -85,7 +94,8 @@ public:
     /*
      * @description
      * Notedata consists with multiple track(lane), and Track contains Notes.
-     * And each note is indexed with 'Row', which 
+     * And each note is indexed with 'Row'
+     * In case of osu/taigo, all note in First track; no meaning in track.
      */
     typedef std::map<int, Note> Track;
     typedef std::map<int, Note>::iterator trackiter;

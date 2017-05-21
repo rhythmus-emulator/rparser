@@ -83,6 +83,7 @@ class MetaData {
     std::string sEyecatchImage;     // loading image
     std::string sBannerImage;
     std::string sPreviewMusic;
+    std::string sLyrics;
     unsigned long iResolution;      // default value(BMS etc ..) is 15360 (or 240?)
 
     private:
