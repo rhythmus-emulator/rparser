@@ -28,6 +28,11 @@ public:
 private:
 };
 
+class ScrollObject: public TimingObject {
+public:
+private:
+};
+
 class MeasureObject: public TimingObject {
 public:
 private:
@@ -40,13 +45,16 @@ private:
 }
 
 // BPM, STOP, WARP, MEASURE
-#define NUM_TIMINGOBJ_TYPE 4
+#define NUM_TIMINGOBJ_TYPE 5
 enum class TYPE_TIMINGOBJ {
     TYPE_BPM,
     TYPE_STOP,
     TYPE_WARP,
+    TYPE_SCROLL,
     TYPE_MEASURE
 };
+
+#define RPARSER_DEFAULT_BPM 120
 
 /*
  * @description
@@ -56,6 +64,8 @@ enum class TYPE_TIMINGOBJ {
  */
 class TimingData {
 public:
+    TimingData();
+
     BpmObject* GetNextBpmObject(int iStartRow);
     StopObject* GetNextStopObject(int iStartRow);
     WarpObject* GetNextWarpObject(int iStartRow);
@@ -70,12 +80,22 @@ public:
     // functions using sequential objects
     float GetBeatFromTime(float time);
     float GetTimeFromBeat(float beat);
+    void GetBeatMeasureFromRow(unsigned long row, unsigned long &beatidx, unsigned long &beat);
     int GetNextMeasureFromTime(float timeoffset);
 
     // @description
-    // MUST be called before we use Sequential objects & midi events.
-    // (use after all BPM/STOP/WARP/MEASURE objects are loaded)
-    void Invalidate();
+    // Sort segments
+    void SortSegments(TYPE_TIMINGOBJ type);
+    void SortAllSegments();
+    std::vector<TimingObject *>& GetTimingSegments(TYPE_TIMINGOBJ type);
+    const std::vector<TimingObject *>& GetTimingSegments(TYPE_TIMINGOBJ type);
+
+    // @description
+    // kind of metadata
+    bool HasScrollChange();
+    bool HasBPMChange();
+    bool HasSTOP();
+    bool HasWarp();
 private:
     // @description timing objects per each types
     std::vector<TimingObject *> m_TimingObjs[NUM_TIMINGOBJECT_TYPE];
@@ -86,6 +106,16 @@ private:
     // @description
     // bar resolution of current song
     int iRes;
+    // @description
+    // start timing of the song
+    float fBeat0TimeOffset;
+
+    // utility functions
+    void AddSegments(BpmObject* obj);
+    void AddSegments(StopObject* obj);
+    void AddSegments(WarpObject* obj);
+    void AddSegments(ScrollObject* obj);
+    void AddSegments(MeasureObject* obj);
 };
 
 }

@@ -84,7 +84,8 @@ class MetaData {
     std::string sBannerImage;
     std::string sPreviewMusic;
     std::string sLyrics;
-    unsigned long iResolution;      // default value(BMS etc ..) is 15360 (or 240?)
+
+    // barlength & notecount is located at TimingData / NoteData.
 
     private:
     // other metadata for some other purpose
