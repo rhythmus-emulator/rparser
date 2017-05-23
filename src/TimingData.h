@@ -38,8 +38,8 @@ public:
 private:
 };
 
-// @description contains integrated time-sequential information for Beat-Time conversion
-class SequentialObject: public TimingObject {
+// @description contains integrated lookup information for Beat-Time conversion
+class LookupObject: public TimingObject {
 public:
 private:
 }
@@ -52,6 +52,12 @@ enum class TYPE_TIMINGOBJ {
     TYPE_WARP,
     TYPE_SCROLL,
     TYPE_MEASURE
+};
+
+enum class LOOKUP_TYPE {
+    LOOKUP_NONE,    // just clear lookup data
+    LOOKUP_BPM,
+    LOOKUP_BEAT
 };
 
 #define RPARSER_DEFAULT_BPM 120
@@ -77,18 +83,19 @@ public:
     float GetBarLengthAtRow(int row);
     float GetBarBeat(int barnumber);
 
-    // functions using sequential objects
-    float GetBeatFromTime(float time);
-    float GetTimeFromBeat(float beat);
+    // functions using lookup objects
+    void PrepareLookup(LOOKUP_TYPE lookup_type);
+    float LookupBeatFromMSec(float msec);
+    float LookupMSecFromBeat(float beat);
     void GetBeatMeasureFromRow(unsigned long row, unsigned long &beatidx, unsigned long &beat);
-    int GetNextMeasureFromTime(float timeoffset);
+    int GetNextMeasureFromMSec(float msec);
 
     // @description
-    // Sort segments
-    void SortSegments(TYPE_TIMINGOBJ type);
-    void SortAllSegments();
-    std::vector<TimingObject *>& GetTimingSegments(TYPE_TIMINGOBJ type);
-    const std::vector<TimingObject *>& GetTimingSegments(TYPE_TIMINGOBJ type);
+    // Sort objs
+    void SortObjects(TYPE_TIMINGOBJ type);
+    void SortAllObjects();
+    std::vector<TimingObject *>& GetTimingObjects(TYPE_TIMINGOBJ type);
+    const std::vector<TimingObject *>& GetTimingObjects(TYPE_TIMINGOBJ type);
 
     // @description
     // kind of metadata
@@ -102,13 +109,13 @@ private:
     // @description
     // compiled timing objects(gathered all), sequenced in line.
     // need to call UpdateSequentialObjs(); to use this array.
-    std::vector<SequentialObject *> m_SequentialObjs;
+    std::vector<LookupObject *> m_LookupObjs;
     // @description
     // bar resolution of current song
     int iRes;
     // @description
     // start timing of the song
-    float fBeat0TimeOffset;
+    float fBeat0MSecOffset;
 
     // utility functions
     void AddSegments(BpmObject* obj);
@@ -116,6 +123,11 @@ private:
     void AddSegments(WarpObject* obj);
     void AddSegments(ScrollObject* obj);
     void AddSegments(MeasureObject* obj);
+    BpmObject* ToBpm(TimingObject* obj);
+    StopObject* ToStop(TimingObject* obj);
+    WarpObject* ToWarp(TimingObject* obj);
+    ScrollObject* ToScroll(TimingObject* obj);
+    MeasureObject* ToMeasure(TimingObject* obj);
 };
 
 }
