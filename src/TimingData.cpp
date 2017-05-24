@@ -1,4 +1,5 @@
 #include "TimingData.h"
+#include <sstream>
 
 namespace rparser {
 
@@ -8,6 +9,64 @@ float scale_f(float v, float s1, float e1, float s2, float e2) {
 double scale_d(double v, double s1, double e1, double s2, double e2) {
     return v * (e2-s2) / (e1-s1);
 }
+
+/* Objects */
+
+std::string TimingObject::toString() {
+	std::stringstream ss;
+	ss << "TimingObject Row: " << iRow;
+	return ss.str();
+}
+
+std::string ScrollObject::toString() {
+	std::stringstream ss;
+	ss << "ScrollObject Row: " << iRow << ", (Unusable)";
+	return ss.str();
+}
+
+void BpmObject::SetValue(double dBpm) { m_dBpm = Bpm; }
+double BpmObject::GetValue() { return m_dBpm; }
+std::string BpmObject::toString() {
+	std::stringstream ss;
+	ss << "BpmObject Row: " << iRow << ", Value: " << m_dBpm;
+	return ss.str();
+}
+
+void StopObject::SetValue(double dStopMSec) { m_dStopMSec = dStopMSec; }
+double StopObject::GetValue() { return m_dStopMSec; }
+std::string StopObject::toString() {
+	std::stringstream ss;
+	ss << "StopObject Row: " << iRow << ", Value: " << m_dMeasure;
+	return ss.str();
+}
+
+void WarpObject::SetValue(int iWarpRows) { m_iWarpRows = iWarpRows; }
+int WarpObject::GetValue() { return m_iWarpRows; }
+std::string WarpObject::toString() {
+	std::stringstream ss;
+	ss << "WarpObject Row: " << iRow << ", Value: " << m_dMeasure;
+	return ss.str();
+}
+
+unsigned long TickObject::GetValue() { return m_iTick; }
+void TickObject::SetValue(unsigned long iTick) { m_iTick = iTick; }
+std::string TickObject::toString() {
+	std::stringstream ss;
+	ss << "TickObject Row: " << iRow << ", Value: " << m_dMeasure;
+	return ss.str();
+}
+
+void MeasureObject::SetValue(double dMeasure) { m_dMeasure = dMeasure; };
+double MeasureObject::GetValue() { return m_dMeasure; };
+std::string MeasureObject::toString() {
+	std::stringstream ss;
+	ss << "MeasureObject Row: " << iRow << ", Value: " << m_dMeasure;
+	return ss.str();
+}
+
+
+
+/* TimingData */
 
 TimingData::TimingData() {
     AddSegments( BpmSegment(0, RPARSER_DEFAULT_BPM) );
@@ -393,23 +452,12 @@ const std::vector<TimingObject *>& TimingData::GetTimingObjects(TYPE_TIMINGOBJ t
 
 bool TimingData::HasScrollChange()
 {
-    return false;
+	const vector<TimingObject*> &tobjs = GetTimingObjects(TYPE_TIMING::TYPE_SCROLL);
+	return (tobjs.size()>1 || ToScroll(tobjs[0])->GetValue() != 1);
 }
-
-bool TimingData::HasBPMChange()
-{
-    return false;
-}
-
-bool TimingData::HasSTOP()
-{
-    return false;
-}
-
-bool TimingData::HasWrap()
-{
-    return false;
-}
+bool TimingData::HasBpmChange() { return !GetTimingObjects(TYPE_TIMINGOBJ::TYPE_STOP).size() > 1; }
+bool TimingData::HasStop() { return !GetTimingObjects(TYPE_TIMINGOBJ::TYPE_STOP).empty(); }
+bool TimingData::HasWrap() {  { return !GetTimingObjects(TYPE_TIMINGOBJ::TYPE_WARP).empty(); }
 
 void TimingData::AddObjects(BpmObject* obj) { GetTimingObjects(TYPE_TIMINGOBJ::TYPE_BPM).push_back(obj); }
 void TimingData::AddObjects(StopObject* obj) { GetTimingObjects(TYPE_TIMINGOBJ::TYPE_STOP).push_back(obj); }
