@@ -58,11 +58,18 @@ public:
 
     void SetValue(double dStopMSec);
     double GetValue();
+    void SetDelay(bool bDelay);
+    bool GetDelay();
 
     StopObject(int iRow, double dStopMSec)
-        : TimingObject(iRow), m_dStopMSec(dStopMSec) {}
+        : TimingObject(iRow), m_dStopMSec(dStopMSec), m_bDelay(false) {}
 private:
     double m_dStopMSec;
+    // @description check is current style is delay.
+    // if it is, then pump-style STOP judgement accepted
+    //   (timing at the end of the STOP)
+    // else, the timing of the row is at the beginning of the STOP.
+    bool m_bDelay;
 };
 
 class WarpObject: public TimingObject {
@@ -89,6 +96,7 @@ public:
 private:
 };
 
+// default measure signature length: 4/4 = 1.0
 class MeasureObject: public TimingObject {
 public:
     TYPE_TIMINGOBJ GetType() { return TYPE_TIMINGOBJ::TYPE_MEASURE; }
@@ -121,9 +129,17 @@ private:
 };
 
 // @description contains integrated lookup information for Beat-Time conversion
-class LookupObject: public TimingObject {
-public:
-private:
+// we don't store measure info here; measure conversion uses only TYPE_MEASURE.
+struct LookupObject {
+    float start_beat;
+    float start_msec;
+    float end_beat;
+    float end_msec;
+
+    float bps;                  // beat per second
+    bool judgetime_use_first;   // is beat time is the first one?
+
+    TimingObject *obj;
 }
 
 // BPM, STOP, WARP, MEASURE
@@ -160,6 +176,7 @@ public:
     StopObject* GetNextStopObject(int iStartRow);
     WarpObject* GetNextWarpObject(int iStartRow);
     MeasureObject* GetNextMeasureObject(int iStartRow);
+    TimingObject* GetObjectAtRow(int iRow, int iType);
     void GetBpm();
 
     // measure related
@@ -168,11 +185,15 @@ public:
     float GetBarBeat(int barnumber);
 
     // functions using lookup objects
-    void PrepareLookup(LOOKUP_TYPE lookup_type);
+    void PrepareLookup();
+    LookupObject* const FindLookupObject(std::vector<float, LookupObject*> const& sorted_objs, float v);
     float LookupBeatFromMSec(float msec);
     float LookupMSecFromBeat(float beat);
     void GetBeatMeasureFromRow(unsigned long row, unsigned long &beatidx, unsigned long &beat);
     int GetNextMeasureFromMSec(float msec);
+
+    // functions related in editing
+    void DeleteRows(int iStartRow, int iRowsToDelete);
 
     // @description
     // Sort objs
@@ -195,6 +216,8 @@ private:
     // Timing objects: Bpm, Stop, Warp
     // need to call UpdateSequentialObjs(); to use this array.
     std::vector<LookupObject *> m_LookupObjs;
+    std::map<float, LookupObject*> m_lobjs_time_sorted; // msec time
+    std::map<float, LookupObject*> m_lobjs_beat_sorted;
     // @description
     // bar resolution of current song
     int iRes;

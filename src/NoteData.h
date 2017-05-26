@@ -127,7 +127,9 @@ public:
      * metadata utilities
      */
     int GetTrackCount();
+    void SetTrackCount(int iTrackCnt);
     int GetNoteCount();
+    int GetNoteCount(int iTrackNum);
     // @description 
     int GetLastNoteRow();
     int GetLastNoteTime();
@@ -139,6 +141,7 @@ public:
     bool IsTrackEmpty(int track);
     bool IsEmpty();
 
+
     /*
      * modification utilities
      */
@@ -146,6 +149,9 @@ public:
     void RemoveNotes(int iStartRow, int iEndRow, bool bInclusive);
     void Clear();
     void ClearRange(int iStartRow, int iEndRow);
+    void CopyRange(int rowFromBegin, int rowFromLength, int rowToBegin);
+    void CopyRange(const NoteData& nd);
+    void CopyRange(const NoteData& nd, int iStartRow, int iEndRow);
     void TrackMapping(int tracknum, int *trackmap);
     void TrackRandom();
     void TrackSRandom();
@@ -161,13 +167,11 @@ public:
     void TrackFlip();
     
 
-
     NoteData();
     ~NoteData();
-    void Copy(const NoteData& nd);
-    void Copy(const NoteData& nd, int iStartRow, int iEndRow);
+    std::string const toString();
 private:
-    std::vector<Track> tracks;
+    std::vector<Track> m_Tracks;
 };
 
 }

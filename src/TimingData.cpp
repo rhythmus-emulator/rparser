@@ -34,6 +34,8 @@ std::string BpmObject::toString() {
 
 void StopObject::SetValue(double dStopMSec) { m_dStopMSec = dStopMSec; }
 double StopObject::GetValue() { return m_dStopMSec; }
+void StopObject::SetDelay(bool bDelay) { m_bDelay = bDelay; }
+bool StopObject::GetDelay() { return m_bDelay }
 std::string StopObject::toString() {
 	std::stringstream ss;
 	ss << "StopObject Row: " << iRow << ", Value: " << m_dMeasure;
@@ -56,8 +58,8 @@ std::string TickObject::toString() {
 	return ss.str();
 }
 
-void MeasureObject::SetValue(double dMeasure) { m_dMeasure = dMeasure; };
-double MeasureObject::GetValue() { return m_dMeasure; };
+void MeasureObject::SetValue(double dMeasure) { m_dMeasure = dMeasure; }
+double MeasureObject::GetValue() { return m_dMeasure; }
 std::string MeasureObject::toString() {
 	std::stringstream ss;
 	ss << "MeasureObject Row: " << iRow << ", Value: " << m_dMeasure;
@@ -70,8 +72,9 @@ std::string MeasureObject::toString() {
 
 TimingData::TimingData() {
     AddSegments( BpmSegment(0, RPARSER_DEFAULT_BPM) );
-    AddSegments( StopSegment(0) );
     AddSegments( ScrollSegment(0) );
+    AddSegments( MeasureSegment(1.0) );
+	AddSegments( TickObject(4) );
 }
 
 BpmObject* TimingData::GetNextBpmObject(int iStartRow)
@@ -354,47 +357,57 @@ void TimingData::PrepareLookup(LOOKUP_TYPE type)
 	}
 }
 
-float TimingData::GetBeatFromMSec(float time)
+LookupObject* const TimingData::FindLookupObject(std::vector<float, LookupObject*> const& sorted_objs, float v)
 {
-	LineSegment const* segment= FindLineSegment(m_segments_by_second, from);
-	if(segment->start_second == segment->end_second)
-	{
-		return segment->end_beat;
-	}
-	return scale_f(time, segment->start_second, segment->end_second,
-		segment->start_beat, segment->end_beat);
+	// lower_bound returns the first element not less than the given key. (same or over)
+	auto liter = sorted_objs.lower_bound(v);
+	// so object value can be over designated one. in that case, we have to reduce it.
+	if (sorted_objs.begin() != liter && (sorted_objs.end() == liter || liter->first > v))
+		--liter;
+	return liter->second;
 }
 
-float TimingData::GetMSecFromBeat(float beat)
+float TimingData::LookupBeatFromMSec(float time)
 {
-	LineSegment const* segment= FindLineSegment(m_segments_by_beat, from);
-	if(segment->start_beat == segment->end_beat)
+	LookupObject const* lobj= FindLookupObject(m_lobjs_time_sorted, time);
+	// in case of warp (over end second), consider it as end of warp beat.
+	if(lobj->start_msec == lobj->end_msec)
 	{
-		if(segment->time_segment->GetType() == SEGMENT_DELAY)
-		{
-			return segment->end_second;
-		}
-		return segment->start_second;
+		return lobj->end_beat;
 	}
-	return scale_f(beat, segment->start_beat, segment->end_beat,
-		segment->start_second, segment->end_second);
+	return scale_f(time, lobj->start_msec, lobj->end_msec,
+		lobj->start_beat, lobj->end_beat);
+}
+
+float TimingData::LookupMSecFromBeat(float beat)
+{
+	// time is always sequenced object, so there's no case like warp in LookupBeatFromMSec().
+	LookupObject const* lobj= FindLookupObject(m_lobjs_beat_sorted, beat);
+	if(lobj->start_beat == lobj->end_beat)
+	{
+		// if delay exists, then we should return SEGMENT_DELAY
+		if(!lobj->judgetime_use_first)
+		{
+			return lobj->end_msec;
+		}
+		return lobj->start_msec;
+	}
+	return scale_f(beat, lobj->start_beat, lobj->end_beat,
+		lobj->start_msec, lobj->end_msec);
 }
 
 void TimingData::GetBeatMeasureFromRow(unsigned long iNoteRow, unsigned long &iBeatIndexOut, unsigned long &iMeasureIndexOut)
 {
-    // TODO Time_Sig?
+   	// use MeasureObject to get measure
 	iMeasureIndexOut = 0;
 	const vector<TimingObject *> &tSigs = GetTimingObjects(SEGMENT_TIME_SIG);
+	// all objects are sorted in descending
 	for (unsigned i = 0; i < tSigs.size(); i++)
 	{
-        // comment: we don't have timesignature now, at least
-        // just make offset from beat0offset
-		//TimeSignatureSegment *curSig = ToTimeSignature(tSigs[i]);
-		//int iSegmentEndRow = (i + 1 == tSigs.size()) ? std::numeric_limits<int>::max() : curSig->GetRow();
-		//int iRowsPerMeasureThisSegment = curSig->GetNoteRowsPerMeasure();
-
-        int iSegmentEndRow = std::numeric_limits<int>::max();
-        int iRowsPerMeasureThisSegment = iRes;
+		// obtain measureobject
+		MeasureObject *curSig = ToMeasure(tSigs[i]);
+		int iSegmentEndRow = (i + 1 == tSigs.size()) ? std::numeric_limits<int>::max() : curSig->GetRow();
+		int iRowsPerMeasureThisSegment = curSig->GetNoteRowsPerMeasure();
 
 		if( iNoteRow >= curSig->GetRow() )
 		{
@@ -415,7 +428,7 @@ void TimingData::GetBeatMeasureFromRow(unsigned long iNoteRow, unsigned long &iB
 			iMeasureIndexOut += iNumMeasuresThisSegment;
 		}
 	}
-    ASSERT("Unexpected error from TimingData::GEtBarMeasureFromRow");
+    ASSERT("Unexpected error from TimingData::GetBarMeasureFromRow");
 }
 
 int TimingData::GetNextMeasureFromMSec(float timeoffset)
@@ -423,9 +436,48 @@ int TimingData::GetNextMeasureFromMSec(float timeoffset)
     return 0;
 }
 
+void TimingData::DeleteRows(int iStartRow, int iRowsToDelete)
+{
+	// iterate each time signatures
+	for (int tst=0; tst<NUM_TIMINGOBJ_TYPE; tst++)
+	{
+		// Don't delete the indefinite segments that are still in effect
+		// at the end row; rather, shift them so they start there.
+		TimingObject *tsEnd = GetSegmentAtRow(iStartRow + iRowsToDelete, tst);
+		if (tsEnd != nullptr && 
+			iStartRow <= tsEnd->GetRow() &&
+			tsEnd->GetRow() < iStartRow + iRowsToDelete)
+		{
+			// The iRowsToDelete will eventually be subtracted out
+			printf("[TimingData::DeleteRows] Segment at row %d shifted to %d", tsEnd->GetRow(), iStartRow + iRowsToDelete);
+			tsEnd->SetRow(iStartRow + iRowsToDelete);
+		}
+
+		// Now delete and shift up
+		vector<TimingObject *> &objs = m_TimingObjs[tst];
+		for (unsigned j = 0; j < objs.size(); j++)
+		{
+			TimingObject *obj = objs[j];
+			// Before deleted region:
+			if (obj->GetRow() < iStartRow)
+				continue;
+			// Inside deleted region:
+			if (obj->GetRow() < iStartRow + iRowsToDelete)
+			{
+				objs.erase(obj.begin()+j, obj.begin()+j+1);
+				--j;
+				continue;
+			}
+			// After deleted regions:
+			obj->SetRow(obj->GetRow() - iRowsToDelete);
+		}
+	}
+}
+
 // @description
 // MUST be called before we use Sequential objects & midi events.
 // (use after all BPM/STOP/WARP/MEASURE objects are loaded)
+// NOTE: all object is sorted in Row-Ascending
 void TimingData::SortObjects(TYPE_TIMINGOBJ type)
 {
     std::vector<TimingObject*> &vobj = GetTimingObjects(type);
