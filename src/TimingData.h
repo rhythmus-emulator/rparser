@@ -130,28 +130,27 @@ private:
 
 // @description contains integrated lookup information for Beat-Time conversion
 // we don't store measure info here; measure conversion uses only TYPE_MEASURE.
+// by delay-time, the real judgement time is just after STOP
 struct LookupObject {
     float start_beat;
     float start_msec;
     float end_beat;
-    float end_msec;
+    float end_msec;             // STOP+DELAY time
+    float end_extend_msec;      // DELAY time
 
     float bps;                  // beat per second
-    bool judgetime_use_first;   // is beat time is the first one?
-
-    TimingObject *obj;
 }
 
 // BPM, STOP, WARP, MEASURE
 #define NUM_TIMINGOBJ_TYPE 6
-enum class TYPE_TIMINGOBJ {
-    TYPE_BPM,
-    TYPE_STOP,
-    TYPE_WARP,
-    TYPE_SCROLL,
-    TYPE_MEASURE,
-    TYPE_TICK,
-    TYPE_INVALID
+enum TYPE_TIMINGOBJ {
+    TYPE_BPM=0,
+    TYPE_STOP=1,
+    TYPE_WARP=2,
+    TYPE_SCROLL=3,
+    TYPE_MEASURE=4,
+    TYPE_TICK=5,
+    TYPE_INVALID=6
 };
 
 enum class LOOKUP_TYPE {
@@ -215,7 +214,7 @@ private:
     // compiled timing objects(gathered all), sequenced in line.
     // Timing objects: Bpm, Stop, Warp
     // need to call UpdateSequentialObjs(); to use this array.
-    std::vector<LookupObject *> m_LookupObjs;
+    std::vector<LookupObject> m_LookupObjs;
     std::map<float, LookupObject*> m_lobjs_time_sorted; // msec time
     std::map<float, LookupObject*> m_lobjs_beat_sorted;
     // @description

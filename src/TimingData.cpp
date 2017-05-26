@@ -125,126 +125,96 @@ float TimingData::GetBarBeat(int barnumber)
 }
 
 // functions using sequential objects
-void TimingData::PrepareLookup(LOOKUP_TYPE type)
+void TimingData::PrepareLookup()
 {
 	auto bpms= GetTimingObjects(TYPE_TIMINGOBJ::TYPE_BPM);
 	auto stops= GetTimingObjects(TYPE_TIMINGOBJ::TYPE_STOP);
 	auto warps= GetTimingObjects(TYPE_TIMINGOBJ::TYPE_WARP);
-	if(search_mode == SEARCH_NONE)
-	{
-		m_LookupObjs.reserve(bpms.size() + stops.size() + warps.size());
-	}
 
-	FindEventStatus status;
-    // make first line
-#define SEARCH_NONE_CASE \
-	case SEARCH_NONE: m_line_segments.push_back(next_line); break;
-#define RETURN_IF_BEAT_COMPARE \
-	if(next_line.end_beat > search_time) \
-	{ \
-		(*search_ret)= next_line; \
-		return; \
-	}
-#define RETURN_IF_SECOND_COMPARE \
-	if(next_line.end_second > search_time) \
-	{ \
-		(*search_ret)= next_line; \
-		return; \
-	}
-	// Place an initial bpm segment in negative time before the song begins.
-	// Without this, if there is a stop at beat 0, arrows will not move until
-	// after beat 0 passes. -Kyz
+
+	// Place an initial bpm segment (dummy object)
 	float first_bps= ToBPM(bpms[0])->GetBPS();
-	LineSegment next_line= {
-		-first_bps, -m_fBeat0OffsetInSeconds-1.f, 0.f, -m_fBeat0OffsetInSeconds,
-		-m_fBeat0OffsetInSeconds-1.f, -m_fBeat0OffsetInSeconds,
-		first_bps, bpms[0]};
-	switch(search_mode)
-	{
-		SEARCH_NONE_CASE;
-		case SEARCH_BEAT:
-			RETURN_IF_BEAT_COMPARE;
-			break;
-		case SEARCH_SECOND:
-			RETURN_IF_SECOND_COMPARE;
-			break;
-		default:
-			break;
-	}
-	next_line.set_for_next();
-
-
+	LookupObject next_line = {
+		-first_bps, -m_fBeat0OffsetInSeconds-1.f,
+        0.f, -m_fBeat0OffsetInSeconds,
+		first_bps};
+    
     // second per beat / beat per second
 	float spb= 1.f / next_line.bps;
 	bool finished= false;
-	// Placement order:
+	// Placement order (event search order):
 	//   warp (greater dest. value is used)
-	//   delay
 	//   stop
 	//   bpm
     // (from stepmania code)
-	// Stop and delay segments can be placed as complete lines.
-	// A warp needs to be broken into parts at every stop or delay that occurs
-	// inside it.
-	// When a warp occurs inside a warp, whichever has the greater destination
-	// is used.
-	// A bpm segment is placed when between two other segments.
-	// -Kyz
 	float const max_time= 16777216.f;
-	TimingSegment* curr_bpm_segment= bpms[0];
-	TimingSegment* curr_warp_segment= nullptr;
+	BpmObject* curr_bpm_segment= bpms[0];
+	WarpObject* curr_warp_segment= nullptr;
+    int idx_warp=0, idx_stop=0, idx_bpm=0;
+    bool is_warping = false;
 	while(!finished)
 	{
-		int event_row= std::numeric_limits<int>::max();;
-		int event_type= NOT_FOUND;
-		FindEvent(event_row, event_type, status, max_time, false,
-			bpms, warps, stops, delays);
-		if(event_type == NOT_FOUND)
+        // search next event row (for WARP, STOP, BPM channel)
+		int event_row= std::numeric_limits<int>::max();
+        int event_type = TYPE_TIMINGOBJ::TYPE_INVALID;
+        int idx;
+        float curr_beat = 0;
+        TimingObject *event_obj = nullptr;
+        if (idx_bpm < bpms.size() && (idx=bpms[idx_bpm]->GetRow()) < event_row)
+        {
+            event_row = idx;
+            event_type = TYPE_TIMINGOBJ::TYPE_BPM;
+            event_obj = bpms[idx_bpm];
+        }
+        if (idx_stop < stops.size() && (idx=stops[idx_stop]->GetRow()) < event_row)
+        {
+            event_row = idx;
+            event_type = TYPE_TIMINGOBJ::TYPE_STOP;
+            event_obj = stops[idx_stop];
+        }
+        if (idx_warp < warps.size() && (idx=warps[idx_warp]->GetRow()) < event_row)
+        {
+            event_row = idx;
+            event_type = TYPE_TIMINGOBJ::TYPE_WARP;
+            event_obj = warps[idx_warp];
+        }
+        curr_beat = NoteRowToBeat(event_row);
+
+
+        // if no object found - all events had been scanned
+        // just add 1 beat for last segment
+		if(!event_obj)
 		{
 			next_line.end_beat= next_line.start_beat + 1.f;
 			float seconds_change= next_line.start_second + spb;
 			next_line.end_second= seconds_change;
-			next_line.end_expand_second= next_line.start_expand_second + seconds_change;
-			next_line.bps= ToBPM(curr_bpm_segment)->GetBPS();
-			next_line.time_segment= curr_bpm_segment;
-			switch(search_mode)
-			{
-				SEARCH_NONE_CASE;
-				case SEARCH_BEAT:
-				case SEARCH_SECOND:
-					(*search_ret)= next_line;
-					return;
-					break;
-				default:
-					break;
-			}
+            
+            m_LookupObjs.push_back(next_line);
 			finished= true;
 			break;
 		}
-		if(status.is_warping)
+
+        // if object found, then check new object has different row
+        // if it is, add previous one to LookupObjs
+        if (next_line.start_beat != curr_beat) {
+            next_line.end_beat = curr_beat;
+			next_line.end_second+= spb*(next_line.start_beat - next_line.end_beat);
+            m_LookupObjs.push_back(next_line);
+            next_line.start_beat = curr_beat;
+        }
+
+		if(is_warping)
 		{
-			// Don't place a line when encountering a warp inside a warp because
-			// it should go straight to the end.
-			if(event_type != FOUND_WARP)
+            // if warping, no new objects created except WARP_END
+            // though BPM/STOP is accepted.
+			if(event_type != TYPE_TIMINGOBJ::TYPE_WARP)
 			{
-				next_line.end_beat= NoteRowToBeat(event_row);
-				next_line.end_second= next_line.start_second;
-				next_line.end_expand_second= next_line.start_expand_second;
-				next_line.time_segment= curr_warp_segment;
-				switch(search_mode)
-				{
-					SEARCH_NONE_CASE;
-					case SEARCH_BEAT:
-						RETURN_IF_BEAT_COMPARE;
-						break;
-					case SEARCH_SECOND:
-						// A search for a second can't end inside a warp.
-						break;
-					default:
-						break;
-				}
-				next_line.set_for_next();
-			}
+                next_line.end_second += 200;
+                // TODO: stop
+			} else {
+                // TODO
+                is_warping = false;
+            }
 		}
 		else
 		{
@@ -328,7 +298,6 @@ void TimingData::PrepareLookup(LOOKUP_TYPE type)
 			default:
 				break;
 		}
-		status.last_row= event_row;
 	}
 #undef SEARCH_NONE_CASE
 #undef RETURN_IF_BEAT_COMPARE
