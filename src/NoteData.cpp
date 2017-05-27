@@ -4,30 +4,40 @@
 void NoteData::SearchAllNotes(std::vector<trackiter>& notelist);
 void NoteData::SearchAllNotes(std::vector<trackiter>& notelist, int iStartRow, int iEndRow, bool bInclusive);
 
+struct notedata_with_rows
+{
+	int row;
+	Note* n;
+}
+
 // @description fill all note's timing data from beat data.
 void NoteData::FillTimingData(const TimingData& td)
 {
+	// prepare lookup
     td.PrepareLookup();
-    
-	int curr_row= -1;
-	NoteData::all_tracks_iterator curr_note=
-		GetTapNoteRangeAllTracks(0, MAX_NOTE_ROW);
-	vector<TapNote*> notes_on_curr_row;
-	TapNoteSubType highest_subtype_on_row= TapNoteSubType_Invalid;
-	double curr_row_second= -1.0;
-	vector<int> column_ids(GetNumTracks(), 0);
-	int curr_note_id= 0;
-	int curr_row_id= -1; // Start at -1 so that the first row update sets to 0.
-	while(!curr_note.IsAtEnd())
+
+	// arrange all note for iteration
+	std::vector<notedata_with_rows> vNotes;
+	for (int i=0; i<GetTrackCount(); ++i)
 	{
+		for (auto iter=begin(i); iter!=end(i); ++iter)
+		{
+			vNotes.push_back({iter->first, &iter->second});
+		}
+	}
+	std::sort(vNotes::begin(), vNotes::end());
+    
+	// now lets track all note for time calculation
+	int curr_row= -1;
+	double curr_row_second= -1.0;
+	Note* curr_note;
+	for(int i=0; i<vNotes.size(); ++i)
+	{
+		curr_row = vNotes[i].row;
+		curr_note = vNotes[i].n;
+		// time calculation for current row
 		if(curr_note.Row() != curr_row)
 		{
-			for(auto&& note : notes_on_curr_row)
-			{
-				note->highest_subtype_on_row= highest_subtype_on_row;
-			}
-			notes_on_curr_row.clear();
-			highest_subtype_on_row= TapNoteSubType_Invalid;
 			curr_row= curr_note.Row();
 			curr_row_second= timing_data->GetElapsedTimeFromBeat(NoteRowToBeat(curr_row));
 			++curr_row_id;
@@ -36,28 +46,12 @@ void NoteData::FillTimingData(const TimingData& td)
 		{
 			curr_note->occurs_at_second= curr_row_second;
 			curr_note->id_in_chart= static_cast<float>(curr_note_id);
-			curr_note->id_in_column= static_cast<float>(column_ids[curr_note.Track()]);
-			curr_note->row_id= static_cast<float>(curr_row_id);
-			++curr_note_id;
-			++column_ids[curr_note.Track()];
-			notes_on_curr_row.push_back(&(*curr_note));
-			if(curr_note->subType != TapNoteSubType_Invalid)
-			{
-				if(curr_note->subType > highest_subtype_on_row || highest_subtype_on_row == TapNoteSubType_Invalid)
-				{
-					highest_subtype_on_row= curr_note->subType;
-				}
-			}
+			// in case of hold note, calculate end time too
 			if(curr_note->type == TapNoteType_HoldHead)
 			{
 				curr_note->end_second= timing_data->GetElapsedTimeFromBeat(NoteRowToBeat(curr_row + curr_note->iDuration));
 			}
 		}
-		++curr_note;
-	}
-	for(auto&& note : notes_on_curr_row)
-	{
-		note->highest_subtype_on_row= highest_subtype_on_row;
 	}
 
     // finish? TODO: make internal counter
@@ -145,4 +139,7 @@ bool NoteData::IsEmpty()
     return 0;
 }
 
-void CopyRange(int rowFromBegin, int rowFromLength, int rowToBegin);
+void NoteData::CopyRange(int rowFromBegin, int rowFromLength, int rowToBegin)
+{
+	return 0;
+}

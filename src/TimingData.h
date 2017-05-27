@@ -135,8 +135,9 @@ struct LookupObject {
     float start_beat;
     float start_msec;
     float end_beat;
-    float end_msec;             // STOP+DELAY time
-    float end_extend_msec;      // DELAY time
+    float end_msec;             // beat+STOP+DELAY time
+    float start_stop_msec;      // STOP time
+    float end_delay_msec;       // DELAY time
 
     float bps;                  // beat per second
 }

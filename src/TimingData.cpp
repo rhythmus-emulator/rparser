@@ -160,6 +160,10 @@ void TimingData::PrepareLookup()
         int idx;
         float curr_beat = 0;
         TimingObject *event_obj = nullptr;
+		// COMMENT:
+		// we don't need to include last object into warp
+		// when warp-ending position and other object's position is duplicated
+		// (that's different from stepmania)
         if (idx_bpm < bpms.size() && (idx=bpms[idx_bpm]->GetRow()) < event_row)
         {
             event_row = idx;
@@ -194,135 +198,74 @@ void TimingData::PrepareLookup()
 			break;
 		}
 
-        // if object found, then check new object has different row
-        // if it is, add previous one to LookupObjs
-        if (next_line.start_beat != curr_beat) {
-            next_line.end_beat = curr_beat;
-			next_line.end_second+= spb*(next_line.start_beat - next_line.end_beat);
-            m_LookupObjs.push_back(next_line);
-            next_line.start_beat = curr_beat;
-        }
-
 		if(is_warping)
 		{
-            // if warping, no new objects created except WARP_END
-            // though BPM/STOP is accepted.
-			if(event_type != TYPE_TIMINGOBJ::TYPE_WARP)
+			switch (event_type)
 			{
-                next_line.end_second += 200;
-                // TODO: stop
-			} else {
-                // TODO
-                is_warping = false;
-            }
+				case TYPE_TIMINGOBJ::TYPE_BPM:
+					// last BPM value will be used.
+					next_line.bps= ToBPM(event_obj)->GetBPS();
+					spb= 1.f / next_line.bps;
+					break;
+				case TYPE_TIMINGOBJ::TYPE_STOP:
+					// all STOP time will be appended during warping time.
+					next_line.start_stop_msec += ToStop(event_obj)->GetValue();
+					next_line.end_msec += ToStop(event_obj)->GetValue();
+					break;
+				case TYPE_TIMINGOBJ::TYPE_WARP:
+					// END OF WARP, save LookupObj
+					// don't touch end_msec (beat time is actually zero)
+					next_line.end_beat = curr_beat;
+					m_LookupObjs.push_back(next_line);
+					next_line.start_beat = curr_beat;
+					next_line.start_msec = next_line.end_msec;
+					is_warping = false;
+					break;
+			}
 		}
 		else
 		{
-			if(event_row > 0)
+			// if object found, then check new object has different row
+			// if it is, add previous one to LookupObjs
+			if (next_line.start_beat != curr_beat) {
+				next_line.end_beat = curr_beat;
+				next_line.end_msec+= spb*(next_line.start_beat - next_line.end_beat);
+				m_LookupObjs.push_back(next_line);
+				next_line.start_beat = curr_beat;
+				next_line.start_msec = next_line.end_msec;
+			}
+
+			switch(event_type)
 			{
-				next_line.end_beat= NoteRowToBeat(event_row);
-				float beats= next_line.end_beat - next_line.start_beat;
-				float seconds= beats * spb;
-				next_line.end_second= next_line.start_second + seconds;
-				next_line.end_expand_second= next_line.start_expand_second + seconds;
-				next_line.time_segment= curr_bpm_segment;
-				switch(search_mode)
-				{
-					SEARCH_NONE_CASE;
-					case SEARCH_BEAT:
-						RETURN_IF_BEAT_COMPARE;
-						break;
-					case SEARCH_SECOND:
-						RETURN_IF_SECOND_COMPARE;
-						break;
-					default:
-						break;
-				}
-				next_line.set_for_next();
+				case TYPE_TIMINGOBJ::TYPE_BPM:
+					next_line.bps= ToBPM(event_obj)->GetBPS();
+					spb= 1.f / next_line.bps;
+					++idx_bpm;
+					break;
+				case TYPE_TIMINGOBJ::TYPE_STOP:
+					next_line.start_stop_msec += ToStop(event_obj)->GetValue();
+					next_line.end_msec += ToStop(event_obj)->GetValue();
+					// TODO: in case of delay, use end_delay_msec
+					++idx_stop;
+					break;
+				case FOUND_WARP:
+					// warp to another warp object
+					is_warping = true;
+					++idx_warp;
+					break;
 			}
 		}
-		switch(event_type)
-		{
-			case FOUND_WARP_DESTINATION:
-				// Already handled in the is_warping condition above.
-				status.is_warping= false;
-				curr_warp_segment= nullptr;
-				break;
-			case FOUND_BPM_CHANGE:
-				curr_bpm_segment= bpms[status.bpm];
-				next_line.bps= ToBPM(curr_bpm_segment)->GetBPS();
-				spb= 1.f / next_line.bps;
-				++status.bpm;
-				break;
-			case FOUND_STOP:
-				next_line.end_beat= next_line.start_beat;
-				next_line.end_second= next_line.start_second +
-					ToStop(stops[status.stop])->GetPause();
-				next_line.end_expand_second= next_line.start_expand_second;
-				next_line.time_segment= stops[status.stop];
-				switch(search_mode)
-				{
-					SEARCH_NONE_CASE;
-					case SEARCH_BEAT:
-						// Stop occurs after the beat, so use this segment if the beat is
-						// equal.
-						if(next_line.end_beat == search_time)
-						{
-							(*search_ret)= next_line;
-							return;
-						}
-						break;
-					case SEARCH_SECOND:
-						RETURN_IF_SECOND_COMPARE;
-						break;
-					default:
-						break;
-				}
-
-				next_line.set_for_next();
-				++status.stop;
-				break;
-			case FOUND_WARP:
-				{
-					status.is_warping= true;
-					curr_warp_segment= warps[status.warp];
-					WarpSegment* ws= ToWarp(warps[status.warp]);
-					float warp_dest= ws->GetLength() + ws->GetBeat();
-					if(warp_dest > status.warp_destination)
-					{
-						status.warp_destination= warp_dest;
-					}
-					++status.warp;
-				}
-				break;
-			default:
-				break;
-		}
 	}
-#undef SEARCH_NONE_CASE
-#undef RETURN_IF_BEAT_COMPARE
-#undef RETURN_IF_SECOND_COMPARE
-	ASSERT_M(search_mode == SEARCH_NONE, "PrepareLineLookup made it to the end while not in search_mode none.");
-	// m_segments_by_beat and m_segments_by_second cannot be built in the
-	// traversal above that builds m_line_segments because the vector
-	// reallocates as it grows. -Kyz
-	vector<LineSegment*>* curr_segments_by_beat= &(m_segments_by_beat[0.f]);
-	vector<LineSegment*>* curr_segments_by_second= &(m_segments_by_second[-m_fBeat0OffsetInSeconds]);
-	float curr_beat= 0.f;
-	float curr_second= 0.f;
-	for(size_t seg= 0; seg < m_line_segments.size(); ++seg)
-	{
-#define ADD_SEG(bors) \
-		if(m_line_segments[seg].start_##bors > curr_##bors) \
-		{ \
-			curr_segments_by_##bors= &(m_segments_by_##bors[m_line_segments[seg].start_##bors]); \
-			curr_##bors= m_line_segments[seg].start_##bors; \
-		} \
-		curr_segments_by_##bors->push_back(&m_line_segments[seg]);
 
-		ADD_SEG(beat);
-		ADD_SEG(second);
-#undef ADD_SEG
+	// build Lookup object (by start_beat, start_msec)
+	m_lobjs_time_sorted.clear();
+	m_lobjs_beat_sorted.clear();
+	for(size_t idx= 0; idx < m_LookupObjs.size(); ++idx)
+	{
+		float curr_time = m_LookupObjs[idx].start_msec;
+		float curr_beat = m_LookupObjs[idx].start_beat;
+		m_lobjs_time_sorted[curr_time] = &m_LookupObjs[idx];
+		m_lobjs_beat_sorted[curr_time] = &m_LookupObjs[idx];
 	}
 }
 
