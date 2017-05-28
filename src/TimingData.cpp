@@ -44,6 +44,10 @@ std::string StopObject::toString() {
 
 void WarpObject::SetValue(int iWarpRows) { m_iWarpRows = iWarpRows; }
 int WarpObject::GetValue() { return m_iWarpRows; }
+void WarpObject::SetBpm(float fWarpBpm) { m_fWarpBpm = fWarpBpm; }
+float WarpObject::GetBpm() { return m_fWarpBpm; }
+void WarpObject::SetIsWarpEnds(bool bWarpEnds) { m_bWarpEnds = bWarpEnds; }
+bool WarpObject::GetIsWarpEnds() { return m_bWarpEnds; }
 std::string WarpObject::toString() {
 	std::stringstream ss;
 	ss << "WarpObject Row: " << iRow << ", Value: " << m_dMeasure;
@@ -71,10 +75,10 @@ std::string MeasureObject::toString() {
 /* TimingData */
 
 TimingData::TimingData() {
-    AddSegments( BpmSegment(0, RPARSER_DEFAULT_BPM) );
-    AddSegments( ScrollSegment(0) );
-    AddSegments( MeasureSegment(1.0) );
-	AddSegments( TickObject(4) );
+    AddObject( BpmSegment(0, RPARSER_DEFAULT_BPM) );
+    AddObject( ScrollSegment(0) );
+    AddObject( MeasureSegment(1.0) );
+	AddObject( TickObject(4) );
 }
 
 BpmObject* TimingData::GetNextBpmObject(int iStartRow)
@@ -105,12 +109,23 @@ MeasureObject* TimingData::GetNextMeasureObject(int iStartRow)
 void TimingData::GetBpm()
 {
     // first part BPM, mainly used for metadata
-    return 0;
+    return m_TimingObjs[TYPE_TIMINGOBJ::TYPE_BPM][0].GetValue();
 }
 
 // measure related
 void TimingData::SetBarLengthAtRow(int row, float length=4.0f)
 {
+	std::vector<TimingObject *> m_tobjs = GetTimingObjects(TYPE_TIMINGOBJ::TYPE_MEASURE);
+	TimingObject *tobj = GetObjectAtRow(row, TYPE_TIMINGOBJ::TYPE_MEASURE);
+	// first search for same row object
+	if (tobj) {
+		ToMeasure(tobj)->SetValue(length);
+	}
+	// if not, append new object and sort
+	else {
+		AddObject(BpmObject(row, length))
+		SortObjects(TYPE_TIMINGOBJ::TYPE_MEASURE);
+	}
     return 0;
 }
 
@@ -219,6 +234,7 @@ void TimingData::PrepareLookup()
 					m_LookupObjs.push_back(next_line);
 					next_line.start_beat = curr_beat;
 					next_line.start_msec = next_line.end_msec;
+					next_line.start_stop_msec = next_line.end_delay_msec = 0;
 					is_warping = false;
 					break;
 			}
@@ -233,6 +249,7 @@ void TimingData::PrepareLookup()
 				m_LookupObjs.push_back(next_line);
 				next_line.start_beat = curr_beat;
 				next_line.start_msec = next_line.end_msec;
+				next_line.start_stop_msec = next_line.end_delay_msec = 0;
 			}
 
 			switch(event_type)
@@ -262,10 +279,14 @@ void TimingData::PrepareLookup()
 	m_lobjs_beat_sorted.clear();
 	for(size_t idx= 0; idx < m_LookupObjs.size(); ++idx)
 	{
+		// beat won't be overlapped, but time may be overlapped.
+		// (in case of WARP without STOP)
+		// in that case, WARP object will be ignored.
+		// (so time->beat conversion won't be sequential.)
 		float curr_time = m_LookupObjs[idx].start_msec;
 		float curr_beat = m_LookupObjs[idx].start_beat;
 		m_lobjs_time_sorted[curr_time] = &m_LookupObjs[idx];
-		m_lobjs_beat_sorted[curr_time] = &m_LookupObjs[idx];
+		m_lobjs_beat_sorted[curr_beat] = &m_LookupObjs[idx];
 	}
 }
 
@@ -312,7 +333,7 @@ void TimingData::GetBeatMeasureFromRow(unsigned long iNoteRow, unsigned long &iB
 {
    	// use MeasureObject to get measure
 	iMeasureIndexOut = 0;
-	const vector<TimingObject *> &tSigs = GetTimingObjects(SEGMENT_TIME_SIG);
+	const vector<TimingObject *> &tSigs = GetTimingObjects(TYPE_TIMINGOBJ::TYPE_MEASURE);
 	// all objects are sorted in descending
 	for (unsigned i = 0; i < tSigs.size(); i++)
 	{
@@ -376,6 +397,7 @@ void TimingData::DeleteRows(int iStartRow, int iRowsToDelete)
 			// Inside deleted region:
 			if (obj->GetRow() < iStartRow + iRowsToDelete)
 			{
+				// TODO: delete object for memory leak prevention
 				objs.erase(obj.begin()+j, obj.begin()+j+1);
 				--j;
 				continue;
@@ -423,11 +445,11 @@ bool TimingData::HasBpmChange() { return !GetTimingObjects(TYPE_TIMINGOBJ::TYPE_
 bool TimingData::HasStop() { return !GetTimingObjects(TYPE_TIMINGOBJ::TYPE_STOP).empty(); }
 bool TimingData::HasWrap() {  { return !GetTimingObjects(TYPE_TIMINGOBJ::TYPE_WARP).empty(); }
 
-void TimingData::AddObjects(BpmObject* obj) { GetTimingObjects(TYPE_TIMINGOBJ::TYPE_BPM).push_back(obj); }
-void TimingData::AddObjects(StopObject* obj) { GetTimingObjects(TYPE_TIMINGOBJ::TYPE_STOP).push_back(obj); }
-void TimingData::AddObjects(WrapObject* obj) { GetTimingObjects(TYPE_TIMINGOBJ::TYPE_WARP).push_back(obj); }
-void TimingData::AddObjects(ScrollObject* obj) { GetTimingObjects(TYPE_TIMINGOBJ::TYPE_SCROLL).push_back(obj); }
-void TimingData::AddObjects(MeasureObject* obj) { GetTimingObjects(TYPE_TIMINGOBJ::TYPE_MEASURE).push_back(obj); }
+void TimingData::AddObject(const BpmObject& obj) { GetTimingObjects(TYPE_TIMINGOBJ::TYPE_BPM).push_back(obj); }
+void TimingData::AddObject(const StopObject& obj) { GetTimingObjects(TYPE_TIMINGOBJ::TYPE_STOP).push_back(obj); }
+void TimingData::AddObject(const WrapObject& obj) { GetTimingObjects(TYPE_TIMINGOBJ::TYPE_WARP).push_back(obj); }
+void TimingData::AddObject(const ScrollObject& obj) { GetTimingObjects(TYPE_TIMINGOBJ::TYPE_SCROLL).push_back(obj); }
+void TimingData::AddObject(const MeasureObject& obj) { GetTimingObjects(TYPE_TIMINGOBJ::TYPE_MEASURE).push_back(obj); }
 
 BpmObject* ToBpm(TimingObject* obj) { return static_cast<BpmObject*>(obj); }
 StopObject* ToStop(TimingObject* obj) { return static_cast<StopObject*>(obj); }

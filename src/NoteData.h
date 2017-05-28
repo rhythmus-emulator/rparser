@@ -75,7 +75,7 @@ struct Note {
     NoteChannelType channeltype;
     int iChannel;
     float fVolume;
-    int iDuration;  // in msec
+    int iDuration;      // row duration
     int iPitch;
 
     // @description x means track, y means bar - in Track based game.
@@ -84,6 +84,7 @@ struct Note {
 
     // @description time information won't be filled until you call FillTimingData()
     float fTime;
+    float fDuration;    // duration of msec
 
     // @description for user-customizing metadata, basically filled with 0. use at your own. 
     void *p;
@@ -119,8 +120,6 @@ public:
 
     // @description fill all note's timing data from beat data.
     void FillTimingData(const TimingData& td);
-    // @description only use for VOS format!
-    void FillBeatData(const TimingData& td);
 
 
     /*

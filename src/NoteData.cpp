@@ -10,7 +10,7 @@ struct notedata_with_rows
 	Note* n;
 }
 
-// @description fill all note's timing data from beat data.
+// @description fill all note's timing data from row(beat) data.
 void NoteData::FillTimingData(const TimingData& td)
 {
 	// prepare lookup
@@ -56,12 +56,6 @@ void NoteData::FillTimingData(const TimingData& td)
 
     // finish? TODO: make internal counter
 	td->ReleaseLookup();
-}
-
-// @description only use for VOS format!
-void NoteData::FillBeatData(const TimingData& td)
-{
-
 }
 
 

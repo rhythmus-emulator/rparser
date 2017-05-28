@@ -50,6 +50,7 @@ int GetSeed();
 
 
 void lower(std::string& s);
+bool EndsWith(const std::string& s1, const std::string& s2);
 // @description tidy pathname in case of using irregular separator
 std::string CleanPath(const std::string& path);
 // @description get absolute path

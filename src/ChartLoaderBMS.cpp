@@ -9,8 +9,6 @@
 
 namespace rparser {
 
-namespace NoteLoaderBMS {
-
 /* processes bms statement command. */
 class BMSTree {
     private:
@@ -133,30 +131,40 @@ class BMSTree {
     }
 };
 
-bool LoadChart( const std::string& fpath, Chart& chart, bool processCmd=true ) {
 
+// main file
+bool ChartLoaderBMS::Test( const char* p, int iLen )
+{
+    // As bms file has no file signature,
+    // just search for "*--" string for first 100 string.
+    // TODO: is there any exception?
+    for (int i=0; i<iLen-4 && i<100; i++) {
+        if (stricmp(p, "*-----", 6)==0)
+            return true;
+    }
+    return false;
 }
 
-bool ParseChart( const std::string& fpath, Chart& chart, bool processCmd=true ) {
-
+bool TestName( const char *fn )
+{
+    std::string fn_lower = fn;  lower(fn_lower);
+    return EndsWith(fn_lower, ".bms") ||
+        EndsWith(fn_lower, ".bme") ||
+        EndsWith(fn_lower, ".bml") ||
+        EndsWith(fn_lower, ".pms");
 }
 
-bool ParseNoteData( const char* p, int iLen, NoteData& nd, bool processCmd=true ) {
+bool ChartLoaderBMS::Load( const char* p, int iLen )
+{
+    // parse metadata first
 
-}
+    // parse BGA channel second
 
-bool LoadMetaData( const std::string& fpath, MetaData& md, bool processCmd=true ) {
+    // parse notedata third
 
-}
+    // parse Expanded command fourth
 
-bool ParseMetaData( const char* p, int iLen, MetaData& md, bool processCmd=true ) {
-
-}
-
-bool ParseTimingData( const char* p, int iLen, TimingData& td, bool processCmd=true ) {
-
+    return true;
 }
 
 } /* rparser */
-
-} /* NoteLoaderBMS */

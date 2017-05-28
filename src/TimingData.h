@@ -79,11 +79,19 @@ public:
 
     void SetValue(int iWarpRows);
     int GetValue();
+    void SetBpm(float fWarpBpm);
+    float GetBpm();
+    void SetIsWarpEnds(bool bWarpEnds);
+    bool GetIsWarpEnds();
 
-    WarpObject(int iRow, int iWarpRows)
-        : TimingObject(iRow), m_iWarpRows(iWarpRows) {}
+    WarpObject(int iRow, int iWarpRows, bool bWarpEnds=false)
+        : TimingObject(iRow), m_iWarpRows(iWarpRows), m_bWarpEnds(bWarpEnds) {}
 private:
     int m_iWarpRows;
+    bool m_bWarpEnds;
+    // @description used in format that unsupporting WARP object
+    // (ex: BMS)
+    float m_fWarpBpm;
 };
 
 // TODO: currently unusable
@@ -176,7 +184,7 @@ public:
     StopObject* GetNextStopObject(int iStartRow);
     WarpObject* GetNextWarpObject(int iStartRow);
     MeasureObject* GetNextMeasureObject(int iStartRow);
-    TimingObject* GetObjectAtRow(int iRow, int iType);
+    TimingObject* GetObjectAtRow(int iRow, TYPE_TIMINGOBJ iType);
     void GetBpm();
 
     // measure related
@@ -226,11 +234,11 @@ private:
     float fBeat0MSecOffset;
 
     // utility functions
-    void AddSegments(BpmObject* obj);
-    void AddSegments(StopObject* obj);
-    void AddSegments(WarpObject* obj);
-    void AddSegments(ScrollObject* obj);
-    void AddSegments(MeasureObject* obj);
+    void AddObject(const BpmObject& obj);
+    void AddObject(const StopObject& obj);
+    void AddObject(const WarpObject& obj);
+    void AddObject(const ScrollObject& obj);
+    void AddObject(const MeasureObject& obj);
     BpmObject* ToBpm(TimingObject* obj);
     StopObject* ToStop(TimingObject* obj);
     WarpObject* ToWarp(TimingObject* obj);
