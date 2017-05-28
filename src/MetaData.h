@@ -84,6 +84,7 @@ class MetaData {
     std::string sBannerImage;
     std::string sPreviewMusic;
     std::string sLyrics;
+    std::string sExpand;            // Expand command (like BMS #if~#endif)
 
     // barlength & notecount is located at TimingData / NoteData.
 

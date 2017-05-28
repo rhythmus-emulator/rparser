@@ -10,8 +10,10 @@
 namespace rparser {
 
 /* processes bms statement command. */
-class BMSTree {
-    private:
+class BMSExpandProc {
+private:
+    Chart *c;
+
     struct Condition {
         int offset; // active threshold
         bool actived; // even once condition has activated?
@@ -44,7 +46,11 @@ class BMSTree {
 	};
     std::vector<Condition> conds;
 
-    public:
+public:
+    int m_iSeed;
+    BMSExpandProc(Chart *c, int iSeed=-1):
+        c(c), m_iSeed(iSeed) {}
+
     bool IsCurrentValidStatement() {
         return (conds.size() == 0 || conds.back().active);
     }
@@ -80,9 +86,18 @@ class BMSTree {
         return (isCond == 0 && IsCurrentValidStatement());
     }
 
-    void ProcessBMSCommand( const char* in, int iLen, std::vector<std::string> &out) {
+    void proc() {
+        std::string& sExpand = c.GetMetaData().sExpand;
+        proc(sExpand.c_str(), sExpand.size(), m_iSeed);
+    }
+    void proc( const char* in, int iLen, int iSeed) {
         // clear tree
         conds.clear();
+
+        // seed check
+        if (iSeed >= 0) {
+            ee
+        }
 
         // read each line
         const char* p_end = in+iLen;
@@ -156,13 +171,19 @@ bool TestName( const char *fn )
 
 bool ChartLoaderBMS::Load( const char* p, int iLen )
 {
-    // parse metadata first
+    // parse metadata(include expanded command) first
+    ReadHeader();
+    ReadExpand();
 
-    // parse BGA channel second
-
-    // parse notedata third
+    // parse BGA & notedata channel second
+    ReadChannels();
 
     // parse Expanded command fourth
+    if (procExpansion)
+    {
+        BMSExpandProc bExProc(c, m_iSeed);
+        bExProc.proc();
+    }
 
     return true;
 }

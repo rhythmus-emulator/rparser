@@ -15,8 +15,10 @@ class ChartLoader {
 protected:
     Chart* c;
     int error;
+    int m_iSeed;
 public:
-    ChartLoader(Chart* c): c(c), error(0) {};
+    ChartLoader(Chart* c): c(c), error(0), m_iSeed(-1) {};
+    void SetSeed(int seed);
     virtual bool Test( const char* p, int iLen ) = 0;
     virtual bool TestName( const char *fn ) = 0;
     virtual bool Load( const char* p, int iLen ) = 0;
@@ -26,6 +28,10 @@ public:
 class ChartLoaderBMS : public ChartLoader {
 private:
     bool procExpansion;
+
+    void ReadHeader();
+    void ReadExpand();
+    void ReadChannels();
 public:
     ChartLoaderBMS(Chart* c, bool procExpansion=true): ChartLoader(c) {};
     bool Test( const char* p, int iLen );
