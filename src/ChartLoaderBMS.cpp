@@ -5,6 +5,7 @@
 #include "util.h"
 #include <vector>
 #include <string>
+#include <sstream>
 #include <cstdlib>
 
 namespace rparser {
@@ -13,91 +14,146 @@ namespace rparser {
 class BMSExpandProc {
 private:
     Chart *c;
+    int active_value;
+    std::string m_sExpand;      // only extracted expand commands
+    std::string m_sProcCmd;     // expand-processed commands
 
-    struct Condition {
-        int offset; // active threshold
-        bool actived; // even once condition has activated?
-        bool active;  // so, current condition is active?
-        
-        Condition(int val) {
-            offset = rand();
-            if (val < offset) {
-                active = true;
-                actived = true;
-            } else {
-                active = false;
-                actived = false;
-            }
-        }
+    enum COND_RESULT {
+        COND_UNKNOWN = 0,
+        COND_NEW = 1,
+        COND_ACCEPT = 2,
+        COND_END = 3
+    };
+    class Condition {
+        virtual bool Valid() = 0;
+        virtual std::string GetType() = 0;
+        virtual int Parse(const std::string& cmd_lower, const std::string& value) = 0;
+    };
+    class BaseCondition
+    class IFCondition : public Condition {
+        int value;      // active value
+        int activecnt;  // condition is activated?
+        int activeidx;  // current condition is active?
+        int condidx;    // current condition index
+        IFCondition() : 
+            condidx(0), activecnt(0), activeidx(-1), value(active_value) {}
 
-        void ELSEIF(int val) {
-            active = false;
-            if (!actived && val < offset) {
-                active = true;
-                actived = false;
+        static bool Test(const std::string& name) {
+            if (name == "#endif") {
+                return COND_END;
+            } else if (name == "#if") {
+                return COND_NEW;
+            } else if (name == "#else") {
+                return COND_ACCEPT;
+            } else if (name == "#elseif") {
+                return COND_ACCEPT;
             }
+            return COND_UNKNOWN;
         }
-        void ELSE () {
-            if (!actived) {
-                active = true;
-                actived = true;
+        std::string GetType() { return "if"; }
+        int Parse(const std::string& name, const std::string& value) {
+            if (name == "#endif") {
+                // #ENDIF cannot be shown first
+                ASSERT(condidx > 0);
+                return COND_END;
+            } else if (name == "#if") {
+                // #IF clause cannot be shown twice or later
+                ASSERT(condidx <= 0);
+                condidx++;
+                if (value == atoi(value.c_str())) {
+                    activeidx = condidx;
+                    activecnt++;
+                }
+                return COND_ACCEPT;
+            } else if (name == "#else") {
+                condidx++;
+                if (activecnt <= 0) {
+                    activeidx = condidx;
+                    activecnt++;
+                }
+                return COND_ACCEPT;
+            } else if (name == "#elseif") {
+                condidx++;
+                if (activecnt <= 0 && value == atoi(value.c_str())) {
+                    activeidx = condidx;
+                    activecnt++;
+                }
+                return COND_ACCEPT;
             }
+            return COND_UNKNOWN;
+        }
+        bool Valid() {
+            return activeidx==condidx;
         }
 	};
-    std::vector<Condition> conds;
 
+    std::vector<Condition*> conds;
 public:
     int m_iSeed;
-    BMSExpandProc(Chart *c, int iSeed=-1):
-        c(c), m_iSeed(iSeed) {}
+    bool m_bAllowExpand;
+    BMSExpandProc(Chart *c, int iSeed=-1, bAllowExpand=true):
+        c(c), m_iSeed(iSeed), m_bAllowExpand(bAllowExpand), active_value(0) {}
 
     bool IsCurrentValidStatement() {
-        return (conds.size() == 0 || conds.back().active);
+        return (conds.size() == 0 || (m_bAllowExpand && conds.back().Valid()));
     }
 
 	// process only conditional statement
     bool ProcessStatement(const std::string& line) {
-        // set seed first
-        srand(rparser::GetSeed());
-
+        // get command
 		size_t space = line.find(' ');
 		std::string name = line.substr(0, space); lower(name);
 		std::string value = "";
-        int isCond = 1;
         if (space != std::string::npos) value = line.substr(space+1);
 
-        if (name == "#endif") {
-            // pop out last statement (if exists)
-            ASSERT(conds.size());
-            conds.pop_back();
-        } else if (name == "#if") {
-            // starting of bms command
-            conds.push_back(Condition(atoi(value.c_str())));
-        } else if (name == "#else") {
-            ASSERT(conds.size());
-            conds.back().ELSE();
-        } else if (name == "#elseif") {
-            ASSERT(conds.size());
-            conds.back().ELSEIF(atoi(value.c_str()));
+        // match command
+        int isCond = 1;
+        int cond_test;
+        Condition* curr_cond;
+        if (name == "#rand") {
+            active_value = atoi(value.c_str()) * rand();
+        } else if ((cond_test = IFCondition::Test(name)) != COND_UNKNOWN) {
+            switch (cond_test) {
+            case COND_NEW:
+                curr_cond = new IFCondition()
+                curr_cond->Parse(name, value);
+                cond.push_back(curr_cond);
+                break;
+            case COND_ACCEPT:
+                curr_cond = cond.back();
+                ASSERT(curr_cond->GetType() == "if");
+                curr_cond->Parse(name, value);
+                break;
+            case COND_END:
+                curr_cond = cond.back();
+                ASSERT(curr_cond->GetType() == "if");
+                curr_cond->Parse(name, value);
+                cond.pop_back();
+                delete curr_cond;
+                break;
+            }
         } else {
             isCond = 0;
         }
-
-        return (isCond == 0 && IsCurrentValidStatement());
+        // if condition size is over zero before and after,
+        // then it's expand command.
+        int is_curr_expand = isCond || cond.size();
+        if (is_curr_expand) {
+            m_sExpand += line;
+        }
+        // check processed statement
+        if (isCond == 0 && IsCurrentValidStatement()) {
+            m_sProcCmd += line;
+        }
     }
 
-    void proc() {
-        std::string& sExpand = c.GetMetaData().sExpand;
-        proc(sExpand.c_str(), sExpand.size(), m_iSeed);
-    }
-    void proc( const char* in, int iLen, int iSeed) {
+    void proc( const char* in, int iLen ) {
         // clear tree
         conds.clear();
 
-        // seed check
-        if (iSeed >= 0) {
-            ee
-        }
+        // set seed first
+        if (m_iSeed >= 0)
+            srand(m_iSeed);
 
         // read each line
         const char* p_end = in+iLen;
@@ -112,10 +168,13 @@ public:
             std::string line(s, e-s);
             // prepare for next line
             in = p+1;
-            // process line 
-            if (ProcessStatement(line)) out.push_back(line);
+            // process line
+            ProcessStatement(line);
         }
     }
+
+    std::string& GetProcCmd() { return m_sProcCmd; }
+    std::string& GetExpandCmd() { return m_sExpandCmd; }
 
     // just extracts BMS command, not process it.
     void ExtractBMSCommand( const char* in, int iLen, std::vector<std::string> &out, std::vector<std::string> &cmd ) {
@@ -171,19 +230,18 @@ bool TestName( const char *fn )
 
 bool ChartLoaderBMS::Load( const char* p, int iLen )
 {
+    // parse expand, and process it first
+    // (expand parse effects to Metadata / Channels)
+    BMSExpandProc bExProc(c, m_iSeed, procExpansion);
+    bExProc.proc(p, iLen);
+    std::string& proc_res = bExProc.GetProcCmd();
+    c->GetMetaData().m_sExpand = bExProc.GetExpandCmd();
+
     // parse metadata(include expanded command) first
-    ReadHeader();
-    ReadExpand();
+    ReadHeader(proc_res.c_str(), proc_res.size());
 
     // parse BGA & notedata channel second
-    ReadChannels();
-
-    // parse Expanded command fourth
-    if (procExpansion)
-    {
-        BMSExpandProc bExProc(c, m_iSeed);
-        bExProc.proc();
-    }
+    ReadChannels(proc_res.c_str(), proc_res.size());
 
     return true;
 }

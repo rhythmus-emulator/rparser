@@ -29,9 +29,8 @@ class ChartLoaderBMS : public ChartLoader {
 private:
     bool procExpansion;
 
-    void ReadHeader();
-    void ReadExpand();
-    void ReadChannels();
+    void ReadHeader(const char* p, int iLen);
+    void ReadChannels(const char* p, int iLen);
 public:
     ChartLoaderBMS(Chart* c, bool procExpansion=true): ChartLoader(c) {};
     bool Test( const char* p, int iLen );
