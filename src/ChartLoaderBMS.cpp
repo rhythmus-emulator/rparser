@@ -14,6 +14,7 @@ namespace rparser {
 class BMSExpandProc {
 private:
     Chart *c;
+    std::vector<int> active_value_stack;    // used in case of #RANDOM~#ENDRANDOM
     int active_value;
     std::string m_sExpand;      // only extracted expand commands
     std::string m_sProcCmd;     // expand-processed commands
@@ -27,19 +28,18 @@ private:
     class Condition {
         virtual bool Valid() = 0;
         virtual std::string GetType() = 0;
-        virtual int Parse(const std::string& cmd_lower, const std::string& value) = 0;
+        virtual void Parse(const std::string& cmd_lower, const std::string& value) = 0;
     };
-    class BaseCondition
     class IFCondition : public Condition {
-        int value;      // active value
+        int target;      // active value
         int activecnt;  // condition is activated?
         int activeidx;  // current condition is active?
         int condidx;    // current condition index
         IFCondition() : 
-            condidx(0), activecnt(0), activeidx(-1), value(active_value) {}
+            condidx(0), activecnt(0), activeidx(-1), target(active_value) {}
 
-        static bool Test(const std::string& name) {
-            if (name == "#endif") {
+        static int Test(const std::string& name) {
+            if (name == "#endif" || name == "#end") {
                 return COND_END;
             } else if (name == "#if") {
                 return COND_NEW;
@@ -51,39 +51,72 @@ private:
             return COND_UNKNOWN;
         }
         std::string GetType() { return "if"; }
-        int Parse(const std::string& name, const std::string& value) {
-            if (name == "#endif") {
+        void Parse(const std::string& name, const std::string& value) {
+            if (name == "#endif" || name == "#end") {
                 // #ENDIF cannot be shown first
                 ASSERT(condidx > 0);
-                return COND_END;
             } else if (name == "#if") {
                 // #IF clause cannot be shown twice or later
                 ASSERT(condidx <= 0);
                 condidx++;
-                if (value == atoi(value.c_str())) {
+                if (target == atoi(value.c_str())) {
                     activeidx = condidx;
                     activecnt++;
                 }
-                return COND_ACCEPT;
             } else if (name == "#else") {
                 condidx++;
                 if (activecnt <= 0) {
                     activeidx = condidx;
                     activecnt++;
                 }
-                return COND_ACCEPT;
             } else if (name == "#elseif") {
                 condidx++;
-                if (activecnt <= 0 && value == atoi(value.c_str())) {
+                if (activecnt <= 0 && target == atoi(value.c_str())) {
                     activeidx = condidx;
                     activecnt++;
                 }
+            }
+        }
+        bool Valid() {
+            return activeidx==condidx;
+        }
+	};
+    class SWITCHCondition : public Condition {
+        int target;      // active value
+        int stat;       // -1: skipped, 0: not activated, 1~: activated
+        SWITCHCondition() : 
+            stat(0), value(active_value) {}
+
+        static int Test(const std::string& name) {
+            if (name == "#endsw") {
+                return COND_END;
+            } else if (name == "#switch" || name == "#setswitch") {
+                return COND_NEW;
+            } else if (name == "#case" || name == "#skip" || name == "#def") {
                 return COND_ACCEPT;
             }
             return COND_UNKNOWN;
         }
+        std::string GetType() { return "switch"; }
+        void Parse(const std::string& name, const std::string& value) {
+            if (name == "#endsw") {
+                // #ENDIF cannot be shown first
+                ASSERT(condidx > 0);
+            } else if (name == "#switch" || name == "#setswitch") {
+                // initialize random value
+                value = atoi(value.c_str()) * rand();
+            } else if (name == "#case") {
+                if (atoi(value.c_str()) == target && stat >= 0)
+                    stat++;
+            } else if (name == "#skip") {
+                stat = -1;
+            } else if (name == "#def") {
+                if (stat >= 0)
+                    stat++;
+            }
+        }
         bool Valid() {
-            return activeidx==condidx;
+            return stat > 0;
         }
 	};
 
@@ -110,8 +143,13 @@ public:
         int isCond = 1;
         int cond_test;
         Condition* curr_cond;
-        if (name == "#rand") {
+        if (name == "#random" || name == "#rondom") {
+            active_value_stack.push_back(active_value);
             active_value = atoi(value.c_str()) * rand();
+        } else if (name == "#endrandom") {
+            ASSERT(active_value_stack.size() > 0);
+            active_value = active_value_stack.back();
+            active_value_stack.pop_back();
         } else if ((cond_test = IFCondition::Test(name)) != COND_UNKNOWN) {
             switch (cond_test) {
             case COND_NEW:
@@ -120,13 +158,37 @@ public:
                 cond.push_back(curr_cond);
                 break;
             case COND_ACCEPT:
+                ASSERT(cond.size() > 0);
                 curr_cond = cond.back();
                 ASSERT(curr_cond->GetType() == "if");
                 curr_cond->Parse(name, value);
                 break;
             case COND_END:
+                ASSERT(cond.size() > 0);
                 curr_cond = cond.back();
                 ASSERT(curr_cond->GetType() == "if");
+                curr_cond->Parse(name, value);
+                cond.pop_back();
+                delete curr_cond;
+                break;
+            }
+        } else if ((cond_test = SWITCHCondition::Test(name)) != COND_UNKNOWN) {
+            switch (cond_test) {
+            case COND_NEW:
+                curr_cond = new SWITCHCondition()
+                curr_cond->Parse(name, value);
+                cond.push_back(curr_cond);
+                break;
+            case COND_ACCEPT:
+                ASSERT(cond.size() > 0);
+                curr_cond = cond.back();
+                ASSERT(curr_cond->GetType() == "switch");
+                curr_cond->Parse(name, value);
+                break;
+            case COND_END:
+                ASSERT(cond.size() > 0);
+                curr_cond = cond.back();
+                ASSERT(curr_cond->GetType() == "switch");
                 curr_cond->Parse(name, value);
                 cond.pop_back();
                 delete curr_cond;
@@ -244,6 +306,16 @@ bool ChartLoaderBMS::Load( const char* p, int iLen )
     ReadChannels(proc_res.c_str(), proc_res.size());
 
     return true;
+}
+
+void ChartLoaderBMS::ReadHeader(const char* p, int iLen)
+{
+    dd
+}
+
+void ChartLoaderBMS::ReadChannels(const char* p, int iLen)
+{
+
 }
 
 } /* rparser */
