@@ -28,9 +28,9 @@ enum class CHARTTYPE {
  */
 class Chart {
 public:
-    const MetaData* GetMetaData() const;
-    const NoteData* GetNoteData() const;
-    const TimingData* GetTimingData() const;
+    MetaData* GetMetaData() const;
+    NoteData* GetNoteData() const;
+    TimingData* GetTimingData() const;
     MetaData* GetMetaData();
     NoteData* GetNoteData();
     TimingData* GetTimingData();

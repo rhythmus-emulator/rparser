@@ -58,6 +58,7 @@ class MetaData {
     void SetAttribute(const std::string& key, float value);
     void SetAttribute(const std::string& key, double value);
     bool IsAttributeExist(const std::string& key);
+    bool SetEncoding(const std::string& from, const std::string& to);
 
     // @description
     // It returns valid Channel object pointer always (without exception)

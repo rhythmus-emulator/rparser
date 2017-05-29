@@ -9,8 +9,40 @@
 #include <cstdlib>
 
 namespace rparser {
+/* common */
+void ParseLine(const std::string& line, std::string& name, std::string& value, char sep=0)
+{
+    // trim
+    auto wsfront=std::find_if_not(line.begin(),line.end(),[](int c){return std::isspace(c);});
+    auto wsback=std::find_if_not(line.rbegin(),line.rend(),[](int c){return std::isspace(c);}).base();
+    std::string line_trim = (wsback<=wsfront ? std::string() : std::string(wsfront,wsback));
 
-/* processes bms statement command. */
+    size_t space = std::string::npos;
+    if (sep == 0) {
+        // find any type of space
+        space = line_trim.find(' ');
+        if (space == std::string::npos) space=line_trim.find('\t');
+    } else {
+        space = line_trim.find(sep);
+    }
+    std::string name = line_trim.substr(0, space); lower(name);
+    std::string value = std::string();
+    if (space != std::string::npos) value = line_trim.substr(space+1);
+}
+void ParseLine(const char** p, std::string& name, std::string& value, char sep=0) {
+    while (**p != '\t' && **p != ' ' && **p) *p++;
+    // start point
+    char *s = *p;
+    while (**p != '\n' && **p) *p++;
+    if (*p == *s) { name.clear(); }
+    else {
+        std::string line(*s, *p-*s);
+        if (*p) *p++;
+        ParseLine(line, name, value);
+    }
+}
+
+/* processes bms expand command. */
 class BMSExpandProc {
 private:
     Chart *c;
@@ -131,13 +163,12 @@ public:
         return (conds.size() == 0 || (m_bAllowExpand && conds.back().Valid()));
     }
 
-	// process only conditional statement
-    bool ProcessStatement(const std::string& line) {
+	// process for conditional statement
+    void ProcessStatement(const std::string& line) {
         // get command
-		size_t space = line.find(' ');
-		std::string name = line.substr(0, space); lower(name);
-		std::string value = "";
-        if (space != std::string::npos) value = line.substr(space+1);
+        std::string name, value;
+        ParseLine(line, name, value);
+        if (name.empty()) return;
 
         // match command
         int isCond = 1;
@@ -201,11 +232,11 @@ public:
         // then it's expand command.
         int is_curr_expand = isCond || cond.size();
         if (is_curr_expand) {
-            m_sExpand += line;
+            m_sExpand += line + '\n';
         }
-        // check processed statement
+        // processed statement
         if (isCond == 0 && IsCurrentValidStatement()) {
-            m_sProcCmd += line;
+            m_sProcCmd += line + '\n';
         }
     }
 
@@ -237,34 +268,6 @@ public:
 
     std::string& GetProcCmd() { return m_sProcCmd; }
     std::string& GetExpandCmd() { return m_sExpandCmd; }
-
-    // just extracts BMS command, not process it.
-    void ExtractBMSCommand( const char* in, int iLen, std::vector<std::string> &out, std::vector<std::string> &cmd ) {
-        // clear tree
-        conds.clear();
-
-        // read each line
-        const char* p_end = in+iLen;
-        while (in < p_end) {
-            // split current line
-            const char* p = in;
-            while (p < p_end && *p == '\n') p++;
-            // make trimmed string
-            const char *s=in, *e=p;
-            while (*s == ' ' || *s == '\t') s++;
-            while (e > s && (*e == ' ' || *e == '\t')) e--;
-            std::string line(s, e-s);
-            std::string line_original(in, in-p+1);
-            // prepare for next line
-            in = p+1;
-            // process line
-            int isCommandExists = conds.size();
-            ProcessStatement(line);
-            isCommandExists |= conds.size();
-            if (isCommandExists) cmd.push_back(line_original);
-            else out.push_back(line);
-        }
-    }
 };
 
 
@@ -297,7 +300,7 @@ bool ChartLoaderBMS::Load( const char* p, int iLen )
     BMSExpandProc bExProc(c, m_iSeed, procExpansion);
     bExProc.proc(p, iLen);
     std::string& proc_res = bExProc.GetProcCmd();
-    c->GetMetaData().m_sExpand = bExProc.GetExpandCmd();
+    c->GetMetaData()->m_sExpand = bExProc.GetExpandCmd();
 
     // parse metadata(include expanded command) first
     ReadHeader(proc_res.c_str(), proc_res.size());
@@ -305,17 +308,47 @@ bool ChartLoaderBMS::Load( const char* p, int iLen )
     // parse BGA & notedata channel second
     ReadChannels(proc_res.c_str(), proc_res.size());
 
+    // set encoding from EUC-JP to UTF8
+    c->GetMetaData()->SetEncoding("EUC-JP", "UTF8");
+
     return true;
 }
 
 void ChartLoaderBMS::ReadHeader(const char* p, int iLen)
 {
-    dd
+    const char **pp = *p;
+    std::string name, value;
+    while (1) {
+        ParseLine(*pp, name, value, ':');
+        if (**pp == 0) break;
+        if (name == "#title") {
+            c->GetMetaData()->sTitle = value;
+        }
+        else if (name == "#subtitle") {
+            c->GetMetaData()->sSubTitle = value;
+        }
+        else if (name == "#artist") {
+            c->GetMetaData()->sArtist = value;
+        }
+        else if (name == "#subartist") {
+            c->GetMetaData()->sSubArtist = value;
+        }
+        else if (name == "#genre") {
+            c->GetMetaData()->sGenre = value;
+        }
+        // TODO
+    }
 }
 
 void ChartLoaderBMS::ReadChannels(const char* p, int iLen)
 {
-
+    const char **pp = *p;
+    std::string name, value;
+    while (1) {
+        ParseLine(*pp, name, value, ':');
+        if (**pp == 0) break;
+        // TODO
+    }
 }
 
 } /* rparser */
