@@ -75,15 +75,19 @@ class MetaData {
     std::string sSubArtist;
     std::string sGenre;
     std::string sChartName;         // NORMAL, HYPER, ANOTHER, ONI, ...
-    unsigned long iChart;           // Chart Difficulty (Used on BMS, etc...)
+    int iPlayer;                    // player type (TODO: comment)
+    int iLNType;                    // used for BMS
+    unsigned long iDifficulty;      // Chart Difficulty (Used on BMS, etc...)
     unsigned long iLevel;           // level of the song
     double fBPM;                    // basic BPM (need to be filled automatically if not exists)
     double fJudge;                  // judge difficulty
     double fTotal;                  // guage total
+    std::string sLNObj;             // used for BMS
     std::string sBackImage;         // BG during playing
-    std::string sEyecatchImage;     // loading image
+    std::string sStageImage;        // loading image
     std::string sBannerImage;
     std::string sPreviewMusic;
+    std::string sMusic;             // BGM
     std::string sLyrics;
     std::string sExpand;            // Expand command (like BMS #if~#endif)
 

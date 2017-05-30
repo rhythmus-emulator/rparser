@@ -314,30 +314,106 @@ bool ChartLoaderBMS::Load( const char* p, int iLen )
     return true;
 }
 
+#define MAX_RESOLUTION_SIZE 1024
+#define DEFAULT_RESOLUTION_SIZE 192
 void ChartLoaderBMS::ReadHeader(const char* p, int iLen)
 {
     const char **pp = *p;
     std::string name, value;
+    // we also check row resolution at here
+    int iRowResolution = DEFAULT_RESOLUTION_SIZE;
+    bool warn_at_resolution_change=true;
     while (1) {
-        ParseLine(*pp, name, value, ':');
         if (**pp == 0) break;
-        if (name == "#title") {
-            c->GetMetaData()->sTitle = value;
+        const char *pp_save = *pp;
+        ParseLine(*pp, name, value);
+        if (!name.empty()) {
+            if (name == "#title") {
+                c->GetMetaData()->sTitle = value;
+            }
+            else if (name == "#subtitle") {
+                c->GetMetaData()->sSubTitle = value;
+            }
+            else if (name == "#artist") {
+                c->GetMetaData()->sArtist = value;
+            }
+            else if (name == "#subartist") {
+                c->GetMetaData()->sSubArtist = value;
+            }
+            else if (name == "#genre") {
+                c->GetMetaData()->sGenre = value;
+            }
+            else if (name == "#player") {
+                c->GetMetaData()->iPlayer = atoi(value.c_str());
+            }
+            else if (name == "#playlevel") {
+                c->GetMetaData()->iLevel = atoi(value.c_str());
+            }
+            else if (name == "#difficulty") {
+                c->GetMetaData()->iDifficulty = atoi(value.c_str());
+            }
+            else if (name == "#rank") {
+                // convert from 4 to 100.0
+                c->GetMetaData()->fJudge = atof(value.c_str()) / 4.0 * 100;
+            }
+            else if (name == "#total") {
+                c->GetMetaData()->fTotal = atof(value.c_str());
+            }
+            else if (name == "#banner") {
+                c->GetMetaData()->sBannerImage = value;
+            }
+            else if (name == "#backbmp") {
+                c->GetMetaData()->sBackImage = value;
+            }
+            else if (name == "#stagefile") {
+                c->GetMetaData()->sStageImage = value;
+            }
+            else if (name == "#bpm") {
+                c->GetMetaData()->fBPM = atof(value.c_str());
+            }
+            else if (name == "#lntype") {
+                c->GetMetaData()->iLNType = atoi(value.c_str());
+            }
+            else if (name == "#lnobj") {
+                c->GetMetaData()->sLNObj = value;
+            }
+            else if (name == "#music") {
+                c->GetMetaData()->sMusic = value;
+            }
+            else if (name == "#preview") {
+                c->GetMetaData()->sPreviewMusic = value;
+            }
+            else if (name == "#offset") {
+                // append it to TimingData
+                c->GetTimingData()->fBeat0MSecOffset = atof(value.c_str());
+            }
+        } else {
+            // calculate resolution
+            ParseLine(*pp_save, name, value, ':');
+            if (name.empty()) continue;
+            int channel = atoi(name.c_str()+3);   // TODO: exception for wrong value
+            // assume resolution from player notes
+            if (channel > 10 && channel < 30) {
+                int cur_res = value.size()/2;
+                if (cur_res > MAX_RESOLUTION_SIZE) {
+                    printf("[ReadHeaders] Too big resolution detected - reduced to %d", MAX_RESOLUTION_SIZE);
+                    cur_res = MAX_RESOLUTION_SIZE;
+                } 
+                iRowResolution = lcm(cur_res, iRowResolution);
+                if (iRowResolution > MAX_RESOLUTION_SIZE) {
+                    printf("[ReadHeaders] Too big resolution detected - reduced to %d", MAX_RESOLUTION_SIZE);
+                    iRowResolution = MAX_RESOLUTION_SIZE;
+                }
+                if (warn_at_resolution_change && iRowResolution != DEFAULT_RESOLUTION_SIZE) {
+                    printf("[ReadHeaders] Resolution changed detected - DEFAULT %d CURRENT %d",
+                        DEFAULT_RESOLUTION_SIZE, iRowResolution);
+                    warn_at_resolution_change = false;
+                }
+            }
         }
-        else if (name == "#subtitle") {
-            c->GetMetaData()->sSubTitle = value;
-        }
-        else if (name == "#artist") {
-            c->GetMetaData()->sArtist = value;
-        }
-        else if (name == "#subartist") {
-            c->GetMetaData()->sSubArtist = value;
-        }
-        else if (name == "#genre") {
-            c->GetMetaData()->sGenre = value;
-        }
-        // TODO
     }
+    // set resolution
+    c->GetTimingData()->iRes = iRowResolution;
 }
 
 void ChartLoaderBMS::ReadChannels(const char* p, int iLen)

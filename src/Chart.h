@@ -46,7 +46,7 @@ public:
     int Write(const std::string& path);
     int Write(std::stream& s);
 
-    // @description change resolution from here
+    // @description change resolution for chart globally
     void ChangeResolution(double newRes);
 private:
     MetaData m_Metadata;
