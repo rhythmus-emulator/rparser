@@ -38,14 +38,16 @@ struct NoteResult {
 }
 
 enum NoteType {
+    // @description 
     NOTETYPE_EMPTY,
+    // @description general tappable note
     NOTETYPE_TAP,
     // @description head of longnote
     NOTETYPE_CHARGE,
     // @description head of hell-charge note
     NOTETYPE_HCHARGE,
-    // @description head of press-charge note, like pump
-    NOTETYPE_PCHARGE,
+    // @description head of tick-charge note, like pump
+    NOTETYPE_TCHARGE,
     NOTETYPE_MINE,
     NOTETYPE_SHOCK,
     NOTETYPE_AUTOPLAY,
@@ -86,8 +88,23 @@ struct Note {
     float fTime;
     float fDuration;    // duration of msec
 
+    // @description combo per note - it may be over 1 in case of tick-longnote.
+    int iCombo;
+
     // @description for user-customizing metadata, basically filled with 0. use at your own. 
     void *p;
+};
+
+// @description notes only used for BGM
+struct NoteBGM {
+    int iChannel;
+    int BGAcol;     // for bmse
+    int bSound;     // is it soundable? (generally yes)
+
+    // @description 
+    // this value makes keysound change in targeted channel
+    // used for BMSE invisible note channel
+    int iKeysoundChannel;
 };
 
 class NoteData {
@@ -171,6 +188,7 @@ public:
     std::string const toString();
 private:
     std::vector<Track> m_Tracks;
+    std::vector<NoteBGM> m_BGMTrack;
 };
 
 }

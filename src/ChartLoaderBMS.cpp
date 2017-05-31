@@ -388,42 +388,127 @@ void ChartLoaderBMS::ReadHeader(const char* p, int iLen)
                 c->GetTimingData()->fBeat0MSecOffset = atof(value.c_str());
             }
         } else {
-            // calculate resolution
+            // record track size first
             ParseLine(*pp_save, name, value, ':');
             if (name.empty()) continue;
-            int channel = atoi(name.c_str()+3);   // TODO: exception for wrong value
-            // assume resolution from player notes
-            if (channel > 10 && channel < 30) {
-                int cur_res = value.size()/2;
-                if (cur_res > MAX_RESOLUTION_SIZE) {
-                    printf("[ReadHeaders] Too big resolution detected - reduced to %d", MAX_RESOLUTION_SIZE);
-                    cur_res = MAX_RESOLUTION_SIZE;
-                } 
-                iRowResolution = lcm(cur_res, iRowResolution);
-                if (iRowResolution > MAX_RESOLUTION_SIZE) {
-                    printf("[ReadHeaders] Too big resolution detected - reduced to %d", MAX_RESOLUTION_SIZE);
-                    iRowResolution = MAX_RESOLUTION_SIZE;
-                }
-                if (warn_at_resolution_change && iRowResolution != DEFAULT_RESOLUTION_SIZE) {
-                    printf("[ReadHeaders] Resolution changed detected - DEFAULT %d CURRENT %d",
-                        DEFAULT_RESOLUTION_SIZE, iRowResolution);
-                    warn_at_resolution_change = false;
-                }
+            int measure = atoi(name.substr(1, 3).c_str());
+            int channel = atoi(name.substr(4, 2).c_str());
+            if (channel == 2) {
+                // measure size change
+                c->GetTimingData()->SetMeasureLength(measure, int(atof(value.c_str()) + 0.001));
             }
         }
     }
+
+    // again, parse BMS file again - to calculate Resolution size
+    /*
+    *pp = *p;
+    while (1) {
+        if (**pp == 0) break;
+        ParseLine(*pp, name, value, ':');
+        if (name.empty()) continue;
+        int channel = atoi(name.c_str()+3);   // TODO: exception for wrong value
+        // assume resolution from player notes
+        if (channel > 10 && channel < 30) {
+            int cur_res = value.size()/2;
+            if (cur_res > MAX_RESOLUTION_SIZE) {
+                printf("[ReadHeaders] Too big resolution detected - reduced to %d", MAX_RESOLUTION_SIZE);
+                cur_res = MAX_RESOLUTION_SIZE;
+            } 
+            iRowResolution = lcm(cur_res, iRowResolution);
+            if (iRowResolution > MAX_RESOLUTION_SIZE) {
+                printf("[ReadHeaders] Too big resolution detected - reduced to %d", MAX_RESOLUTION_SIZE);
+                iRowResolution = MAX_RESOLUTION_SIZE;
+            }
+            if (warn_at_resolution_change && iRowResolution != DEFAULT_RESOLUTION_SIZE) {
+                printf("[ReadHeaders] Resolution changed detected - DEFAULT %d CURRENT %d",
+                    DEFAULT_RESOLUTION_SIZE, iRowResolution);
+                warn_at_resolution_change = false;
+            }
+        }
+    }
+    */
     // set resolution
-    c->GetTimingData()->iRes = iRowResolution;
+    //c->GetTimingData()->iRes = iRowResolution;
+    c->SetResolution(iRowResolution);
 }
 
 void ChartLoaderBMS::ReadChannels(const char* p, int iLen)
 {
+    /* 
+     * this section we place objects,
+     * So row resolution MUST be decided before we enter this section._Dec
+     */
+    TimingData* td = c->GetTimingData();
+
     const char **pp = *p;
     std::string name, value;
     while (1) {
-        ParseLine(*pp, name, value, ':');
         if (**pp == 0) break;
-        // TODO
+        ParseLine(*pp, name, value, ':');
+        if (name.empty()) continue;
+        int measure = atoi(name.substr(1, 3).c_str());
+        int channel = atoi(name.substr(4, 2).c_str());
+        if (channel == 3) {
+            // BPM change
+            td->AddObject(new BpmObject(10,10,10));
+        }
+        else if (channel == 4) {
+            // BGA
+        }
+        else if (channel == 6) {
+            // BGA POOR
+        }
+        else if (channel == 7) {
+            // BGA LAYER
+        }
+        else if (channel == 8) {
+            // BPM change (exBPM)
+        }
+        else if (channel == 9) {
+            // STOP
+        }
+        else if (channel == 10) {
+            // BGA LAYER2
+        }
+        else if (channel == 11) {
+            // opacity of BGA
+        }
+        else if (channel == 12) {
+            // opacity of BGA LAYER
+        }
+        else if (channel == 13) {
+            // opacity of BGA LAYER2
+        }
+        else if (channel == 14) {
+            // opacity of BGA POOR
+        }
+        else if (channel >= 0x11 && channel <= 0x19) {
+            // 1P visible note
+            // (LN for reserved)
+        }
+        else if (channel >= 0x21 && channel <= 0x29) {
+            // 2P visible note
+            // (LN for reserved)
+        }
+        else if (channel >= 0x31 && channel <= 0x39) {
+            // 1P invisible note
+        }
+        else if (channel >= 0x41 && channel <= 0x49) {
+            // 2P invisible note
+        }
+        else if (channel >= 0x51 && channel <= 0x59) {
+            // 1P LN
+        }
+        else if (channel >= 0x61 && channel <= 0x69) {
+            // 2P LN
+        }
+        else if (channel >= 0xD1 && channel <= 0xD9) {
+            // 1P mine
+        }
+        else if (channel >= 0xE1 && channel <= 0xE9) {
+            // 2P mine
+        }
     }
 }
 
