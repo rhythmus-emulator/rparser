@@ -440,21 +440,60 @@ void ChartLoaderBMS::ReadChannels(const char* p, int iLen)
      * So row resolution MUST be decided before we enter this section._Dec
      */
     TimingData* td = c->GetTimingData();
+    NoteData* nd = c->GetNoteData();
 
     const char **pp = *p;
     std::string name, value;
+
+    // index will be cleared when measure changes
+    int bgm_col_index = 0;
+    int measure_prev = -1;
     while (1) {
         if (**pp == 0) break;
         ParseLine(*pp, name, value, ':');
         if (name.empty()) continue;
         int measure = atoi(name.substr(1, 3).c_str());
         int channel = atoi(name.substr(4, 2).c_str());
-        if (channel == 3) {
+        int rowstart = td->GetRowStart(measure);
+        int rowsize = td->GetRowSize(measure);
+        int ressize = value.size()/2;
+        // TODO: collect note object first, then append.
+
+        // measure change
+        if (measure_prev != measure) {
+            bgm_col_index = 0;
+            measure_prev = measure;
+        }
+        if (channel == 1) {
+            // BGM
+            for (int i=0; i<ressize; i++) {
+                int value = atoi(value.substr(i*2, i*2+2).c_str());
+                int row = rowstart + rowsize*i/ressize;
+                if (value) {
+                    Note nBGM;
+                    nBGM.iValue = value;
+                    nBGM.x = bgm_col_index;
+                    nd->AddNote(row, nBGM);
+                }
+            }
+            bgm_col_index++;
+        }
+        else if (channel == 3) {
             // BPM change
-            td->AddObject(new BpmObject(10,10,10));
+            for (int i=0; i<ressize; i++) {
+                int value = atoi(value.substr(i*2, i*2+2).c_str());
+                int row = rowstart + rowsize*i/ressize;
+                if (value) {
+                    float newbpm = td->GetBpmFromChnl;
+                    td->AddObject(new BpmObject(row, newbpm));
+                }
+            }
         }
         else if (channel == 4) {
             // BGA
+            Note nBGA;
+            nBGA.iValue = channel;
+            AutoNote nBGA;
         }
         else if (channel == 6) {
             // BGA POOR

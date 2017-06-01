@@ -38,7 +38,7 @@ struct NoteResult {
 }
 
 enum NoteType {
-    // @description 
+    // @description undefined, usually for UnTappable object.
     NOTETYPE_EMPTY,
     // @description general tappable note
     NOTETYPE_TAP,
@@ -48,55 +48,56 @@ enum NoteType {
     NOTETYPE_HCHARGE,
     // @description head of tick-charge note, like pump
     NOTETYPE_TCHARGE,
+    // @description not sounds, only changes keysound
+    NOTETYPE_INVISIBLE,
     NOTETYPE_MINE,
     NOTETYPE_SHOCK,
     NOTETYPE_AUTOPLAY,
+    // @description drawn but not judged
     NOTETYPE_FAKE,
+    // @description not drawn no miss, but judged
+    NOTETYPE_EXTRA,
     // @description free score area, like osu / taigo
     NOTETYPE_FREE
 }
 
-enum NoteChannelType {
-    NOTECHANNEL_WAV,
-    NOTECHANNEL_MIDI
-}
-
 /*
  * @description
- * A soundable/tappable object, mostly playable by player. 
- * (Not includes command or BGA info here!)
+ * An object in BGM/BGA/Tappable channel
+ * Mostly these object has type, position, value.
+ * You may need to process these objects properly to make playable objects.
  */
 struct Note {
-    NoteResult result;
     NoteType type;
 
-    // @description occuring damage in case of MINE object (0 ~ 1)  
-    float fDamage;
+    // @description
+    // does nothing in BMS game.
+    // x / y means position in touch based game
+    // x means col number in BMS BGM channel.
+    int x,y;
 
-    // @description designates sound playing channel
-    NoteChannelType channeltype;
-    int iChannel;
+    int iValue;         // mostly channel index
+    int iDuration;      // row duration (for LN)
+
     float fVolume;
-    int iDuration;      // row duration
     int iPitch;
 
-    // @description x means track, y means bar - in Track based game.
-    int x;
-    int y;
-
-    // @description time information won't be filled until you call FillTimingData()
+    // @description time information (won't be saved)
+    // won't be filled until you call FillTimingData()
     float fTime;
     float fDuration;    // duration of msec
 
-    // @description combo per note - it may be over 1 in case of tick-longnote.
+    // @description combo per note (generally 1)
+    // it may be over 1 in case of tick-longnote.
     int iCombo;
 
-    // @description for user-customizing metadata, basically filled with 0. use at your own. 
-    void *p;
+    Note() : x(0), y(0), iValue(0), iDuration(0),
+        fVolume(0), iPitch(0),
+        fTime(0), fDuration(0), iCombo(1) {}
 };
 
-// @description notes only used for BGM
-struct NoteBGM {
+// @description automatic notes only used for BGM
+struct AutoNote {
     int iChannel;
     int BGAcol;     // for bmse
     int bSound;     // is it soundable? (generally yes)
@@ -113,11 +114,12 @@ public:
      * @description
      * Notedata consists with multiple track(lane), and Track contains Notes.
      * And each note is indexed with 'Row'
-     * In case of osu/taigo, all note in First track; no meaning in track.
+     * In case of osu(or touch based)/taigo, all note in First track; 
+     * - so no meaning in track - but should use multiple track when multitouch. (up to 10)
      */
-    typedef std::map<int, Note> Track;
-    typedef std::map<int, Note>::iterator trackiter;
-    typedef std::map<int, Note>::const_iterator const_trackiter;
+    typedef std::map<int, TapNote> Track;
+    typedef std::map<int, TapNote>::iterator trackiter;
+    typedef std::map<int, TapNote>::const_iterator const_trackiter;
 
     trackiter begin(int tracknum) { return tracks[tracknum]->begin(); };
     trackiter end(int tracknum) { return tracks[tracknum]->end(); };
@@ -188,9 +190,18 @@ public:
     std::string const toString();
 private:
     std::vector<Track> m_Tracks;
-    std::vector<NoteBGM> m_BGMTrack;
+    std::vector<std::pair<int, Note>> m_BGMTrack;
 };
 
 }
 
 #endif
+
+/*
+ * Tip for compiling notedata into playable objects:
+ * - Separate Autoplay objects from playable objects
+ *   (ex: BGM, BGA, INVISIBLE, FAKE, etc...)
+ *   Consider these autoplay objects as objects which 
+ *   do not affected when calculating Judgements - 
+ *   just process them when timing reached.
+ */
