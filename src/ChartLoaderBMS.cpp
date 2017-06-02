@@ -306,10 +306,15 @@ bool ChartLoaderBMS::Load( const char* p, int iLen )
     ReadHeader(proc_res.c_str(), proc_res.size());
 
     // parse BGA & notedata channel second
-    ReadChannels(proc_res.c_str(), proc_res.size());
+    ReadObjects(proc_res.c_str(), proc_res.size(), notes);
+    ProcObjects(notes);
+    notes.clear();
 
     // set encoding from EUC-JP to UTF8
     c->GetMetaData()->SetEncoding("EUC-JP", "UTF8");
+
+    // fill hash file
+    m_ChartSummaryData.FillHash(p, iLen);
 
     return true;
 }
@@ -322,7 +327,12 @@ void ChartLoaderBMS::ReadHeader(const char* p, int iLen)
     std::string name, value;
     // we also check row resolution at here
     int iRowResolution = DEFAULT_RESOLUTION_SIZE;
-    bool warn_at_resolution_change=true;
+    // don't accept measure size at first, just record it in array first.
+    // (support up to 10000 internally)
+    float measurelen[10000];
+    for (int i=0;i<10000; i++)
+        measurelen[i] = 4.0f;
+    bool warn_at_resolution_change=true;    // just for debugging?
     while (1) {
         if (**pp == 0) break;
         const char *pp_save = *pp;
@@ -394,14 +404,13 @@ void ChartLoaderBMS::ReadHeader(const char* p, int iLen)
             int measure = atoi(name.substr(1, 3).c_str());
             int channel = atoi(name.substr(4, 2).c_str());
             if (channel == 2) {
-                // measure size change
-                c->GetTimingData()->SetMeasureLength(measure, int(atof(value.c_str()) + 0.001));
+                // record measure size change
+                measurelen[measure] = atof(value.c_str()) + 0.001;
             }
         }
     }
 
     // again, parse BMS file again - to calculate Resolution size
-    /*
     *pp = *p;
     while (1) {
         if (**pp == 0) break;
@@ -427,17 +436,29 @@ void ChartLoaderBMS::ReadHeader(const char* p, int iLen)
             }
         }
     }
-    */
+
     // set resolution
-    //c->GetTimingData()->iRes = iRowResolution;
     c->SetResolution(iRowResolution);
+
+    // record measure change
+    int prev_ml=4, cur_ml=4;
+    for (int i=0; i<10000; i++)
+    {
+        cur_ml = measurelen[i];
+        if (prev_ml != cur_ml) {
+            c->GetTimingData()->AddObject(
+                new MeasureObject(measure, int(atof(value.c_str()) + 0.001))
+                );
+        }
+    }
 }
 
-void ChartLoaderBMS::ReadChannels(const char* p, int iLen)
+void ChartLoaderBMS::ReadObjects(const char* p, int iLen, std::vector<Note>& out)
 {
     /* 
      * this section we place objects,
-     * So row resolution MUST be decided before we enter this section._Dec
+     * So row resolution MUST be decided before we enter this section.
+     * Also, vector<Note> object must be sorted.
      */
     TimingData* td = c->GetTimingData();
     NoteData* nd = c->GetNoteData();
@@ -458,6 +479,10 @@ void ChartLoaderBMS::ReadChannels(const char* p, int iLen)
         int rowsize = td->GetRowSize(measure);
         int ressize = value.size()/2;
         // TODO: collect note object first, then append.
+        // COMENT: use adjustedmeasuresize
+        // (TODO: generate new struct for BMS object)
+        // TODO: we store current measure in x/y
+        // TODO: we store current measure in iCombo(temparary)
 
         // measure change
         if (measure_prev != measure) {
@@ -550,5 +575,28 @@ void ChartLoaderBMS::ReadChannels(const char* p, int iLen)
         }
     }
 }
+
+
+void ChartLoaderBMS::ReadObjects(const char* p, int iLen, std::vector<Note>& out)
+{
+    int trackMeasure=0;
+    int rowSize=measureLength[10000] * c->GetTimingData()->GetResolution();    // current row's rowsize
+    float measureLength[10000];             // use previously made measurelength var
+    int trackRowStart=0;                    // current track's row start position
+    float trackMeasureSum=0;                // measure length sum until current measure
+    for (auto &n: out)
+    {
+        while (trackMeasure < n.measure)
+        {
+            trackMeasureSum += measureLength[trackMeasure];
+            trackMeasure++;
+            // if measure size changes, then record it to TimingData (TODO)
+            rowSize = measureLength[trackMeasure] * c->GetTimingData()->GetResolution();
+            trackRowStart = trackMeasureSum * c->GetTimingData()->GetResolution();
+        }
+        // TODO: record real note object from here.
+    }
+}
+
 
 } /* rparser */

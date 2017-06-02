@@ -6,6 +6,8 @@
 #define RPARSER_NOTELOADER_H
 
 #include "Song.h"
+#include "NoteData.h"
+#include <vector>
 
 namespace rparser {
 
@@ -27,10 +29,12 @@ public:
 
 class ChartLoaderBMS : public ChartLoader {
 private:
-    bool procExpansion;
+    bool procExpansion;         // should process expand command?
+    std::vector<Note> notes;    // parsed note objects
 
     void ReadHeader(const char* p, int iLen);
-    void ReadChannels(const char* p, int iLen);
+    void ReadObjects(const char* p, int iLen, std::vector<Note>& out);
+    void ProcObjects(std::vector<Note>& notes);
 public:
     ChartLoaderBMS(Chart* c, bool procExpansion=true): ChartLoader(c) {};
     bool Test( const char* p, int iLen );

@@ -15,8 +15,12 @@ public:
     virtual std::string toString();
     int GetRow const { return m_iRow; }
     int SetRow(int iRow) { m_iRow = iRow; }
+    virtual bool IsPositionSame(const TimingObject &other) const
+    {
+        return GetRow() == other.GetRow();
+    }
 
-    bool operator<( const TimingObject &other ) const
+    virtual bool operator<( const TimingObject &other ) const
 	{
 		return GetRow() < other.GetRow();
 	}
@@ -104,19 +108,28 @@ public:
 private:
 };
 
-// default measure signature length: 4/4 = 1.0
+// default measure signature length: 4/4 -> 1.0
+// measure object compares object with Measure_idx, not Row_idx
 class MeasureObject: public TimingObject {
 public:
     TYPE_TIMINGOBJ GetType() { return TYPE_TIMINGOBJ::TYPE_MEASURE; }
     std::string toString();
 
-    void SetValue(double dMeasure=1.0);
-    double GetValue();
+    void SetLength(float dMeasure=1.0);
+    float GetLength();
+    void SetMeasure(int iMeasure);
+    float GetMeasure();
 
-    MeasureObject(int iRow, double dMeasure=1.0)
-        : TimingObject(iRow),  m_dMeasure(dMeasure) {}
+    bool IsPositionSame(const TimingObject &other) const;
+    bool operator<( const TimingObject &other ) const;
+	bool operator==( const TimingObject &other ) const;
+	bool operator!=( const TimingObject &other ) const;
+
+    MeasureObject(int iMeasure, float dMeasure=1.0)
+        : TimingObject(0),  m_dMeasure(dMeasure) {}
 private:
-    double m_dMeasure;
+    int m_iMeasure;     // measure position
+    float m_dMeasure;  // measure length
 };
 
 class TickObject: public TimingObject {
@@ -216,6 +229,9 @@ public:
     bool HasBpmChange();
     bool HasStop();
     bool HasWarp();
+
+    void SetResolution(int iRes);
+    int GetResolution();
 private:
     // @description timing objects per each types
     std::vector<TimingObject *> m_TimingObjs[NUM_TIMINGOBJECT_TYPE];
@@ -239,6 +255,8 @@ private:
     void AddObject(const WarpObject& obj);
     void AddObject(const ScrollObject& obj);
     void AddObject(const MeasureObject& obj);
+    // not should be called directly
+    void AddObject(TimingObject *obj);
     BpmObject* ToBpm(TimingObject* obj);
     StopObject* ToStop(TimingObject* obj);
     WarpObject* ToWarp(TimingObject* obj);

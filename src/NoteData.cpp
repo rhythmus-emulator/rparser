@@ -137,3 +137,18 @@ void NoteData::CopyRange(int rowFromBegin, int rowFromLength, int rowToBegin)
 {
 	return 0;
 }
+
+void NoteData::AddNote(const Note& n)
+{
+    // TODO: check note duplication in case of longnote
+}
+
+std::string const NoteData::toString()
+{
+    return "";
+}
+
+void NoteData::ApplyResolutionRatio(float fRatio)
+{
+    // TODO: apply ratio
+}

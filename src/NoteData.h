@@ -165,6 +165,7 @@ public:
      */
     void RemoveNotes();
     void RemoveNotes(int iStartRow, int iEndRow, bool bInclusive);
+    void AddNote(const Note& n);
     void Clear();
     void ClearRange(int iStartRow, int iEndRow);
     void CopyRange(int rowFromBegin, int rowFromLength, int rowToBegin);
@@ -188,6 +189,7 @@ public:
     NoteData();
     ~NoteData();
     std::string const toString();
+    void ApplyResolutionRatio(float fRatio);
 private:
     std::vector<Track> m_Tracks;
     std::vector<std::pair<int, Note>> m_BGMTrack;

@@ -69,6 +69,16 @@ std::string MeasureObject::toString() {
 	ss << "MeasureObject Row: " << iRow << ", Value: " << m_dMeasure;
 	return ss.str();
 }
+bool MeasureObject::IsPositionSame(const TimingObject &other) const
+{ return GetMeasure() == static_cast<const MeasureObject&>(other).GetMeasure(); }
+bool MeasureObject::operator<( const TimingObject &other ) const;
+{ return GetMeasure() < static_cast<const MeasureObject&>(other).GetMeasure(); }
+bool MeasureObject::operator==( const TimingObject &other ) const;
+{ return GetType() == other.GetType()
+	&& GetMeasure() == static_cast<const MeasureObject&>(other).GetMeasure()
+	&& GetLength() == static_cast<const MeasureObject&>(other).GetLength(); }
+bool MeasureObject::operator!=( const TimingObject &other ) const;
+{ return !operator==(other); }
 
 
 
@@ -408,6 +418,19 @@ void TimingData::DeleteRows(int iStartRow, int iRowsToDelete)
 	}
 }
 
+void TimingData::SetResolution(int iRes)
+{
+	float fRatio = (float)iRes / this->iRes;
+	for (int i=0; i<NUM_TIMINGOBJ_TYPE; i++)
+	{
+		if (i == TYPE_TIMINGOBJ::TYPE_MEASURE) continue;
+		for (auto tobj: GetTimingObjects(i))
+		{
+			tobj->SetRow( tobj->GetRow() * fRatio );
+		}
+	}
+}
+
 // @description
 // MUST be called before we use Sequential objects & midi events.
 // (use after all BPM/STOP/WARP/MEASURE objects are loaded)
@@ -445,11 +468,42 @@ bool TimingData::HasBpmChange() { return !GetTimingObjects(TYPE_TIMINGOBJ::TYPE_
 bool TimingData::HasStop() { return !GetTimingObjects(TYPE_TIMINGOBJ::TYPE_STOP).empty(); }
 bool TimingData::HasWrap() {  { return !GetTimingObjects(TYPE_TIMINGOBJ::TYPE_WARP).empty(); }
 
-void TimingData::AddObject(const BpmObject& obj) { GetTimingObjects(TYPE_TIMINGOBJ::TYPE_BPM).push_back(obj); }
-void TimingData::AddObject(const StopObject& obj) { GetTimingObjects(TYPE_TIMINGOBJ::TYPE_STOP).push_back(obj); }
-void TimingData::AddObject(const WrapObject& obj) { GetTimingObjects(TYPE_TIMINGOBJ::TYPE_WARP).push_back(obj); }
-void TimingData::AddObject(const ScrollObject& obj) { GetTimingObjects(TYPE_TIMINGOBJ::TYPE_SCROLL).push_back(obj); }
-void TimingData::AddObject(const MeasureObject& obj) { GetTimingObjects(TYPE_TIMINGOBJ::TYPE_MEASURE).push_back(obj); }
+void TimingData::AddObject(TimingObject *obj)
+{
+	std::vector<TimingObject*> vObj = GetTimingObjects(obj->GetType());
+	std::vector<TimingObject*>::iterator it;
+	// get object and check its position is same
+	it = lower_bound( vObj.begin(), vObj.end(), obj, tobj_less() );
+	if ((*it)->IsPositionSame(*obj)) {
+		if (**it == *obj) {
+			// don't need to replace same object
+			return;
+		}
+		delete *it;
+		vObj.insert(it, obj);
+		vObj.erase(it);
+	}
+	// if position not same, then insert
+	else {
+		++it;
+		vObj.insert(it, obj);
+	}
+
+	// if type is MEASURE, then row position should be fully calculated again
+	if (obj->GetType() == TYPE_TIMINGOBJ::TYPE_MEASURE)
+	{
+		int measure_pos = 0;
+		double measure_length_sum = 0;
+		for (it = vObj.begin(); it != vObj.end(); ++it)
+		{
+			// first measure section always at zero position,
+			// so we won't need to care about default value.
+			MeasureObject* mObj = ToMeasure(*it);
+			mObj->SetRow(measure_length_sum * iRes);
+			measure_length_sum += mObj->GetLength() * (mObj->GetMeasure() - measure_pos);
+		}
+	}
+}
 
 BpmObject* ToBpm(TimingObject* obj) { return static_cast<BpmObject*>(obj); }
 StopObject* ToStop(TimingObject* obj) { return static_cast<StopObject*>(obj); }

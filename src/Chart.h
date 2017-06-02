@@ -34,11 +34,12 @@ public:
     MetaData* GetMetaData();
     NoteData* GetNoteData();
     TimingData* GetTimingData();
-    void SetFilePath(const std::string& fPath);
+    const ChartMetaData* GetChartSummary() const;  // cannot modify, read-only
     std::string GetFilePath() const;
+    void UpdateChartSummary();
 
     // @description clone myself to another chart
-    Chart* clone();
+    Chart* Clone();
 
     // @description read & write utilities
     int Read(const std::string& path);
@@ -47,16 +48,14 @@ public:
     int Write(std::stream& s);
 
     // @description change resolution for chart globally
-    void ChangeResolution(double newRes);
+    void ChangeResolution(int newRes);
 private:
     MetaData m_Metadata;
     NoteData m_Notedata;
     TimingData m_Timingdata;
 
     // not saved to file, just to store current chart state.
-    std::string sFilePath;
-    std::string sHash;      // updated when save/opened.
-    CHARTTYPE m_charttype;  // chart file type
+    ChartSummaryData m_ChartSummaryData;
 };
 
 
@@ -65,13 +64,16 @@ private:
 /*
  * @description
  * only contains brief chart metadata, which may be useful for visualizing status.
+ * Also these status won't be saved.
  */
-struct ChartMetaData {
+struct ChartSummaryData {
     std::string sFilePath;
     std::string sFormat;
+    std::string sHash;      // MD5
+    CHARTTYPE iFormat;      // chart file type
 
     int iNoteCount;
-    float fLastNoteTime;
+    float fLastNoteTime;    // msec
 
     // @description basc BPM of the song
     int iBPM;
@@ -90,16 +92,8 @@ struct ChartMetaData {
     bool isHellCharge;
     // @description is command exists/processed? (in case of BMS)
     bool isCommand;
-
-    std::string sTitle;
-    std::string sArtist;
-    std::string sGenre;
-    std::string sBannerFile;
-    std::string sBackgroundFile;
-    std::string sStageFile;
-    std::string sMusicFile;
-    std::string sPreviewFile;
     
+    void FillHash(const char* p, int iLen);
     void Fill(const Chart& chart);
 };
 
