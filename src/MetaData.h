@@ -1,5 +1,8 @@
 /*
  * by @lazykuna, MIT License.
+ *
+ * in this file, we don't care about row position or similar thing.
+ * (All placeable objects are located in NoteData.h)
  */
 
 #ifndef RPARSER_METADATA_H
@@ -9,21 +12,13 @@
 
 namespace rparser {
 
-// TODO: for vos format
-struct MidiEvent {
-    int cmd;
-    int value;
-    unsigned long y;
-};
+
 struct SoundChannel {
-    // filename
+    // channelno, filename
     std::map<int, std::string> fn;
-    // midi event, included program(instrument) setting
-    // should be ordered by y.
-    std::vector<MidiEvent> programs;
 };
 
-// TODO: should I support BGA resource type? (BM98 format)
+
 struct BGAHeader {
     std::string fn;
     int sx,sy,sw,sh;
@@ -34,10 +29,17 @@ struct BGAEvent {
     unsigned long y;
 };
 struct BGAChannel {
+    // channelno, bgainfo(filename)
     std::map<int, BGAHeader> bga;
     std::vector<BGAEvent> bga_events;
     std::vector<BGAEvent> layer_events;
     std::vector<BGAEvent> poor_events;
+};
+
+
+// @description depreciated, only for Bms file type.
+struct BPMChannel {
+    std::map<int, int> bpm;
 };
 
 
@@ -62,10 +64,9 @@ class MetaData {
 
     // @description
     // It returns valid Channel object pointer always (without exception)
-    SoundChannel m_SoundChannel;
-    BGAChannel m_BGAChannel;
     SoundChannel* GetSoundChannel() { return &m_SoundChannel; };
     BGAChannel* GetBGAChannel() { return &m_BGAChannel; };
+    BPMChannel* GetBPMChannel() { return &m_BPMChannel; };
 
     // @description
     // general attributes, mainly used in playing
@@ -94,6 +95,9 @@ class MetaData {
     // barlength & notecount is located at TimingData / NoteData.
 
     private:
+    SoundChannel m_SoundChannel;
+    BGAChannel m_BGAChannel;
+    BPMChannel m_BPMChannel;
     // other metadata for some other purpose
     std::map<std::string, std::string> m_sAttributes;
 };

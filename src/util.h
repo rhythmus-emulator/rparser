@@ -61,6 +61,11 @@ std::string GetFilename(const std::string& path);
 std::string GetExtension(const std::string& path);
 bool IsDirectory(const std::string& path);
 
+// @description only change 2 character; 00-ZZ to integer
+int atoi_bms(const char* p);
+// 00-FF
+int atoi_bms16(const char* p);
+
 
 // @description
 // simple library for memory stream, able to integrating with file stream

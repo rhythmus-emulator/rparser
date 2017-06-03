@@ -9,6 +9,12 @@
 
 namespace rparser {
 
+/*
+ * COMMENT:
+ * Some metadata in bms (BPM, STP) wants to be stored as metadata,
+ * rather than storing as note object. should care about that.
+ */
+
 class TimingObject {
 public:
     virtual TYPE_TIMINGOBJ GetType() { return TYPE_TIMINGOBJ::TYPE_INVALID; }

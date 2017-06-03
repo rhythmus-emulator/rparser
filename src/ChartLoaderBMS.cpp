@@ -42,6 +42,21 @@ void ParseLine(const char** p, std::string& name, std::string& value, char sep=0
     }
 }
 
+// @description
+// used tempoarary when parsing/writing Bms file,
+// as Bms note position is based on measure, not row.
+struct BmsNote {
+    int measure;    // measure number
+    int den, num;   // denominator/numerator of current measure
+    int channel;    // channel number
+    int value;      // value of current object
+    int colidx;     // for bgm channel
+    bool operator<( const BmsNote &other ) const
+	{
+		return measure < other.measure;
+	}
+};
+
 /* processes bms expand command. */
 class BMSExpandProc {
 private:
@@ -325,14 +340,6 @@ void ChartLoaderBMS::ReadHeader(const char* p, int iLen)
 {
     const char **pp = *p;
     std::string name, value;
-    // we also check row resolution at here
-    int iRowResolution = DEFAULT_RESOLUTION_SIZE;
-    // don't accept measure size at first, just record it in array first.
-    // (support up to 10000 internally)
-    float measurelen[10000];
-    for (int i=0;i<10000; i++)
-        measurelen[i] = 4.0f;
-    bool warn_at_resolution_change=true;    // just for debugging?
     while (1) {
         if (**pp == 0) break;
         const char *pp_save = *pp;
@@ -397,37 +404,73 @@ void ChartLoaderBMS::ReadHeader(const char* p, int iLen)
                 // append it to TimingData
                 c->GetTimingData()->fBeat0MSecOffset = atof(value.c_str());
             }
-        } else {
-            // record track size first
-            ParseLine(*pp_save, name, value, ':');
-            if (name.empty()) continue;
-            int measure = atoi(name.substr(1, 3).c_str());
-            int channel = atoi(name.substr(4, 2).c_str());
-            if (channel == 2) {
-                // record measure size change
-                measurelen[measure] = atof(value.c_str()) + 0.001;
-            }
         }
     }
+}
 
-    // again, parse BMS file again - to calculate Resolution size
+void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
+{
+    // we also check row resolution at here
+    int iRowResolution = DEFAULT_RESOLUTION_SIZE;
+    // don't accept measure size at first, just record it in array first.
+    // (support up to 10000 internally)
+    float measurelen[10000];
+    for (int i=0;i<10000; i++)
+        measurelen[i] = 1.0f;
+    bool warn_at_resolution_change=true;    // just for debugging?
+    std::vector<BmsNote> vNotes;
+
+
+    // Obtain Bms objects or set measure length
     *pp = *p;
+    std::map<int, int> bgm_channel_idx;
     while (1) {
         if (**pp == 0) break;
         ParseLine(*pp, name, value, ':');
         if (name.empty()) continue;
-        int channel = atoi(name.c_str()+3);   // TODO: exception for wrong value
-        // assume resolution from player notes
-        if (channel > 10 && channel < 30) {
+        int measure = atoi(name.substr(1, 3).c_str());
+        int channel = atoi(name.substr(4, 2).c_str());
+        if (channel == 2) {
+            // record measure size change
+            measurelen[measure] = atof(value.c_str());
+        } else {
+            // just append bmsnote data
+            // in case of bgm data, need to set colidx value
+            BmsNote n;
+            int colidx = 0;
+            if (channel == 1) {
+                colidx = bgm_channel_idx[measure]++;
+            }
             int cur_res = value.size()/2;
-            if (cur_res > MAX_RESOLUTION_SIZE) {
+            for (int i=0; i<cur_res; i++) {
+                n.measure = measure;
+                n.channel = channel;
+                n.den = cur_res;
+                n.num = i;
+                n.value = atoi_bms(value.c_str() + i*2);
+                n.colidx = colidx;
+                vNotes.append(n);
+            }
+        }
+    }
+
+
+    // sort bmsobjects, and calculate resolution
+    std::sort(vNotes);
+    for (auto &n: vNotes)
+    {
+        if (n.channel > 10 && n.channel < 30) {
+            int absoluteRes = int(n.den * measurelen[n.measure] + 0.001);
+            if (absoluteRes > MAX_RESOLUTION_SIZE) {
                 printf("[ReadHeaders] Too big resolution detected - reduced to %d", MAX_RESOLUTION_SIZE);
-                cur_res = MAX_RESOLUTION_SIZE;
-            } 
-            iRowResolution = lcm(cur_res, iRowResolution);
-            if (iRowResolution > MAX_RESOLUTION_SIZE) {
-                printf("[ReadHeaders] Too big resolution detected - reduced to %d", MAX_RESOLUTION_SIZE);
-                iRowResolution = MAX_RESOLUTION_SIZE;
+                absoluteRes = MAX_RESOLUTION_SIZE;
+            }
+            else {
+                iRowResolution = lcm(absoluteRes, iRowResolution);
+                if (iRowResolution > MAX_RESOLUTION_SIZE) {
+                    printf("[ReadHeaders] Too big resolution detected - reduced to %d", MAX_RESOLUTION_SIZE);
+                    iRowResolution = MAX_RESOLUTION_SIZE;
+                }
             }
             if (warn_at_resolution_change && iRowResolution != DEFAULT_RESOLUTION_SIZE) {
                 printf("[ReadHeaders] Resolution changed detected - DEFAULT %d CURRENT %d",
@@ -436,11 +479,10 @@ void ChartLoaderBMS::ReadHeader(const char* p, int iLen)
             }
         }
     }
-
-    // set resolution
     c->SetResolution(iRowResolution);
 
-    // record measure change
+
+    // record measure change (after resolution is set)
     int prev_ml=4, cur_ml=4;
     for (int i=0; i<10000; i++)
     {
@@ -451,25 +493,19 @@ void ChartLoaderBMS::ReadHeader(const char* p, int iLen)
                 );
         }
     }
-}
 
-void ChartLoaderBMS::ReadObjects(const char* p, int iLen, std::vector<Note>& out)
-{
+
     /* 
      * this section we place objects,
      * So row resolution MUST be decided before we enter this section.
-     * Also, vector<Note> object must be sorted.
      */
     TimingData* td = c->GetTimingData();
     NoteData* nd = c->GetNoteData();
 
-    const char **pp = *p;
-    std::string name, value;
-
     // index will be cleared when measure changes
-    int bgm_col_index = 0;
     int measure_prev = -1;
-    while (1) {
+    for (auto &n: vNotes)
+    {
         if (**pp == 0) break;
         ParseLine(*pp, name, value, ':');
         if (name.empty()) continue;
