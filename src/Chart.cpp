@@ -13,3 +13,9 @@ void Chart::ChangeResolution(int newRes)
     m_Timingdata.SetResolution(newRes);
     m_NoteData->ApplyResolutionRatio(fRatio);
 }
+
+void Chart::UpdateTimingData()
+{
+    m_Timingdata.LoadFromMetaData(m_Metadata);
+    m_Timingdata.LoadFromNoteData(m_Notedata);
+}

@@ -49,6 +49,9 @@ public:
 
     // @description change resolution for chart globally
     void ChangeResolution(int newRes);
+    // @description call this function when STOP/BPM metadata or object is changed
+    // Calling this function will clear all Timingdata, so be careful.
+    void UpdateTimingData();
 private:
     MetaData m_Metadata;
     NoteData m_Notedata;

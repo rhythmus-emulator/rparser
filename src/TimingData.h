@@ -9,6 +9,9 @@
 
 namespace rparser {
 
+class NoteData;
+class MetaData;
+
 /*
  * COMMENT:
  * Some metadata in bms (BPM, STP) wants to be stored as metadata,
@@ -238,6 +241,10 @@ public:
 
     void SetResolution(int iRes);
     int GetResolution();
+
+    // @description fill BPM/STOP data in case of bms's object exists
+    void LoadFromNoteData(const NoteData& nd);
+    void LoadFromMetaData(const MetaData& md);
 private:
     // @description timing objects per each types
     std::vector<TimingObject *> m_TimingObjs[NUM_TIMINGOBJECT_TYPE];

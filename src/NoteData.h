@@ -19,15 +19,21 @@ namespace rparser {
 enum NoteType {
     // @description does nothing, maybe going to be removed.
     NOTE_EMPTY,
-    // @description tappable note
+    // @description tappable note (user-interact)
     NOTE_TAP,
     // @description touch note, which has its position
     NOTE_TOUCH,
+    // @description INVISIBLE note (which isn't judged)
+    NOTE_INVISIBLE,
     // @description WAV/BGA/MIDI notes,
     // which are automatically processed in time
-    NOTE_WAV,
+    NOTE_BGM,
     NOTE_BGA,
     NOTE_MIDI,
+    // @description for Bms compatibility
+    NOTE_BPM,
+    // @description for Bms compatibility
+    NOTE_STOP,
 };
 
 enum TapNoteType {
@@ -42,7 +48,6 @@ enum TapNoteType {
     // @description head of tick-charge note, like pump
     TAPNOTE_TCHARGE,
     // @description not sounds, only changes keysound
-    TAPNOTE_INVISIBLE,
     TAPNOTE_MINE,
     TAPNOTE_SHOCK,
     TAPNOTE_AUTOPLAY,
@@ -61,19 +66,23 @@ enum TapNoteType {
  * You may need to process these objects properly to make playable objects.
  */
 struct Note {
-    NoteType ntype;
-    TapNoteType ttype;
+    NoteType nType;
+    TapNoteType tType;
 
-    int iRow;           // @description time position in row.
+    int iRow;           // @description time position in row, only for editing.
     int iValue;         // mostly channel index
     int iDuration;      // row duration (for LN)
 
     float fVolume;
     int iPitch;
 
+    // @description
+    // This information is only for playing
+    // (to reduce loss of incompatible resolution)
+    float fBeat;
     // @description time information (won't be saved)
     // won't be filled until you call FillTimingData()
-    float fTime;
+    float fTime;        // msec
     float fDuration;    // duration of msec
 
     // @description
@@ -120,6 +129,8 @@ public:
     void SearchAllNotes(std::vector<trackiter>& notelist);
     void SearchAllNotes(std::vector<trackiter>& notelist, int iStartRow, int iEndRow, bool bInclusive);
 
+    // @description calculate fBeat from iRow(after editing)
+    void CalculateNoteBeat();
     // @description fill all note's timing data from beat data.
     void FillTimingData(const TimingData& td);
 

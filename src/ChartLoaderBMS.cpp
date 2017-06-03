@@ -404,20 +404,41 @@ void ChartLoaderBMS::ReadHeader(const char* p, int iLen)
                 // append it to TimingData
                 c->GetTimingData()->fBeat0MSecOffset = atof(value.c_str());
             }
+
+            /*
+             * Resource part
+             */
+            #define CHKCMD(s, cmd, len) (stricmp(s.c_str(), cmd, len) == 0)
+            else if (CHKCMD(name,"#bmp",4)) {
+            }
+            else if (CHKCMD(name,"#wav"),4) {
+            }
+            else if (CHKCMD(name,"#exbpm",6) || CHKCMD(name,"#bpm",4)) {
+            }
+            else if (CHKCMD(name,"#stop",5)) {
+                // COMMENT
+                // We don't fill STOP data here,
+                // we call LoadFromMetaData() instead.
+            }
+            else if (CHKCMD(name,"#stp",4)) {
+            }
+            // TODO: WAVCMD, EXWAV
+            // TODO: MIDIFILE
+            #undef CHKCMD
         }
     }
 }
 
 void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
 {
-    // we also check row resolution at here
-    int iRowResolution = DEFAULT_RESOLUTION_SIZE;
+    // clear objects and set resolution here
+    c->SetResolution(DEFAULT_RESOLUTION_SIZE);
+
     // don't accept measure size at first, just record it in array first.
     // (support up to 10000 internally)
     float measurelen[10000];
     for (int i=0;i<10000; i++)
         measurelen[i] = 1.0f;
-    bool warn_at_resolution_change=true;    // just for debugging?
     std::vector<BmsNote> vNotes;
 
 
@@ -453,45 +474,19 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
             }
         }
     }
-
-
-    // sort bmsobjects, and calculate resolution
     std::sort(vNotes);
-    for (auto &n: vNotes)
-    {
-        if (n.channel > 10 && n.channel < 30) {
-            int absoluteRes = int(n.den * measurelen[n.measure] + 0.001);
-            if (absoluteRes > MAX_RESOLUTION_SIZE) {
-                printf("[ReadHeaders] Too big resolution detected - reduced to %d", MAX_RESOLUTION_SIZE);
-                absoluteRes = MAX_RESOLUTION_SIZE;
-            }
-            else {
-                iRowResolution = lcm(absoluteRes, iRowResolution);
-                if (iRowResolution > MAX_RESOLUTION_SIZE) {
-                    printf("[ReadHeaders] Too big resolution detected - reduced to %d", MAX_RESOLUTION_SIZE);
-                    iRowResolution = MAX_RESOLUTION_SIZE;
-                }
-            }
-            if (warn_at_resolution_change && iRowResolution != DEFAULT_RESOLUTION_SIZE) {
-                printf("[ReadHeaders] Resolution changed detected - DEFAULT %d CURRENT %d",
-                    DEFAULT_RESOLUTION_SIZE, iRowResolution);
-                warn_at_resolution_change = false;
-            }
-        }
-    }
-    c->SetResolution(iRowResolution);
 
 
-    // record measure change (after resolution is set)
+    // record measure-length change (after resolution is set)
     int prev_ml=4, cur_ml=4;
     for (int i=0; i<10000; i++)
     {
         cur_ml = measurelen[i];
-        if (prev_ml != cur_ml) {
+        if (prev_ml != cur_ml)
             c->GetTimingData()->AddObject(
                 new MeasureObject(measure, int(atof(value.c_str()) + 0.001))
                 );
-        }
+        prev_ml = cur_ml;
     }
 
 
@@ -504,57 +499,33 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
 
     // index will be cleared when measure changes
     int measure_prev = -1;
-    for (auto &n: vNotes)
+    Note n;
+    for (auto &bn: vNotes)
     {
-        if (**pp == 0) break;
-        ParseLine(*pp, name, value, ':');
-        if (name.empty()) continue;
-        int measure = atoi(name.substr(1, 3).c_str());
-        int channel = atoi(name.substr(4, 2).c_str());
-        int rowstart = td->GetRowStart(measure);
-        int rowsize = td->GetRowSize(measure);
-        int ressize = value.size()/2;
-        // TODO: collect note object first, then append.
-        // COMENT: use adjustedmeasuresize
-        // (TODO: generate new struct for BMS object)
-        // TODO: we store current measure in x/y
-        // TODO: we store current measure in iCombo(temparary)
-
-        // measure change
-        if (measure_prev != measure) {
-            bgm_col_index = 0;
-            measure_prev = measure;
-        }
+        int channel = bn.channel;
         if (channel == 1) {
             // BGM
-            for (int i=0; i<ressize; i++) {
-                int value = atoi(value.substr(i*2, i*2+2).c_str());
-                int row = rowstart + rowsize*i/ressize;
-                if (value) {
-                    Note nBGM;
-                    nBGM.iValue = value;
-                    nBGM.x = bgm_col_index;
-                    nd->AddNote(row, nBGM);
-                }
-            }
-            bgm_col_index++;
+            n.nType = NoteType::NOTE_BGM;
+            n.tType = TapNoteType::TAPNOTE_EMPTY;
+            n.iValue = bn.value;
+            n.x = bn.colidx;
+            nd->AddNote(row, n);
         }
         else if (channel == 3) {
             // BPM change
-            for (int i=0; i<ressize; i++) {
-                int value = atoi(value.substr(i*2, i*2+2).c_str());
-                int row = rowstart + rowsize*i/ressize;
-                if (value) {
-                    float newbpm = td->GetBpmFromChnl;
-                    td->AddObject(new BpmObject(row, newbpm));
-                }
-            }
+            // COMMENT: we don't fill timingdata directly in here,
+            // we call LoadFromNoteData() instead.
+            n.nType = NoteType::NOTE_BPM;
+            n.tType = TapNoteType::TAPNOTE_EMPTY;
+            n.iValue = bn.value;
+            nd->AddNote(row, n);
         }
         else if (channel == 4) {
             // BGA
-            Note nBGA;
-            nBGA.iValue = channel;
-            AutoNote nBGA;
+            n.nType = NoteType::NOTE_BGA;
+            n.tType = TapNoteType::TAPNOTE_EMPTY;
+            n.iValue = bn.value;
+            nd->AddNote(row, n);
         }
         else if (channel == 6) {
             // BGA POOR
@@ -610,28 +581,9 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
             // 2P mine
         }
     }
-}
 
-
-void ChartLoaderBMS::ReadObjects(const char* p, int iLen, std::vector<Note>& out)
-{
-    int trackMeasure=0;
-    int rowSize=measureLength[10000] * c->GetTimingData()->GetResolution();    // current row's rowsize
-    float measureLength[10000];             // use previously made measurelength var
-    int trackRowStart=0;                    // current track's row start position
-    float trackMeasureSum=0;                // measure length sum until current measure
-    for (auto &n: out)
-    {
-        while (trackMeasure < n.measure)
-        {
-            trackMeasureSum += measureLength[trackMeasure];
-            trackMeasure++;
-            // if measure size changes, then record it to TimingData (TODO)
-            rowSize = measureLength[trackMeasure] * c->GetTimingData()->GetResolution();
-            trackRowStart = trackMeasureSum * c->GetTimingData()->GetResolution();
-        }
-        // TODO: record real note object from here.
-    }
+    // now fill timingdata from metadata/notedata.
+    c->UpdateTimingData();
 }
 
 

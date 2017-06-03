@@ -33,8 +33,7 @@ private:
     std::vector<Note> notes;    // parsed note objects
 
     void ReadHeader(const char* p, int iLen);
-    void ReadObjects(const char* p, int iLen, std::vector<Note>& out);
-    void ProcObjects(std::vector<Note>& notes);
+    void ReadObjects(const char* p, int iLen);
 public:
     ChartLoaderBMS(Chart* c, bool procExpansion=true): ChartLoader(c) {};
     bool Test( const char* p, int iLen );
