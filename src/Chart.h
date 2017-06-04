@@ -52,6 +52,9 @@ public:
     // @description call this function when STOP/BPM metadata or object is changed
     // Calling this function will clear all Timingdata, so be careful.
     void UpdateTimingData();
+    // @description call this function when calculate fBeat from iRow
+    // (cf: playing after editing)
+    void UpdateBeatData();
 private:
     MetaData m_Metadata;
     NoteData m_Notedata;

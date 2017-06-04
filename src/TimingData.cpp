@@ -10,6 +10,14 @@ double scale_d(double v, double s1, double e1, double s2, double e2) {
     return v * (e2-s2) / (e1-s1);
 }
 
+struct ts_less : std::binary_function <TimingObject*, TimingObject*, bool>
+{
+	bool operator() (const TimingObject *x, const TimingObject *y) const
+	{
+		return (*x) < (*y);
+	}
+};
+
 /* Objects */
 
 std::string TimingObject::toString() {
@@ -24,16 +32,16 @@ std::string ScrollObject::toString() {
 	return ss.str();
 }
 
-void BpmObject::SetValue(double dBpm) { m_dBpm = Bpm; }
-double BpmObject::GetValue() { return m_dBpm; }
+void BpmObject::SetValue(float dBpm) { m_dBpm = Bpm; }
+float BpmObject::GetValue() { return m_dBpm; }
 std::string BpmObject::toString() {
 	std::stringstream ss;
 	ss << "BpmObject Row: " << iRow << ", Value: " << m_dBpm;
 	return ss.str();
 }
 
-void StopObject::SetValue(double dStopMSec) { m_dStopMSec = dStopMSec; }
-double StopObject::GetValue() { return m_dStopMSec; }
+void StopObject::SetValue(float dStopMSec) { m_dStopMSec = dStopMSec; }
+float StopObject::GetValue() { return m_dStopMSec; }
 void StopObject::SetDelay(bool bDelay) { m_bDelay = bDelay; }
 bool StopObject::GetDelay() { return m_bDelay }
 std::string StopObject::toString() {
@@ -44,13 +52,13 @@ std::string StopObject::toString() {
 
 void WarpObject::SetValue(int iWarpRows) { m_iWarpRows = iWarpRows; }
 int WarpObject::GetValue() { return m_iWarpRows; }
-void WarpObject::SetBpm(float fWarpBpm) { m_fWarpBpm = fWarpBpm; }
-float WarpObject::GetBpm() { return m_fWarpBpm; }
-void WarpObject::SetIsWarpEnds(bool bWarpEnds) { m_bWarpEnds = bWarpEnds; }
-bool WarpObject::GetIsWarpEnds() { return m_bWarpEnds; }
+void WarpObject::SetLength(int iLength) { m_iLength = iLength; }
+int WarpObject::GetLength() { return m_iLength; }
+void WarpObject::SetBeatLength(float fLength) { m_fLength = fLength; }
+float WarpObject::GetBeatLength() { return m_fLength; }
 std::string WarpObject::toString() {
 	std::stringstream ss;
-	ss << "WarpObject Row: " << iRow << ", Value: " << m_dMeasure;
+	ss << "WarpObject Row: " << iRow << ", Value: " << m_dMeasure << ", Length: " << m_iLength;
 	return ss.str();
 }
 
@@ -62,8 +70,10 @@ std::string TickObject::toString() {
 	return ss.str();
 }
 
-void MeasureObject::SetValue(double dMeasure) { m_dMeasure = dMeasure; }
-double MeasureObject::GetValue() { return m_dMeasure; }
+void MeasureObject::SetLength(float fLength) { m_fLength = fLength; }
+float MeasureObject::GetLength() { return m_fLength; }
+void MeasureObject::SetMeasure(int dMeasure) { m_iMeasure = iMeasure; }
+int MeasureObject::GetMeasure() { return m_iMeasure; }
 std::string MeasureObject::toString() {
 	std::stringstream ss;
 	ss << "MeasureObject Row: " << iRow << ", Value: " << m_dMeasure;
@@ -374,16 +384,14 @@ void TimingData::GetBeatMeasureFromRow(unsigned long iNoteRow, unsigned long &iB
     ASSERT("Unexpected error from TimingData::GetBarMeasureFromRow");
 }
 
-int TimingData::GetNextMeasureFromMSec(float timeoffset)
-{
-    return 0;
-}
-
 void TimingData::DeleteRows(int iStartRow, int iRowsToDelete)
 {
 	// iterate each time signatures
 	for (int tst=0; tst<NUM_TIMINGOBJ_TYPE; tst++)
 	{
+		// measure object is iterated by 'measure', so skip here.
+		if (tst == TYPE_TIMINGOBJ::TYPE_MEASURE) continue;
+
 		// Don't delete the indefinite segments that are still in effect
 		// at the end row; rather, shift them so they start there.
 		TimingObject *tsEnd = GetSegmentAtRow(iStartRow + iRowsToDelete, tst);
@@ -397,7 +405,7 @@ void TimingData::DeleteRows(int iStartRow, int iRowsToDelete)
 		}
 
 		// Now delete and shift up
-		vector<TimingObject *> &objs = m_TimingObjs[tst];
+		std::vector<TimingObject *> &objs = m_TimingObjs[tst];
 		for (unsigned j = 0; j < objs.size(); j++)
 		{
 			TimingObject *obj = objs[j];
@@ -418,17 +426,80 @@ void TimingData::DeleteRows(int iStartRow, int iRowsToDelete)
 	}
 }
 
+void TimingData::Clear()
+{
+	for (int tst=0; tst<NUM_TIMINGOBJ_TYPE; tst++)
+	{
+		std::vector<TimingObject *> &objs = m_TimingObjs[tst];
+		for (unsigned j = 0; j < objs.size(); j++)
+		{
+			delete objs[j];
+		}
+		objs.clear();
+	}
+}
+
 void TimingData::SetResolution(int iRes)
 {
 	float fRatio = (float)iRes / this->iRes;
 	for (int i=0; i<NUM_TIMINGOBJ_TYPE; i++)
 	{
-		if (i == TYPE_TIMINGOBJ::TYPE_MEASURE) continue;
+		if (i == TYPE_TIMINGOBJ::TYPE_MEASURE)
+		{
+			// TYPE_MEASURE's Beat value is always correct,
+			// So it's rather better to use that value.
+			tobj->SetRow( tobj->GetBeat() * iRes );
+			continue;
+		}
 		for (auto tobj: GetTimingObjects(i))
 		{
 			tobj->SetRow( tobj->GetRow() * fRatio );
 		}
+		if (i == TYPE_TIMINGOBJ::TYPE_WARP)
+		{
+			WarpObject *wobj = ToWarp(tobj);
+			wobj->SetBeatLength( wobj->GetLength() * fRatio );
+		}
 	}
+}
+
+void TimingData::UpdateBeatData(int iRes)
+{
+	// calculate beat data from iRow
+	for (int i=0; i<NUM_TIMINGOBJ_TYPE; i++)
+	{
+		// MEASURE channel's beat data is always correct, so don't update.
+		if (tst == TYPE_TIMINGOBJ::TYPE_MEASURE) continue;
+
+		for (auto tobj: GetTimingObjects(i))
+		{
+			tobj->SetRow( tobj->GetRow() / (float)iRes );
+		}
+	}
+
+	// also calculate length in case of warp object
+	for (auto tobj: GetTimingObjects(TYPE_TIMINGOBJ::TYPE_WARP))
+	{
+		WarpObject *wobj = ToWarp(tobj);
+		wobj->SetBeatLength( wobj->GetLength() / (float)iRes );
+	}
+}
+
+void TimingData::LoadFromNoteData(const NoteData& nd)
+{
+	// COMMENT:
+	// note's beatdata should be calculated before calling this function.
+
+	// BPM / WARP
+
+	// STOP
+	// TODO
+}
+
+void TimingData::LoadFromMetaData(const MetaData& md)
+{
+	// STOP
+	// TODO
 }
 
 // @description
@@ -438,7 +509,7 @@ void TimingData::SetResolution(int iRes)
 void TimingData::SortObjects(TYPE_TIMINGOBJ type)
 {
     std::vector<TimingObject*> &vobj = GetTimingObjects(type);
-    std::sort(vobj.begin(), vobj.end());
+    std::sort(vobj.begin(), vobj.end(), tobj_less() );
 }
 
 void TimingData::SortAllObjects() {
@@ -485,22 +556,32 @@ void TimingData::AddObject(TimingObject *obj)
 	}
 	// if position not same, then insert
 	else {
+		// in case of warp object, we have to check length.
+		// if length covers new object, then don't create new object.
+		if ((*it)->GetType == TYPE_TIMINGOBJ::TYPE_WARP) {
+			WarpObject* wObj = ToWarp(*it);
+			if (wObj->GetBeat()+wObj->GetLength() >= obj->GetBeat())
+				return;
+		}
 		++it;
 		vObj.insert(it, obj);
 	}
 
 	// if type is MEASURE, then row position should be fully calculated again
+	// to be always validated.
 	if (obj->GetType() == TYPE_TIMINGOBJ::TYPE_MEASURE)
 	{
-		int measure_pos = 0;
-		double measure_length_sum = 0;
-		for (it = vObj.begin(); it != vObj.end(); ++it)
+		int curr_measure = ToMeasure(obj)->GetMeasure();
+		double curr_beat = obj->GetBeat();
+		for (it = vObj.upper_bound(obj); it != vObj.end(); ++it)
 		{
 			// first measure section always at zero position,
 			// so we won't need to care about default value.
 			MeasureObject* mObj = ToMeasure(*it);
-			mObj->SetRow(measure_length_sum * iRes);
-			measure_length_sum += mObj->GetLength() * (mObj->GetMeasure() - measure_pos);
+			curr_beat += mObj->GetLength() * (mObj->GetMeasure() - curr_measure);
+			mObj->SetBeat(curr_beat);
+			mObj->SetRow(curr_beat * iRes);
+			curr_measure = mObj->GetMeasure();
 		}
 	}
 }
@@ -511,5 +592,13 @@ WarpObject* ToWarp(TimingObject* obj) { return static_cast<WarpObject*>(obj); }
 ScrollObject* ToScroll(TimingObject* obj) { return static_cast<ScrollObject*>(obj); }
 MeasureObject* ToMeasure(TimingObject* obj) { return static_cast<MeasureObject*>(obj); }
 
+TimingData::TimingData()
+{
+}
+
+TimingData::~TimingData()
+{
+	Clear();
+}
 
 }

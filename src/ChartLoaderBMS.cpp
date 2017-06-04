@@ -331,6 +331,10 @@ bool ChartLoaderBMS::Load( const char* p, int iLen )
     // fill hash file
     m_ChartSummaryData.FillHash(p, iLen);
 
+    // we don't call EvaluateBeat in here,
+    // as fBeat is automatically calculated 
+    // while reading objects. (in good resolution)
+
     return true;
 }
 
@@ -497,19 +501,28 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
     TimingData* td = c->GetTimingData();
     NoteData* nd = c->GetNoteData();
 
-    // index will be cleared when measure changes
-    int measure_prev = -1;
+    // measure position will be summarized
+    int measure_prev = 0;
+    double measure_len_sum = 0;
     Note n;
     for (auto &bn: vNotes)
     {
+        while (bn.measure > measure_prev)
+        {
+            measure_prev++;
+            measure_len_sum += measurelen(measure_prev);
+        }
+        n.iValue = bn.value;
+        n.iRow = measure_len_sum * td->GetResolution() + td->GetResolution() * n.num / n.den;
+        n.fBeat = measure_len_sum + n.num / (float)n.den;
+        n.nType = NoteType::NOTE_EMPTY;
+        n.iValue = bn.value;
         int channel = bn.channel;
         if (channel == 1) {
             // BGM
             n.nType = NoteType::NOTE_BGM;
             n.tType = TapNoteType::TAPNOTE_EMPTY;
-            n.iValue = bn.value;
             n.x = bn.colidx;
-            nd->AddNote(row, n);
         }
         else if (channel == 3) {
             // BPM change
@@ -517,15 +530,11 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
             // we call LoadFromNoteData() instead.
             n.nType = NoteType::NOTE_BPM;
             n.tType = TapNoteType::TAPNOTE_EMPTY;
-            n.iValue = bn.value;
-            nd->AddNote(row, n);
         }
         else if (channel == 4) {
             // BGA
             n.nType = NoteType::NOTE_BGA;
             n.tType = TapNoteType::TAPNOTE_EMPTY;
-            n.iValue = bn.value;
-            nd->AddNote(row, n);
         }
         else if (channel == 6) {
             // BGA POOR
@@ -580,6 +589,9 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
         else if (channel >= 0xE1 && channel <= 0xE9) {
             // 2P mine
         }
+
+        if (n.ntype != NoteType::NOTE_EMPTY) 
+            nd->AddNote(n);
     }
 
     // now fill timingdata from metadata/notedata.

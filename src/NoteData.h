@@ -69,13 +69,13 @@ struct Note {
     NoteType nType;
     TapNoteType tType;
 
-    int iRow;           // @description time position in row, only for editing.
-    int iValue;         // mostly channel index
-    int iDuration;      // row duration (for LN)
+    int iValue;         // command value
 
     float fVolume;
     int iPitch;
 
+    int iRow;           // @description time position in row, only for editing.
+    int iDuration;      // row duration (for LN)
     // @description
     // This information is only for playing
     // (to reduce loss of incompatible resolution)
@@ -86,9 +86,9 @@ struct Note {
     float fDuration;    // duration of msec
 
     // @description
-    // does nothing in BMS gamemode, but means col number in BGM channel.
+    // BMS: x means track number in TapNote, col number in BGM.
     // x / y means position in touch based gamemode.
-    // x / y means command/value MIDI channel.
+    // x track / y means command in MIDI file format.
     int x,y;
 
     // @description combo per note (generally 1)
@@ -159,7 +159,7 @@ public:
      */
     void RemoveNotes();
     void RemoveNotes(int iStartRow, int iEndRow, bool bInclusive);
-    void AddNote(const Note& n);
+    void AddNote(const Note& n, bool checkTrackDuplication=true);
     void Clear();
     void ClearRange(int iStartRow, int iEndRow);
     void CopyRange(int rowFromBegin, int rowFromLength, int rowToBegin);
@@ -184,6 +184,7 @@ public:
     ~NoteData();
     std::string const toString();
     void ApplyResolutionRatio(float fRatio);
+    void UpdateBeatData(int iRes);
 private:
     // @description All Objects are placed in here.
     // sorted in Row->x->y

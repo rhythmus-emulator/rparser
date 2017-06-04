@@ -19,3 +19,9 @@ void Chart::UpdateTimingData()
     m_Timingdata.LoadFromMetaData(m_Metadata);
     m_Timingdata.LoadFromNoteData(m_Notedata);
 }
+
+void Chart::UpdateBeatData()
+{
+    m_Notedata.UpdateBeatData(m_Timingdata.GetResolution());
+    m_Timingdata.UpdateBeatData(m_Timingdata.GetResolution());
+}

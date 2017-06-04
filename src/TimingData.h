@@ -18,26 +18,32 @@ class MetaData;
  * rather than storing as note object. should care about that.
  */
 
+// COMMENT
+// fBeat value can be evaluated from iRow, reverse is not suggested.
+// fBeat value only can be set directly when file loading.
+
 class TimingObject {
 public:
     virtual TYPE_TIMINGOBJ GetType() { return TYPE_TIMINGOBJ::TYPE_INVALID; }
     virtual std::string toString();
     int GetRow const { return m_iRow; }
     int SetRow(int iRow) { m_iRow = iRow; }
+    int GetBeat const { return m_fBeat; }
+    int SetBeat(int fBeat) { m_fBeat = fBeat; }
     virtual bool IsPositionSame(const TimingObject &other) const
     {
-        return GetRow() == other.GetRow();
+        return GetBeat() == other.GetBeat();
     }
 
     virtual bool operator<( const TimingObject &other ) const
 	{
-		return GetRow() < other.GetRow();
+		return GetBeat() < other.GetBeat();
 	}
 	// overloads should not call this base version; derived classes
 	// should only compare contents, and this compares position.
 	virtual bool operator==( const TimingObject &other ) const
 	{
-		return GetRow() == other.GetRow();
+		return GetBeat() == other.GetBeat();
 	}
 
 	virtual bool operator!=( const TimingObject &other ) const
@@ -45,9 +51,10 @@ public:
 		return !this->operator==(other);
 	}
 
-    TimingObject(int iRow) : m_iRow(iRow) {}
+    TimingObject(int iRow, float fBeat) : m_iRow(iRow), m_fBeat(fBeat) {}
 private:
-    int m_iRow;
+    int m_iRow;     // for editing
+    float m_fBeat;  // for playing (to prevent timing mismatch caused by resolution)
 };
 
 class BpmObject: public TimingObject {
@@ -55,13 +62,13 @@ public:
     TYPE_TIMINGOBJ GetType() { return TYPE_TIMINGOBJ::TYPE_BPM; }
     std::string toString();
 
-    void SetValue(double dBpm);
-    double GetValue();
+    void SetValue(float dBpm);
+    float GetValue();
 
-    BpmObject(int iRow, double dBpm)
-        : TimingObject(iRow), m_dBpm(dBpm) {}
+    BpmObject(int iRow, float fBeat, float dBpm)
+        : TimingObject(iRow, fBeat), m_dBpm(dBpm) {}
 private:
-    double m_dBpm;
+    float m_dBpm;
 };
 
 class StopObject: public TimingObject {
@@ -69,15 +76,15 @@ public:
     TYPE_TIMINGOBJ GetType() { return TYPE_TIMINGOBJ::TYPE_STOP; }
     std::string toString();
 
-    void SetValue(double dStopMSec);
-    double GetValue();
+    void SetValue(float dStopMSec);
+    float GetValue();
     void SetDelay(bool bDelay);
     bool GetDelay();
 
-    StopObject(int iRow, double dStopMSec)
-        : TimingObject(iRow), m_dStopMSec(dStopMSec), m_bDelay(false) {}
+    StopObject(int iRow, float fBeat, float dStopMSec)
+        : TimingObject(iRow, fBeat), m_dStopMSec(dStopMSec), m_bDelay(false) {}
 private:
-    double m_dStopMSec;
+    float m_dStopMSec;
     // @description check is current style is delay.
     // if it is, then pump-style STOP judgement accepted
     //   (timing at the end of the STOP)
@@ -90,21 +97,18 @@ public:
     TYPE_TIMINGOBJ GetType() { return TYPE_TIMINGOBJ::TYPE_WARP; }
     std::string toString();
 
-    void SetValue(int iWarpRows);
+    void SetValue(int iWarpLength);
     int GetValue();
-    void SetBpm(float fWarpBpm);
-    float GetBpm();
-    void SetIsWarpEnds(bool bWarpEnds);
-    bool GetIsWarpEnds();
+    void SetLength(int iLength);
+    int GetLength();
+    void SetBeatLength(float fLength);
+    float GetBeatLength();
 
-    WarpObject(int iRow, int iWarpRows, bool bWarpEnds=false)
-        : TimingObject(iRow), m_iWarpRows(iWarpRows), m_bWarpEnds(bWarpEnds) {}
+    WarpObject(int iRow, float fBeat, int iWarpRows, bool bWarpEnds=false)
+        : TimingObject(iRow, fBeat), m_iWarpRows(iWarpRows), m_bWarpEnds(bWarpEnds) {}
 private:
-    int m_iWarpRows;
-    bool m_bWarpEnds;
-    // @description used in format that unsupporting WARP object
-    // (ex: BMS)
-    float m_fWarpBpm;
+    int m_iLength;      // warp length in row
+    float m_fLength;    // warp length in beat
 };
 
 // TODO: currently unusable
@@ -112,8 +116,8 @@ class ScrollObject: public TimingObject {
 public:
     TYPE_TIMINGOBJ GetType() { return TYPE_TIMINGOBJ::TYPE_SCROLL; }
     std::string toString();
-    ScrollObject(int iRow)
-        : TimingObject(iRow) {}
+    ScrollObject(int iRow, float fBeat)
+        : TimingObject(iRow, fBeat) {}
 private:
 };
 
@@ -124,7 +128,7 @@ public:
     TYPE_TIMINGOBJ GetType() { return TYPE_TIMINGOBJ::TYPE_MEASURE; }
     std::string toString();
 
-    void SetLength(float dMeasure=1.0);
+    void SetLength(float fLength=1.0);
     float GetLength();
     void SetMeasure(int iMeasure);
     float GetMeasure();
@@ -135,10 +139,10 @@ public:
 	bool operator!=( const TimingObject &other ) const;
 
     MeasureObject(int iMeasure, float dMeasure=1.0)
-        : TimingObject(0),  m_dMeasure(dMeasure) {}
+        : TimingObject(0, 0),  m_dMeasure(dMeasure) {}
 private:
-    int m_iMeasure;     // measure position
-    float m_dMeasure;  // measure length
+    int m_iMeasure;         // measure number
+    float m_fLength;        // measure length (in beat)
 };
 
 class TickObject: public TimingObject {
@@ -150,8 +154,8 @@ public:
     unsigned long GetValue();
     void SetValue(unsigned long iTick=4);
 
-    TickObject(int iRow, unsigned long iTick=4)
-        : TimingObject(iRow), m_iTick(iTick) {}
+    TickObject(int iRow, float fBeat, unsigned long iTick=4)
+        : TimingObject(iRow, fBeat), m_iTick(iTick) {}
     
 private:
     // @description tick per beat
@@ -210,20 +214,20 @@ public:
     void GetBpm();
 
     // measure related
-    void SetBarLengthAtRow(int row, float length=4.0f);
-    float GetBarLengthAtRow(int row);
+    void SetMeasureLengthAtBeat(float fBeat, float length=4.0f);
+    float GetMeasureLengthAtBeat(float fBeat);
     float GetBarBeat(int barnumber);
+    void GetBeatMeasureFromRow(unsigned long row, unsigned long &beatidx, unsigned long &beat);
 
     // functions using lookup objects
     void PrepareLookup();
     LookupObject* const FindLookupObject(std::vector<float, LookupObject*> const& sorted_objs, float v);
     float LookupBeatFromMSec(float msec);
     float LookupMSecFromBeat(float beat);
-    void GetBeatMeasureFromRow(unsigned long row, unsigned long &beatidx, unsigned long &beat);
-    int GetNextMeasureFromMSec(float msec);
 
     // functions related in editing
     void DeleteRows(int iStartRow, int iRowsToDelete);
+    void Clear();
 
     // @description
     // Sort objs
@@ -245,6 +249,10 @@ public:
     // @description fill BPM/STOP data in case of bms's object exists
     void LoadFromNoteData(const NoteData& nd);
     void LoadFromMetaData(const MetaData& md);
+    void UpdateBeatData(int iRes);
+
+    TimingData();
+    ~TimingData();
 private:
     // @description timing objects per each types
     std::vector<TimingObject *> m_TimingObjs[NUM_TIMINGOBJECT_TYPE];
@@ -268,7 +276,8 @@ private:
     void AddObject(const WarpObject& obj);
     void AddObject(const ScrollObject& obj);
     void AddObject(const MeasureObject& obj);
-    // not should be called directly
+    // @description
+    // automatically add/modify/sort object.
     void AddObject(TimingObject *obj);
     BpmObject* ToBpm(TimingObject* obj);
     StopObject* ToStop(TimingObject* obj);
