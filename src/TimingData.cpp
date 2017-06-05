@@ -213,8 +213,8 @@ void TimingData::PrepareLookup()
     // Place an initial bpm segment (dummy object)
     float first_bps= ToBPM(bpms[0])->GetBPS();
     LookupObject next_line = {
-        -first_bps, -m_fBeat0OffsetInSeconds-1.f,
-        0.f, -m_fBeat0OffsetInSeconds,
+        -first_bps, -m_fBeat0MSecOffset-1.f,
+        0.f, -m_fBeat0MSecOffset,
         first_bps};
     
     // second per beat / beat per second
@@ -484,7 +484,7 @@ void TimingData::Clear()
 
 void TimingData::SetResolution(int iRes)
 {
-    float fRatio = (float)iRes / this->iRes;
+    float fRatio = (float)iRes / m_iRes;
     for (int i=0; i<NUM_TIMINGOBJ_TYPE; i++)
     {
         if (i == TYPE_TIMINGOBJ::TYPE_MEASURE)
@@ -497,13 +497,14 @@ void TimingData::SetResolution(int iRes)
         for (auto tobj: GetTimingObjects(i))
         {
             tobj->SetRow( tobj->GetRow() * fRatio );
-        }
-        if (i == TYPE_TIMINGOBJ::TYPE_WARP)
-        {
-            WarpObject *wobj = ToWarp(tobj);
-            wobj->SetBeatLength( wobj->GetLength() * fRatio );
+			if (i == TYPE_TIMINGOBJ::TYPE_WARP)
+			{
+				WarpObject *wobj = ToWarp(tobj);
+				wobj->SetBeatLength( wobj->GetLength() * fRatio );
+			}
         }
     }
+	m_iRes = iRes;
 }
 
 void TimingData::UpdateBeatData(int iRes)
@@ -639,6 +640,7 @@ MeasureObject* ToMeasure(TimingObject* obj) { return static_cast<MeasureObject*>
 
 TimingData::TimingData()
 {
+	m_iRes = DEFAULT_RESOLUTION_SIZE;
 }
 
 TimingData::~TimingData()

@@ -11,7 +11,7 @@ void Chart::ChangeResolution(int newRes)
 {
     float fRatio = (float)newRes / m_Timingdata.GetResolution();
     m_Timingdata.SetResolution(newRes);
-    m_NoteData->ApplyResolutionRatio(fRatio);
+    m_NoteData.SetResolution(newRes);
 }
 
 void Chart::UpdateTimingData()

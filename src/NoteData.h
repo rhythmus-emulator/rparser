@@ -183,12 +183,18 @@ public:
     NoteData();
     ~NoteData();
     std::string const toString();
-    void ApplyResolutionRatio(float fRatio);
-    void UpdateBeatData(int iRes);
+    
+    // don't call these methods directly; use it from Chart.h
+    void SetResolution(int iRes);
+    void UpdateBeatData();
 private:
     // @description All Objects are placed in here.
     // sorted in Row->x->y
     Track m_Track;
+    // @description
+    // Resolution of NoteData's Row position
+    // Should have same value with Timingdata.
+    int m_iRes;
 };
 
 }

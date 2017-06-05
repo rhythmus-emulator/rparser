@@ -338,8 +338,6 @@ bool ChartLoaderBMS::Load( const char* p, int iLen )
     return true;
 }
 
-#define MAX_RESOLUTION_SIZE 1024
-#define DEFAULT_RESOLUTION_SIZE 192
 void ChartLoaderBMS::ReadHeader(const char* p, int iLen)
 {
     const char **pp = *p;

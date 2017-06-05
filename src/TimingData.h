@@ -245,13 +245,14 @@ public:
     bool HasStop();
     bool HasWarp();
 
+    // don't call these methods directly
     void SetResolution(int iRes);
     int GetResolution();
+    void UpdateBeatData();
 
     // @description fill BPM/STOP data in case of bms's object exists
     void LoadFromNoteData(const NoteData& nd);
     void LoadFromMetaData(const MetaData& md);
-    void UpdateBeatData(int iRes);
 
     TimingData();
     ~TimingData();
@@ -267,10 +268,10 @@ private:
     std::map<float, LookupObject*> m_lobjs_beat_sorted;
     // @description
     // bar resolution of current song
-    int iRes;
+    int m_iRes;
     // @description
     // start timing of the song
-    float fBeat0MSecOffset;
+    float m_fBeat0MSecOffset;
 
     // utility functions
     void AddObject(const BpmObject& obj);

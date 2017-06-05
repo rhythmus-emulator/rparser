@@ -5,6 +5,8 @@
 #ifndef RPARSER_UTIL_H
 #define RPARSER_UTIL_H
 
+#define DEFAULT_RESOLUTION_SIZE 192
+
 #include <stdio.h>
 #include <string>
 

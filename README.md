@@ -18,7 +18,8 @@ MIT License.
 
 ### Concept
 - Objects are separated in two: Timing-based object and placable objects(notes).
-  * To calculate placeable objects' timing, Timing-based object must be Lookup-ed.
+  * Conversion rule: Row <-> Beat <-> Time
+  * To calculate object's timing, beat position must be calculated, and Timing-based object must be Lookup-ed.
 - Object position is described in two ways: Beat and Row
   * Row is resolution-based position, which is used while editing.
   * Beat is floating value position, which is used while playing.

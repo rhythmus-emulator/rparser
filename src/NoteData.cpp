@@ -1,4 +1,5 @@
 #include "NoteData.h"
+#include "util.h"
 #include <algorithm>
 
 void NoteData::SearchAllNotes(std::vector<trackiter>& notelist);
@@ -11,7 +12,7 @@ void FillNoteTimingData(std::vector<Note>& vNotes, const TimingData& td)
     Note* curr_note;
     for(int i=0; i<vNotes.size(); ++i)
     {
-        curr_row = vNotes[i].row;
+        curr_beat = vNotes[i].fBeat;
         curr_note = vNotes[i].n;
         // time calculation for current row
         if(curr_note.fBeat != curr_beat)
@@ -145,16 +146,33 @@ std::string const NoteData::toString()
     return "";
 }
 
-void NoteData::ApplyResolutionRatio(float fRatio)
+void NoteData::SetResolution(int iRes)
 {
-    // TODO: apply ratio
+    float fRatio = (float)iRes / m_iRes;
+        for (auto n: m_Track)
+        {
+            n.iRow *= fRatio;
+            n.iDuration *= fRatio;
+        }
+    }
+    m_iRes = iRes;
 }
 
-void NoteData::UpdateBeatData(int iRes)
+void NoteData::UpdateBeatData()
 {
     // calculate note's beat data from resolution
     for (auto &n: m_Track)
     {
-        n.fBeat = n.iRow / (float)iRes;
+        n.fBeat = n.iRow / (float)m_iRes;
     }
+}
+
+NoteData::NoteData()
+{
+	m_iRes = DEFAULT_RESOLUTION_SIZE;
+}
+
+NoteData::~NoteData()
+{
+
 }
