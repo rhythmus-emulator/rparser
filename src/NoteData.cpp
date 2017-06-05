@@ -6,49 +6,49 @@ void NoteData::SearchAllNotes(std::vector<trackiter>& notelist, int iStartRow, i
 
 void FillNoteTimingData(std::vector<Note>& vNotes, const TimingData& td)
 {
-	float curr_beat= -1;
-	double curr_row_second= -1.0;
-	Note* curr_note;
-	for(int i=0; i<vNotes.size(); ++i)
-	{
-		curr_row = vNotes[i].row;
-		curr_note = vNotes[i].n;
-		// time calculation for current row
-		if(curr_note.fBeat != curr_beat)
-		{
-			curr_beat= curr_note.fBeat();
-			curr_row_second= timing_data->GetElapsedTimeFromBeat(curr_beat);
-			++curr_row_id;
-		}
-		if(curr_note->nType != NoteType::NOTE_EMPTY)
-		{
-			curr_note->occurs_at_second= curr_row_second;
-			curr_note->id_in_chart= static_cast<float>(curr_note_id);
-			// in case of hold note, calculate end time too
-			if(curr_note->type == TapNoteType::TAPNOTE_CHARGE || 
+    float curr_beat= -1;
+    double curr_row_second= -1.0;
+    Note* curr_note;
+    for(int i=0; i<vNotes.size(); ++i)
+    {
+        curr_row = vNotes[i].row;
+        curr_note = vNotes[i].n;
+        // time calculation for current row
+        if(curr_note.fBeat != curr_beat)
+        {
+            curr_beat= curr_note.fBeat();
+            curr_row_second= timing_data->GetElapsedTimeFromBeat(curr_beat);
+            ++curr_row_id;
+        }
+        if(curr_note->nType != NoteType::NOTE_EMPTY)
+        {
+            curr_note->occurs_at_second= curr_row_second;
+            curr_note->id_in_chart= static_cast<float>(curr_note_id);
+            // in case of hold note, calculate end time too
+            if(curr_note->type == TapNoteType::TAPNOTE_CHARGE || 
                curr_note->type == TapNoteType::TAPNOTE_HCHARGE || 
                curr_note->type == TapNoteType::TAPNOTE_TCHARGE)
-			{
-				curr_note->end_second= timing_data->GetElapsedTimeFromBeat(NoteRowToBeat(curr_row + curr_note->iDuration));
-			}
-		}
-	}
+            {
+                curr_note->end_second= timing_data->GetElapsedTimeFromBeat(NoteRowToBeat(curr_row + curr_note->iDuration));
+            }
+        }
+    }
 }
 // @description
 // fill all note's timing data from row(beat) data.
 // MUST have correct beatdata first to get correct timing.
 void NoteData::FillTimingData(const TimingData& td)
 {
-	// prepare lookup
+    // prepare lookup
     td.PrepareLookup();
 
-	std::vector<Note>& vNotes = m_Track;
+    std::vector<Note>& vNotes = m_Track;
     
-	// now lets track all note for time calculation
+    // now lets track all note for time calculation
     FillNoteTimingData(m_Track, td);
 
     // finish? TODO: make internal counter
-	td->ReleaseLookup();
+    td->ReleaseLookup();
 }
 
 
@@ -128,7 +128,7 @@ bool NoteData::IsEmpty()
 
 void NoteData::CopyRange(int rowFromBegin, int rowFromLength, int rowToBegin)
 {
-	return 0;
+    return 0;
 }
 
 void NoteData::AddNote(const Note& n, bool checkTrackDuplication)

@@ -32,24 +32,24 @@ public:
     int SetBeat(int fBeat) { m_fBeat = fBeat; }
     virtual bool IsPositionSame(const TimingObject &other) const
     {
-        return GetBeat() == other.GetBeat();
+        return GetRow() == other.GetRow();
     }
 
     virtual bool operator<( const TimingObject &other ) const
-	{
-		return GetBeat() < other.GetBeat();
-	}
-	// overloads should not call this base version; derived classes
-	// should only compare contents, and this compares position.
-	virtual bool operator==( const TimingObject &other ) const
-	{
-		return GetBeat() == other.GetBeat();
-	}
+    {
+        return GetRow() < other.GetRow();
+    }
+    // overloads should not call this base version; derived classes
+    // should only compare contents, and this compares position.
+    virtual bool operator==( const TimingObject &other ) const
+    {
+        return GetRow() == other.GetRow();
+    }
 
-	virtual bool operator!=( const TimingObject &other ) const
-	{
-		return !this->operator==(other);
-	}
+    virtual bool operator!=( const TimingObject &other ) const
+    {
+        return !this->operator==(other);
+    }
 
     TimingObject(int iRow, float fBeat) : m_iRow(iRow), m_fBeat(fBeat) {}
 private:
@@ -135,8 +135,8 @@ public:
 
     bool IsPositionSame(const TimingObject &other) const;
     bool operator<( const TimingObject &other ) const;
-	bool operator==( const TimingObject &other ) const;
-	bool operator!=( const TimingObject &other ) const;
+    bool operator==( const TimingObject &other ) const;
+    bool operator!=( const TimingObject &other ) const;
 
     MeasureObject(int iMeasure, float dMeasure=1.0)
         : TimingObject(0, 0),  m_dMeasure(dMeasure) {}
@@ -206,20 +206,22 @@ class TimingData {
 public:
     TimingData();
 
-    BpmObject* GetNextBpmObject(int iStartRow);
-    StopObject* GetNextStopObject(int iStartRow);
-    WarpObject* GetNextWarpObject(int iStartRow);
-    MeasureObject* GetNextMeasureObject(int iStartRow);
-    TimingObject* GetObjectAtRow(int iRow, TYPE_TIMINGOBJ iType);
-    void GetBpm();
-
     // measure related
     void SetMeasureLengthAtBeat(float fBeat, float length=4.0f);
     float GetMeasureLengthAtBeat(float fBeat);
     float GetBarBeat(int barnumber);
     void GetBeatMeasureFromRow(unsigned long row, unsigned long &beatidx, unsigned long &beat);
 
-    // functions using lookup objects
+    // search without lookup
+    BpmObject* GetNextBpmObject(int iStartRow);
+    StopObject* GetNextStopObject(int iStartRow);
+    WarpObject* GetNextWarpObject(int iStartRow);
+    MeasureObject* GetNextMeasureObject(int iStartRow);
+    TimingObject* GetObjectAtRow(TYPE_TIMINGOBJ iType, int iRow);
+    int GetObjectIndexAtRow( TYPE_TIMINGOBJ iType, int iRow );
+    int GetBpm();
+
+    // search using lookup objects
     void PrepareLookup();
     LookupObject* const FindLookupObject(std::vector<float, LookupObject*> const& sorted_objs, float v);
     float LookupBeatFromMSec(float msec);
