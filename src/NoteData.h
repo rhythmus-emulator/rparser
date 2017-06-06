@@ -34,6 +34,8 @@ enum NoteType {
     NOTE_BPM,
     // @description for Bms compatibility
     NOTE_STOP,
+    // @description take-a-rest, for osu!
+    NOTE_FREE,
 };
 
 enum TapNoteType {
@@ -159,7 +161,7 @@ public:
      */
     void RemoveNotes();
     void RemoveNotes(int iStartRow, int iEndRow, bool bInclusive);
-    void AddNote(const Note& n, bool checkTrackDuplication=true);
+    void AddNote(const Note& n, bool checkTrackDuplication=false);
     void Clear();
     void ClearRange(int iStartRow, int iEndRow);
     void CopyRange(int rowFromBegin, int rowFromLength, int rowToBegin);
@@ -183,7 +185,7 @@ public:
     NoteData();
     ~NoteData();
     std::string const toString();
-    
+
     // don't call these methods directly; use it from Chart.h
     void SetResolution(int iRes);
     void UpdateBeatData();

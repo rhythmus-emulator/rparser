@@ -529,21 +529,62 @@ void TimingData::UpdateBeatData(int iRes)
     }
 }
 
-void TimingData::LoadFromNoteData(const NoteData& nd)
+void TimingData::LoadBpmStopObject(const NoteData& nd, const MetaData& md)
 {
-    // COMMENT:
-    // note's beatdata should be calculated before calling this function.
+    // note's row/beat position should be filled before calling this function.
+	// start of the warp
+	bool is_warping=false;
+	float warp_fBeat=0;
+	int warp_iRow=0;
+	for (auto it=nd.begin(); it != nd.end(); ++it)
+	{
+		// BPM / WARP
+		if (it->nType == NoteType::NOTE_BPM)
+		{
+			if (it->iValue > 999999)
+			{
+				// prepare warp-starting
+				warp_iRow = it->iRow;
+				warp_fBeat = it->fBeat;
+				is_warping = true;
+				continue;
+			}
+			if (is_warping)
+			{
+				// append new warp object
+				int iDuration = it->iRow - warp_iRow;
+				float fDuration = it->fBeat - warp_fBeat;
+				AddObject(new WarpObject(warp_iRow, warp_fBeat, iDuration, fDuration));
+				is_warping = false;
+				continue;
+			}
+			// from here it's general BPM object ...
+			float fBpm;
+			if (!md.GetBPMChannel()->GetBpm(it->iValue, fBpm))
+			{
+				printf("[BpmObject] Value %d is not on channel value(invalid), ignored" % it->iValue);
+				continue;
+			}
+			AddObject(new BpmObject(it->iRow, it->fBeat, fBpm));
+		}
+		// STOP
+		else if (it->nType == NoteType::NOTE_STOP)
+		{
+			float fStop;
+			if (!md.GetSTOPChannel()->GetStop(it->iValue, fStop))
+			{
+				printf("[StopObject] Value %d is not on channel value(invalid), ignored" % it->iValue);
+				continue;
+			}
+			AddObject(new StopObject(it->iRow, it->fBeat, fStop));
+		}
+	}
 
-    // BPM / WARP
-
-    // STOP
-    // TODO
-}
-
-void TimingData::LoadFromMetaData(const MetaData& md)
-{
-    // STOP
-    // TODO
+    // STOP from metadata
+	for (auto it=md.GetSTPChannel()->begin(); it != md.GetSTPChannel()->end(); ++it)
+	{
+		//
+	}
 }
 
 // @description

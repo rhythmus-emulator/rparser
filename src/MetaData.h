@@ -40,6 +40,7 @@ struct BGAChannel {
 // @description depreciated, only for Bms file type.
 struct BPMChannel {
     std::map<int, int> bpm;
+    bool GetBpm(int channel, float &out);
 };
 
 

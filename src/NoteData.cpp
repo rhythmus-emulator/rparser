@@ -134,11 +134,55 @@ void NoteData::CopyRange(int rowFromBegin, int rowFromLength, int rowToBegin)
 
 void NoteData::AddNote(const Note& n, bool checkTrackDuplication)
 {
-    // TODO: check note duplication (longnote / normalnote)
     // COMMENT: note duplication won't be checked when loading file.
     // COMMENT: checkTrackDuplication does these work -
     // - if LN, then remove all iRow object in iDuration in same x.
     // - if TapNote/BGM, then check iRow/x/y.
+
+    // search is same type of note exists in same row
+    int idx = vNotes.begin() - vNotes.lower_bound(n);
+    if (checkTrackDuplication)
+    {
+        // if found note occupies same type & row & position, then erase it.
+        while (idx < vNotes.size() && vNotes[idx].iRow == n.iRow)
+        {
+            if (vNotes[idx].x == n.x &&
+                vNotes[idx].y == n.y &&
+                it->nType == n.nType && it->iRow == n.iRow)
+            {
+                vNotes.erase(vNotes.begin()+idx);
+            }
+            else
+            {
+                idx ++;
+            }
+        }
+        if (it != vNotes.end() && it->nType == n.nType && it->iRow == n.iRow)
+            vNotes.erase(it);
+        // iterate from here to first to check LN
+        int idx_copy = idx;
+        while (idx_copy => 0)
+        {
+            if (vNotes[idx_copy].tType == TapNoteType::TAPNOTE_CHARGE ||
+                vNotes[idx_copy].tType == TapNoteType::TAPNOTE_HCHARGE ||
+                vNotes[idx_copy].tType == TapNoteType::TAPNOTE_TCHARGE ||
+                vNotes[idx_copy].tType == TapNoteType::TAPNOTE_FREE)
+                {
+                    // check for range for ranged-note
+                    // (assume only 1 longnote can be overlapped,
+                    //  to prevent performance decreasing by all-range-search)
+                    if (vNotes[idx_copy].x == n.x &&
+                        vNotes[idx_copy].y == n.y &&
+                        vNotes[idx_copy].iRow+vNotes[idx_copy].iDuration > n.iRow)
+                    {
+                        vNotes.erase(vNotes.begin()+idx_copy);
+                        break;
+                    }
+                }
+            --idx_copy;
+        }
+    }
+    vNotes.insert(vNotes.begin()+idx, n);
 }
 
 std::string const NoteData::toString()

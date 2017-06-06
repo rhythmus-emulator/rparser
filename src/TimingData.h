@@ -251,8 +251,7 @@ public:
     void UpdateBeatData();
 
     // @description fill BPM/STOP data in case of bms's object exists
-    void LoadFromNoteData(const NoteData& nd);
-    void LoadFromMetaData(const MetaData& md);
+    void LoadBpmStopObject(const NoteData& nd, const MetaData& md);
 
     TimingData();
     ~TimingData();
