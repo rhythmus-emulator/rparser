@@ -117,16 +117,6 @@ TimingData::TimingData() {
     AddObject( TickObject(4) );
 }
 
-BpmObject* TimingData::GetNextBpmObject(int iStartRow)
-{
-    for( unsigned i=0; i<bpms.size(); i++ )
-    {
-        BPMObject *bs = ToBPM(bpms[i]);
-    }
-    m_TimingObjs[TYPE_TIMINGOBJ::TYPE_BPM]
-    return 0;
-}
-
 int TimingData::GetBpm()
 {
     // first part BPM, mainly used for metadata
@@ -206,7 +196,7 @@ float TimingData::GetBeatFromMeasure(float fMeasure)
         }
     }
 	// find beat from measure_object_index
-	return vObjs[idx]->GetBeat() + vObjs[idx]->GetLength() * (fMeasure - vObjs[idx]->GetMeasure())
+	return vObjs[idx]->GetBeat() + vObjs[idx]->GetBeatLength() * (fMeasure - vObjs[idx]->GetMeasure())
 }
 
 float TimingData::GetMeasureFromBeat(float fBeat)
@@ -214,7 +204,7 @@ float TimingData::GetMeasureFromBeat(float fBeat)
 	// we borrow measure infomation from row
 	// it may cause wrong result, but mostly it is okay (and this function wont be used)
 	MeasureObject* mObj = GetObjectAtRow(TYPE_TIMINGOBJ::TYPE_MEASURE, fBeat * m_iRes);
-	return mObj->GetMeasure() + (fBeat - mObj->GetBeat()) / mObj->GetLength();
+	return mObj->GetMeasure() + (fBeat - mObj->GetBeat()) / mObj->GetBeatLength();
 }
 
 // functions using sequential objects
@@ -223,7 +213,6 @@ void TimingData::PrepareLookup()
     auto bpms= GetTimingObjects(TYPE_TIMINGOBJ::TYPE_BPM);
     auto stops= GetTimingObjects(TYPE_TIMINGOBJ::TYPE_STOP);
     auto warps= GetTimingObjects(TYPE_TIMINGOBJ::TYPE_WARP);
-
 
     // Place an initial bpm segment (dummy object)
     float first_bps= ToBPM(bpms[0])->GetBPS();
@@ -248,39 +237,43 @@ void TimingData::PrepareLookup()
     while(!finished)
     {
         // search next event row (for WARP, STOP, BPM channel)
-        int event_row= std::numeric_limits<int>::max();
-        int event_type = TYPE_TIMINGOBJ::TYPE_INVALID;
-        int idx;
-        float curr_beat = 0;
-        TimingObject *event_obj = nullptr;
+        float curr_beat= std::numeric_limits<float>::max();
+        int curr_type = TYPE_TIMINGOBJ::TYPE_INVALID;
+        float fidx;	// temporary value
+        TimingObject *curr_obj = nullptr;
         // COMMENT:
         // we don't need to include last object into warp
         // when warp-ending position and other object's position is duplicated
         // (that's different from stepmania)
-        if (idx_bpm < bpms.size() && (idx=bpms[idx_bpm]->GetRow()) < event_row)
+        if (idx_bpm < bpms.size() && (fidx=bpms[idx_bpm]->GetBeat()) < curr_beat)
         {
-            event_row = idx;
-            event_type = TYPE_TIMINGOBJ::TYPE_BPM;
-            event_obj = bpms[idx_bpm];
+            curr_beat = fidx;
+            curr_type = TYPE_TIMINGOBJ::TYPE_BPM;
+            curr_obj = bpms[idx_bpm];
         }
-        if (idx_stop < stops.size() && (idx=stops[idx_stop]->GetRow()) < event_row)
+        if (idx_stop < stops.size() && (fidx=stops[idx_stop]->GetBeat()) < curr_beat)
         {
-            event_row = idx;
-            event_type = TYPE_TIMINGOBJ::TYPE_STOP;
-            event_obj = stops[idx_stop];
+            curr_beat = fidx;
+            curr_type = TYPE_TIMINGOBJ::TYPE_STOP;
+            curr_obj = stops[idx_stop];
         }
-        if (idx_warp < warps.size() && (idx=warps[idx_warp]->GetRow()) < event_row)
+        if (idx_warp < warps.size() && (fidx=warps[idx_warp]->GetBeat()) < curr_beat)
         {
-            event_row = idx;
-            event_type = TYPE_TIMINGOBJ::TYPE_WARP;
-            event_obj = warps[idx_warp];
+            curr_beat = fidx;
+            curr_type = TYPE_TIMINGOBJ::TYPE_WARP;
+            curr_obj = warps[idx_warp];
         }
-        curr_beat = NoteRowToBeat(event_row);
-
+		if (is_warping && pos_warp_end < curr_beat)
+		{
+			// go to END-OF-WARP process
+            curr_beat = curr_warp_segment->GetBeat() + curr_warp_segment->GetBeatLength();
+            curr_type = TYPE_TIMINGOBJ::TYPE_WARP;
+			curr_obj = curr_warp_segment;
+		}
 
         // if no object found - all events had been scanned
         // just add 1 beat for last segment
-        if(!event_obj)
+        if(!curr_obj)
         {
             next_line.end_beat= next_line.start_beat + 1.f;
             float seconds_change= next_line.start_second + spb;
@@ -297,13 +290,13 @@ void TimingData::PrepareLookup()
             {
                 case TYPE_TIMINGOBJ::TYPE_BPM:
                     // last BPM value will be used.
-                    next_line.bps= ToBPM(event_obj)->GetBPS();
+                    next_line.bps= ToBPM(curr_obj)->GetBPS();
                     spb= 1.f / next_line.bps;
                     break;
                 case TYPE_TIMINGOBJ::TYPE_STOP:
                     // all STOP time will be appended during warping time.
-                    next_line.start_stop_msec += ToStop(event_obj)->GetValue();
-                    next_line.end_msec += ToStop(event_obj)->GetValue();
+                    next_line.start_stop_msec += ToStop(curr_obj)->GetValue();
+                    next_line.end_msec += ToStop(curr_obj)->GetValue();
                     break;
                 case TYPE_TIMINGOBJ::TYPE_WARP:
                     // END OF WARP, save LookupObj
@@ -314,6 +307,7 @@ void TimingData::PrepareLookup()
                     next_line.start_msec = next_line.end_msec;
                     next_line.start_stop_msec = next_line.end_delay_msec = 0;
                     is_warping = false;
+					curr_warp_segment = nullptr;
                     break;
             }
         }
@@ -333,18 +327,19 @@ void TimingData::PrepareLookup()
             switch(event_type)
             {
                 case TYPE_TIMINGOBJ::TYPE_BPM:
-                    next_line.bps= ToBPM(event_obj)->GetBPS();
+                    next_line.bps= ToBPM(curr_obj)->GetBPS();
                     spb= 1.f / next_line.bps;
                     ++idx_bpm;
                     break;
                 case TYPE_TIMINGOBJ::TYPE_STOP:
-                    next_line.start_stop_msec += ToStop(event_obj)->GetValue();
-                    next_line.end_msec += ToStop(event_obj)->GetValue();
+                    next_line.start_stop_msec += ToStop(curr_obj)->GetValue();
+                    next_line.end_msec += ToStop(curr_obj)->GetValue();
                     // TODO: in case of delay, use end_delay_msec
                     ++idx_stop;
                     break;
                 case FOUND_WARP:
-                    // warp to another warp object
+                    // WARP start
+					curr_warp_segment = static_cast<WarpObject*>(curr_obj);
                     is_warping = true;
                     ++idx_warp;
                     break;
