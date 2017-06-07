@@ -207,18 +207,18 @@ public:
     TimingData();
 
     // measure related
-    void SetMeasureLengthAtBeat(float fBeat, float length=4.0f);
-    float GetMeasureLengthAtBeat(float fBeat);
-    float GetBarBeat(int barnumber);
     void GetBeatMeasureFromRow(unsigned long row, unsigned long &beatidx, unsigned long &beat);
+    float GetBeatFromMeasure(float fMeasure);
+    float GetMeasureFromBeat(float fBeat);
 
     // search without lookup
     BpmObject* GetNextBpmObject(int iStartRow);
     StopObject* GetNextStopObject(int iStartRow);
     WarpObject* GetNextWarpObject(int iStartRow);
     MeasureObject* GetNextMeasureObject(int iStartRow);
+    TimingObject* GetNextObject(TYPE_TIMINGOBJ iType, int iStartRow);
     TimingObject* GetObjectAtRow(TYPE_TIMINGOBJ iType, int iRow);
-    int GetObjectIndexAtRow( TYPE_TIMINGOBJ iType, int iRow );
+    int GetObjectIndexAtRow( TYPE_TIMINGOBJ iType, int iRow );          // returns -1 if obj not exists
     int GetBpm();
 
     // search using lookup objects

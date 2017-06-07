@@ -26,6 +26,14 @@ struct ts_less_beat : std::binary_function <TimingObject*, TimingObject*, bool>
     }
 };
 
+struct ts_less_row : std::binary_function <TimingObject*, TimingObject*, bool>
+{
+    bool operator() (const TimingObject *x, const TimingObject *y) const
+    {
+        return x->GetRow() < y->GetRow();
+    }
+};
+
 /* Objects */
 
 std::string TimingObject::toString() {
@@ -119,27 +127,24 @@ BpmObject* TimingData::GetNextBpmObject(int iStartRow)
     return 0;
 }
 
-StopObject* TimingData::GetNextStopObject(int iStartRow)
-{
-    return 0;
-}
-
-WarpObject* TimingData::GetNextWarpObject(int iStartRow)
-{
-    return 0;
-}
-
-MeasureObject* TimingData::GetNextMeasureObject(int iStartRow)
-{
-    return 0;
-}
-
 int TimingData::GetBpm()
 {
     // first part BPM, mainly used for metadata
     return m_TimingObjs[TYPE_TIMINGOBJ::TYPE_BPM][0].GetValue();
 }
 
+BpmObject* GetNextBpmObject(int iStartRow) { return GetNextObject(TYPE_TIMINGOBJ::TYPE_BPM, iStartRow); }
+StopObject* GetNextStopObject(int iStartRow) { return GetNextObject(TYPE_TIMINGOBJ::TYPE_STOP, iStartRow); }
+WarpObject* GetNextWarpObject(int iStartRow) { return GetNextObject(TYPE_TIMINGOBJ::TYPE_WARP, iStartRow); }
+MeasureObject* GetNextMeasureObject(int iStartRow) { return GetNextObject(TYPE_TIMINGOBJ::TYPE_MEASURE, iStartRow); }
+
+TimingObject* TimingData::GetNextObject(TYPE_TIMINGOBJ iType, int iStartRow)
+{
+    std::vector<TimingObject*>& vObjs = GetTimingObjects(iType);
+	auto it = vObjs.lower_bound(iStartRow, ts_less_row);
+	if (it == vObjs.end()) return 0;
+	else return *it;
+}
 TimingObject* TimingData::GetObjectAtRow(TYPE_TIMINGOBJ iType, int iRow)
 {
     // returns same or less object
@@ -170,36 +175,46 @@ TimingObject* TimingData::GetObjectAtRow(TYPE_TIMINGOBJ iType, int iRow)
 
 int TimingData::GetObjectIndexAtRow( TYPE_TIMINGOBJ iType, int iRow )
 {
-    TimingObject* t = GetObjectAtRow(iType, iRow)->GetRow();
+    TimingObject* t = GetObjectAtRow(iType, iRow);
     if (!t) return -1;
     else return t->GetRow();
 }
 
-// measure related
-void TimingData::SetBarLengthAtRow(int row, float length=4.0f)
+float TimingData::GetBeatFromMeasure(float fMeasure)
 {
-    std::vector<TimingObject *> m_tobjs = GetTimingObjects(TYPE_TIMINGOBJ::TYPE_MEASURE);
-    TimingObject *tobj = GetObjectAtRow(row, TYPE_TIMINGOBJ::TYPE_MEASURE);
-    // first search for same row object
-    if (tobj) {
-        ToMeasure(tobj)->SetValue(length);
+	std::vector<MeasureObject*> &vObjs = 
+		static_cast<std::vector<MeasureObject*>&>(GetTimingObjects(TYPE_TIMINGOBJ::TYPE_MEASURE));
+	ASSERT(vObjs.size() > 0);
+    int min = 0, max = vObjs.size() - 1;
+    int l = min, r = max;
+	int idx = 0;
+    while( l <= r )
+    {
+        int m = ( l + r ) / 2;
+        if( ( m == min || vObjs[m]->GetMeasure() <= iMeasure ) && ( m == max || iMeasure < vObjs[m + 1]->GetMeasure() ) )
+        {
+            idx = m;
+			break;
+        }
+        else if( vObjs[m]->GetMeasure() <= iMeasure )
+        {
+            l = m + 1;
+        }
+        else
+        {
+            r = m - 1;
+        }
     }
-    // if not, append new object and sort
-    else {
-        AddObject(BpmObject(row, length))
-        SortObjects(TYPE_TIMINGOBJ::TYPE_MEASURE);
-    }
-    return 0;
+	// find beat from measure_object_index
+	return vObjs[idx]->GetBeat() + vObjs[idx]->GetLength() * (fMeasure - vObjs[idx]->GetMeasure())
 }
 
-float TimingData::GetBarLengthAtRow(int row)
+float TimingData::GetMeasureFromBeat(float fBeat)
 {
-    return 0;
-}
-
-float TimingData::GetBarBeat(int barnumber)
-{
-    return 0;
+	// we borrow measure infomation from row
+	// it may cause wrong result, but mostly it is okay (and this function wont be used)
+	MeasureObject* mObj = GetObjectAtRow(TYPE_TIMINGOBJ::TYPE_MEASURE, fBeat * m_iRes);
+	return mObj->GetMeasure() + (fBeat - mObj->GetBeat()) / mObj->GetLength();
 }
 
 // functions using sequential objects
@@ -580,10 +595,12 @@ void TimingData::LoadBpmStopObject(const NoteData& nd, const MetaData& md)
 		}
 	}
 
-    // STOP from metadata
+    // STOP from metadata #STPXX
 	for (auto it=md.GetSTPChannel()->begin(); it != md.GetSTPChannel()->end(); ++it)
 	{
-		//
+		float fBeat = GetBeatFromMeasure(it->measure);
+		float fStop = it->stop;
+		AddObject(new StopObject(fBeat * m_iRes, fBeat, fStop));
 	}
 }
 
