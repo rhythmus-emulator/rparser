@@ -337,7 +337,7 @@ void TimingData::PrepareLookup()
                     // TODO: in case of delay, use end_delay_msec
                     ++idx_stop;
                     break;
-                case FOUND_WARP:
+                case TYPE_TIMINGOBJ::TYPE_WARP:
                     // WARP start
 					curr_warp_segment = static_cast<WarpObject*>(curr_obj);
                     is_warping = true;

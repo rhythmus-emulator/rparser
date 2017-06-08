@@ -24,25 +24,24 @@ enum NoteType {
     // @description touch note, which has its position
     NOTE_TOUCH,
     // @description INVISIBLE note (which isn't judged)
-    NOTE_INVISIBLE,
     // @description WAV/BGA/MIDI notes,
     // which are automatically processed in time
     NOTE_BGM,
     NOTE_BGA,
     NOTE_MIDI,
     // @description for Bms compatibility
-    NOTE_BPM,
-    // @description for Bms compatibility
-    NOTE_STOP,
-    // @description take-a-rest, for osu!
-    NOTE_FREE,
+    NOTE_BMS,
+    // @description resting area (for osu)
+    NOTE_REST,
 };
 
-enum TapNoteType {
+enum NoteTapType {
     // @description undefined, usually for UnTappable object.
     TAPNOTE_EMPTY,
     // @description general tappable note
     TAPNOTE_TAP,
+    // @description invisible, no damage, but scorable
+    TAPNOTE_INVISIBLE,
     // @description head of longnote
     TAPNOTE_CHARGE,
     // @description head of hell-charge note
@@ -61,6 +60,22 @@ enum TapNoteType {
     TAPNOTE_FREE,
 };
 
+enum NoteBgaType {
+    NOTEBGA_EMPTY,
+    NOTEBGA_BGA,
+    NOTEBGA_MISS,
+    NOTEBGA_LAYER1,
+    NOTEBGA_LAYER2,
+};
+
+enum NoteBmsType {
+    NOTEBMS_EMPTY,
+    NOTEBMS_BPM,
+    NOTEBMS_STOP,
+    NOTEBMS_BGAOPAC,
+    NOTEBMS_INVISIBLE,  // for only-keysound changing
+};
+
 /*
  * @description
  * An object in BGM/BGA/Tappable channel
@@ -68,8 +83,8 @@ enum TapNoteType {
  * You may need to process these objects properly to make playable objects.
  */
 struct Note {
-    NoteType nType;
-    TapNoteType tType;
+    NoteType nType;     // note main type
+    int subType;        // note sub type
 
     int iValue;         // command value
 
@@ -123,6 +138,7 @@ public:
     const_trackiter end(int tracknum) { return tracks[tracknum]->end(); };
     const_trackiter lower_bound(int tracknum, int row) { return tracks[tracknum]->lower_bound(row); };
     const_trackiter upper_bound(int tracknum, int row) { return tracks[tracknum]->upper_bound(row); };
+    Note* GetLastNoteAtTrack(int track);
 
     /*
      * @description

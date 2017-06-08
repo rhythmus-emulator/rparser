@@ -24,16 +24,9 @@ struct BGAHeader {
     int sx,sy,sw,sh;
     int dx,dy,dw,dh;
 };
-struct BGAEvent {
-    unsigned long id;
-    unsigned long y;
-};
 struct BGAChannel {
     // channelno, bgainfo(filename)
     std::map<int, BGAHeader> bga;
-    std::vector<BGAEvent> bga_events;
-    std::vector<BGAEvent> layer_events;
-    std::vector<BGAEvent> poor_events;
 };
 
 
@@ -84,7 +77,7 @@ class MetaData {
     double fBPM;                    // basic BPM (need to be filled automatically if not exists)
     double fJudge;                  // judge difficulty
     double fTotal;                  // guage total
-    std::string sLNObj;             // used for BMS
+    int iLNObj;                     // used for BMS
     std::string sBackImage;         // BG during playing
     std::string sStageImage;        // loading image
     std::string sBannerImage;

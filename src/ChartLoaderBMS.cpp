@@ -74,7 +74,7 @@ private:
     };
     class Condition {
         virtual bool Valid() = 0;
-        virtual std::string GetType() = 0;
+        virtual std::string GesubType() = 0;
         virtual void Parse(const std::string& cmd_lower, const std::string& value) = 0;
     };
     class IFCondition : public Condition {
@@ -97,7 +97,7 @@ private:
             }
             return COND_UNKNOWN;
         }
-        std::string GetType() { return "if"; }
+        std::string GesubType() { return "if"; }
         void Parse(const std::string& name, const std::string& value) {
             if (name == "#endif" || name == "#end") {
                 // #ENDIF cannot be shown first
@@ -144,7 +144,7 @@ private:
             }
             return COND_UNKNOWN;
         }
-        std::string GetType() { return "switch"; }
+        std::string GesubType() { return "switch"; }
         void Parse(const std::string& name, const std::string& value) {
             if (name == "#endsw") {
                 // #ENDIF cannot be shown first
@@ -206,13 +206,13 @@ public:
             case COND_ACCEPT:
                 ASSERT(cond.size() > 0);
                 curr_cond = cond.back();
-                ASSERT(curr_cond->GetType() == "if");
+                ASSERT(curr_cond->GesubType() == "if");
                 curr_cond->Parse(name, value);
                 break;
             case COND_END:
                 ASSERT(cond.size() > 0);
                 curr_cond = cond.back();
-                ASSERT(curr_cond->GetType() == "if");
+                ASSERT(curr_cond->GesubType() == "if");
                 curr_cond->Parse(name, value);
                 cond.pop_back();
                 delete curr_cond;
@@ -228,13 +228,13 @@ public:
             case COND_ACCEPT:
                 ASSERT(cond.size() > 0);
                 curr_cond = cond.back();
-                ASSERT(curr_cond->GetType() == "switch");
+                ASSERT(curr_cond->GesubType() == "switch");
                 curr_cond->Parse(name, value);
                 break;
             case COND_END:
                 ASSERT(cond.size() > 0);
                 curr_cond = cond.back();
-                ASSERT(curr_cond->GetType() == "switch");
+                ASSERT(curr_cond->GesubType() == "switch");
                 curr_cond->Parse(name, value);
                 cond.pop_back();
                 delete curr_cond;
@@ -519,7 +519,7 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
         if (channel == 1) {
             // BGM
             n.nType = NoteType::NOTE_BGM;
-            n.tType = TapNoteType::TAPNOTE_EMPTY;
+            n.subType = NoteTapType::TAPNOTE_EMPTY;
             n.x = bn.colidx;
         }
         else if (channel == 3) {
@@ -527,65 +527,116 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
             // COMMENT: we don't fill timingdata directly in here,
             // we call LoadFromNoteData() instead.
             n.nType = NoteType::NOTE_BPM;
-            n.tType = TapNoteType::TAPNOTE_EMPTY;
+            n.subType = NoteTapType::TAPNOTE_EMPTY;
         }
         else if (channel == 4) {
             // BGA
             n.nType = NoteType::NOTE_BGA;
-            n.tType = TapNoteType::TAPNOTE_EMPTY;
+            n.subType = NoteBgaType::NOTEBGA_BGA;
         }
         else if (channel == 6) {
             // BGA POOR
+            n.nType = NoteType::NOTE_BGA;
+            n.subType = NoteBgaType::NOTEBGA_MISS;
         }
         else if (channel == 7) {
             // BGA LAYER
+            n.nType = NoteType::NOTE_BGA;
+            n.subType = NoteBgaType::NOTEBGA_LAYER1;
         }
         else if (channel == 8) {
             // BPM change (exBPM)
+            n.nType = NoteType::NOTE_BMS;
+            n.subType = NoteBmsType::NOTEBMS_BPM;
         }
         else if (channel == 9) {
             // STOP
+            n.nType = NoteType::NOTE_BMS;
+            n.subType = NoteBmsType::NOTEBMS_STOP;
         }
         else if (channel == 10) {
             // BGA LAYER2
+            n.nType = NoteType::NOTE_BGA;
+            n.subType = NoteBgaType::NOTEBGA_LAYER2;
         }
         else if (channel == 11) {
             // opacity of BGA
+            n.nType = NoteType::NOTE_BMS;
+            n.subType = NoteBmsType::NOTEBMS_BGAOPAC;
+            n.x = 0;
         }
         else if (channel == 12) {
             // opacity of BGA LAYER
+            n.nType = NoteType::NOTE_BMS;
+            n.subType = NoteBmsType::NOTEBMS_BGAOPAC;
+            n.x = 1;
         }
         else if (channel == 13) {
             // opacity of BGA LAYER2
+            n.nType = NoteType::NOTE_BMS;
+            n.subType = NoteBmsType::NOTEBMS_BGAOPAC;
+            n.x = 2;
         }
         else if (channel == 14) {
             // opacity of BGA POOR
+            n.nType = NoteType::NOTE_BMS;
+            n.subType = NoteBmsType::NOTEBMS_BGAOPAC;
+            n.x = 3;
         }
-        else if (channel >= 0x11 && channel <= 0x19) {
-            // 1P visible note
-            // (LN for reserved)
+        else if (channel >= 0x11 && channel <= 0x19 ||
+                channel >= 0x21 && channel <= 0x29) {
+            // 1P/2P visible note
+            int track = channel % 10 + channel / 0xE1;
+            if (n.iValue == md->iLNObj)
+            {
+                // LNOBJ process
+                // change previous note to LN
+                Note* n_ln = nd->GetLastNoteAtTrack(track);
+                ASSERT(n_ln);   // previous note should be existed
+                n_ln->subType = NoteTapType::TAPNOTE_CHARGE;
+                n_ln->fDuration = n.fBeat - n_ln->fBeat;
+                n_ln->iDuration = n.iBeat - n_ln->iBeat;
+            }
+            else {
+                n.nType = NoteType::NOTE_TAP;
+                n.subType = NoteTapType::TAPNOTE_TAP;
+                n.x = track;
+            }
         }
-        else if (channel >= 0x21 && channel <= 0x29) {
-            // 2P visible note
-            // (LN for reserved)
+        else if (channel >= 0x31 && channel <= 0x39 ||
+                channel >= 0x41 && channel <= 0x49) {
+            // 1P/2P invisible note
+            int track = channel % 10 + channel / 0xE1;
+            n.nType = NoteType::NOTE_BMS;
+            n.subType = NoteBmsType::NOTEBMS_INVISIBLE;
+            n.x = track;
         }
-        else if (channel >= 0x31 && channel <= 0x39) {
-            // 1P invisible note
+        else if (channel >= 0x51 && channel <= 0x59 ||
+                channel >= 0x61 && channel <= 0x69) {
+            // 1P/2P LN
+            Note* n_ln = nd->GetLastNoteAtTrack(track);
+            if (n_ln == 0 || n_ln->iDuration) {
+                // append new LN
+                n.nType = NoteType::NOTE_TAP;
+                n.subType = NoteTapType::TAPNOTE_CHARGE;
+                n.x = track;
+            }
+            else
+            {
+                // add length information to previous LN
+                // COMMENT: if end of TAPNOTE not found then?
+                // COMMENT: add option to GetLastNoteAtTrack with subtype?
+                n_ln->fDuration = n.fBeat - n_ln->fBeat;
+                n_ln->iDuration = n.iBeat - n_ln->iBeat;
+            }
         }
-        else if (channel >= 0x41 && channel <= 0x49) {
-            // 2P invisible note
-        }
-        else if (channel >= 0x51 && channel <= 0x59) {
-            // 1P LN
-        }
-        else if (channel >= 0x61 && channel <= 0x69) {
-            // 2P LN
-        }
-        else if (channel >= 0xD1 && channel <= 0xD9) {
-            // 1P mine
-        }
-        else if (channel >= 0xE1 && channel <= 0xE9) {
-            // 2P mine
+        else if (channel >= 0xD1 && channel <= 0xD9 ||
+                channel >= 0xE1 && channel <= 0xE9) {
+            // 1P/2P mine
+            int track = channel % 10 + channel / 0xE1;
+            n.nType = NoteType::NOTE_BMS;
+            n.subType = NoteBmsType::NOTEBMS_INVISIBLE;
+            n.x = track;
         }
 
         if (n.ntype != NoteType::NOTE_EMPTY) 
