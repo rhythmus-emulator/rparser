@@ -50,6 +50,7 @@ struct BmsNote {
     int den, num;   // denominator/numerator of current measure
     int channel;    // channel number
     int value;      // value of current object
+    int value_prev; // for LNTYPE2
     int colidx;     // for bgm channel
     bool operator<( const BmsNote &other ) const
 	{
@@ -442,7 +443,8 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
     for (int i=0;i<10000; i++)
         measurelen[i] = 1.0f;
     std::vector<BmsNote> vNotes;
-
+    int value_prev[1000];
+    memset(value_prev,0,sizeof(int)*1000);
 
     // Obtain Bms objects or set measure length
     *pp = *p;
@@ -471,6 +473,7 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
                 n.den = cur_res;
                 n.num = i;
                 n.value = atoi_bms(value.c_str() + i*2);
+                n.value_prev = value_prev[channel]; value_prev[channel]=n.value;
                 n.colidx = colidx;
                 vNotes.append(n);
             }
@@ -498,6 +501,8 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
      */
     TimingData* td = c->GetTimingData();
     NoteData* nd = c->GetNoteData();
+    // allow note duplication to reduce load time and resolution loss
+    nd->SetNoteDuplicatable(1);
 
     // measure position will be summarized
     int measure_prev = 0;
@@ -511,10 +516,12 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
             measure_len_sum += measurelen(measure_prev);
         }
         n.iValue = bn.value;
-        n.iRow = measure_len_sum * td->GetResolution() + td->GetResolution() * n.num / n.den;
-        n.fBeat = measure_len_sum + n.num / (float)n.den;
+        n.iRow = measure_len_sum * td->GetResolution() + td->GetResolution() * bn.num / bn.den;
+        n.fBeat = measure_len_sum + bn.num / (float)bn.den;
         n.nType = NoteType::NOTE_EMPTY;
         n.iValue = bn.value;
+        n.iEndValue = 0;
+        n.iDuration = n.fDuration = 0;
         int channel = bn.channel;
         if (channel == 1) {
             // BGM
@@ -614,34 +621,60 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
         else if (channel >= 0x51 && channel <= 0x59 ||
                 channel >= 0x61 && channel <= 0x69) {
             // 1P/2P LN
-            Note* n_ln = nd->GetLastNoteAtTrack(track);
-            if (n_ln == 0 || n_ln->iDuration) {
-                // append new LN
-                n.nType = NoteType::NOTE_TAP;
-                n.subType = NoteTapType::TAPNOTE_CHARGE;
-                n.x = track;
-            }
-            else
+            // LNTYPE 1
+            if (md->iLNType == 1)
             {
-                // add length information to previous LN
-                // COMMENT: if end of TAPNOTE not found then?
-                // COMMENT: add option to GetLastNoteAtTrack with subtype?
-                n_ln->fDuration = n.fBeat - n_ln->fBeat;
-                n_ln->iDuration = n.iBeat - n_ln->iBeat;
+                Note* n_ln = nd->GetLastNoteAtTrack(track, NoteType::NOTE_TAP, NoteTapType::TAPNOTE_CHARGE);
+                if (n_ln == 0 || n_ln->iDuration) {
+                    // append new LN
+                    n.nType = NoteType::NOTE_TAP;
+                    n.subType = NoteTapType::TAPNOTE_CHARGE;
+                    n.x = track;
+                }
+                else
+                {
+                    // add length information to previous LN
+                    // COMMENT: if end of TAPNOTE not found then?
+                    // COMMENT: add option to GetLastNoteAtTrack with subtype?
+                    n_ln->fDuration = n.fBeat - n_ln->fBeat;
+                    n_ln->iDuration = n.iBeat - n_ln->iBeat;
+                    n_ln->iEndValue = n.iValue;
+                }
+            }
+            // LNTYPE 2
+            else if (md->iLNType == 2)
+            {
+                // append new LN if value_prev == 0
+                if (bn.value_prev == 0)
+                {
+                    n.nType = NoteType::NOTE_TAP;
+                    n.subType = NoteTapType::TAPNOTE_CHARGE;
+                    n.x = track;
+                }
+                else
+                {
+                    // add length information to previous LN
+                    Note* n_ln = nd->GetLastNoteAtTrack(track);
+                    ASSERT(n_ln);
+                    n_ln->fDuration = n.fBeat - n_ln->fBeat;
+                    n_ln->iDuration = n.iBeat - n_ln->iBeat;
+                    n_ln->iEndValue = n.iValue;
+                }
             }
         }
         else if (channel >= 0xD1 && channel <= 0xD9 ||
                 channel >= 0xE1 && channel <= 0xE9) {
             // 1P/2P mine
             int track = channel % 10 + channel / 0xE1;
-            n.nType = NoteType::NOTE_BMS;
-            n.subType = NoteBmsType::NOTEBMS_INVISIBLE;
+            n.nType = NoteType::NOTE_TAP;
+            n.subType = NoteTapType::TAPNOTE_MINE;
             n.x = track;
         }
 
         if (n.ntype != NoteType::NOTE_EMPTY) 
             nd->AddNote(n);
     }
+    nd->SetNoteDuplicatable(0);
 
     // now fill timingdata from metadata/notedata.
     c->UpdateTimingData();

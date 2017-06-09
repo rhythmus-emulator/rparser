@@ -2,8 +2,22 @@
 #include "util.h"
 #include <algorithm>
 
-void NoteData::SearchAllNotes(std::vector<trackiter>& notelist);
-void NoteData::SearchAllNotes(std::vector<trackiter>& notelist, int iStartRow, int iEndRow, bool bInclusive);
+namespace rparser
+{
+
+Note* NoteData::GetLastNoteAtTrack(int iTrackNum=-1, int iType=-1, int iSubType=-1)
+{
+    // iterate from last to first
+    for (auto it=vNotes.rbegin(); it != vNote.rend(); ++it)
+    {
+        if (iTrackNum < 0 || it->iTrack == iTrackNum)
+        if (iType < 0 || it->iType == iType)
+        if (iSubType < 0 || it->iSubType == iSubType)
+            return *it;
+    }
+    // found no note
+    return 0;
+}
 
 void FillNoteTimingData(std::vector<Note>& vNotes, const TimingData& td)
 {
@@ -132,23 +146,34 @@ void NoteData::CopyRange(int rowFromBegin, int rowFromLength, int rowToBegin)
     return 0;
 }
 
-void NoteData::AddNote(const Note& n, bool checkTrackDuplication)
+void NoteData::SetNoteDuplicatable(int bNoteDuplicatable)
+{
+    m_bNoteDuplicatable = bNoteDuplicatable;
+}
+
+void NoteData::AddNote(const Note& n)
 {
     // COMMENT: note duplication won't be checked when loading file.
-    // COMMENT: checkTrackDuplication does these work -
+    // COMMENT: m_bNoteDuplicatable does these work -
     // - if LN, then remove all iRow object in iDuration in same x.
     // - if TapNote/BGM, then check iRow/x/y.
 
     // search is same type of note exists in same row
     int idx = vNotes.begin() - vNotes.lower_bound(n);
-    if (checkTrackDuplication)
+    if (m_bNoteDuplicatable)
     {
-        // if found note occupies same type & row & position, then erase it.
+        // only check for object in same row
         while (idx < vNotes.size() && vNotes[idx].iRow == n.iRow)
         {
-            if (vNotes[idx].x == n.x &&
-                vNotes[idx].y == n.y &&
-                it->nType == n.nType && it->iRow == n.iRow)
+            // if found note occupies same type & row & position, then erase it.
+            if (vNotes[idx].nType == n.nType && 
+                vNotes[idx].x == n.x && vNotes[idx].y == n.y)
+            {
+                vNotes.erase(vNotes.begin()+idx);
+            }
+            // if found note is row-occupying-object (ex: SHOCK), erase it
+            else if (vNotes[idx].nType == NoteType::NOTE_SHOCK ||
+                    vNotes[idx].nType == NoteType::NOTE_REST)
             {
                 vNotes.erase(vNotes.begin()+idx);
             }
@@ -157,8 +182,6 @@ void NoteData::AddNote(const Note& n, bool checkTrackDuplication)
                 idx ++;
             }
         }
-        if (it != vNotes.end() && it->nType == n.nType && it->iRow == n.iRow)
-            vNotes.erase(it);
         // iterate from here to first to check LN
         int idx_copy = idx;
         while (idx_copy => 0)
@@ -214,9 +237,12 @@ void NoteData::UpdateBeatData()
 NoteData::NoteData()
 {
 	m_iRes = DEFAULT_RESOLUTION_SIZE;
+    m_bNoteDuplicatable = 0;
 }
 
 NoteData::~NoteData()
 {
 
 }
+
+} /* namespace rparser */

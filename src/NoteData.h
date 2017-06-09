@@ -23,7 +23,6 @@ enum NoteType {
     NOTE_TAP,
     // @description touch note, which has its position
     NOTE_TOUCH,
-    // @description INVISIBLE note (which isn't judged)
     // @description WAV/BGA/MIDI notes,
     // which are automatically processed in time
     NOTE_BGM,
@@ -33,6 +32,7 @@ enum NoteType {
     NOTE_BMS,
     // @description resting area (for osu)
     NOTE_REST,
+    NOTE_SHOCK,
 };
 
 enum NoteTapType {
@@ -50,7 +50,6 @@ enum NoteTapType {
     TAPNOTE_TCHARGE,
     // @description not sounds, only changes keysound
     TAPNOTE_MINE,
-    TAPNOTE_SHOCK,
     TAPNOTE_AUTOPLAY,
     // @description drawn but not judged
     TAPNOTE_FAKE,
@@ -87,6 +86,7 @@ struct Note {
     int subType;        // note sub type
 
     int iValue;         // command value
+    int iEndValue;      // value of the end (for LN)
 
     float fVolume;
     int iPitch;
@@ -138,14 +138,8 @@ public:
     const_trackiter end(int tracknum) { return tracks[tracknum]->end(); };
     const_trackiter lower_bound(int tracknum, int row) { return tracks[tracknum]->lower_bound(row); };
     const_trackiter upper_bound(int tracknum, int row) { return tracks[tracknum]->upper_bound(row); };
-    Note* GetLastNoteAtTrack(int track);
+    Note* GetLastNoteAtTrack(int iTrackNum=-1, int iType=-1, int iSubType=-1);
 
-    /*
-     * @description
-     * for who wants to iterate Note objects by beats, not considering Track.
-     */
-    void SearchAllNotes(std::vector<trackiter>& notelist);
-    void SearchAllNotes(std::vector<trackiter>& notelist, int iStartRow, int iEndRow, bool bInclusive);
 
     // @description calculate fBeat from iRow(after editing)
     void CalculateNoteBeat();
@@ -177,24 +171,20 @@ public:
      */
     void RemoveNotes();
     void RemoveNotes(int iStartRow, int iEndRow, bool bInclusive);
-    void AddNote(const Note& n, bool checkTrackDuplication=false);
+    void AddNote(const Note& n);
+    void SetNoteDuplicatable(int bNoteDuplicatable);
     void Clear();
     void ClearRange(int iStartRow, int iEndRow);
     void CopyRange(int rowFromBegin, int rowFromLength, int rowToBegin);
     void CopyRange(const NoteData& nd);
     void CopyRange(const NoteData& nd, int iStartRow, int iEndRow);
-    void TrackMapping(int tracknum, int *trackmap);
-    void TrackRandom();
-    void TrackSRandom();
-    void TrackHRandom();
-    void TrackRRandom();
-    void TrackMirror();
     // @description useful for iidx(DP) style
-    void TrackRandom(int side);
-    void TrackSRandom(int side);
-    void TrackHRandom(int side);
-    void TrackRRandom(int side);
-    void TrackMirror(int side);
+    void TrackMapping(int tracknum, int *trackmap);
+    void TrackRandom(int side, int key);
+    void TrackSRandom(int side, int key);
+    void TrackHRandom(int side, int key);
+    void TrackRRandom(int side, int key);
+    void TrackMirror(int side, int key);
     void TrackFlip();
     
 
@@ -213,6 +203,9 @@ private:
     // Resolution of NoteData's Row position
     // Should have same value with Timingdata.
     int m_iRes;
+    // @description
+    // allow duplication in track based game? (iRow and track duplicatable)
+    int m_bNoteDuplicatable;
 };
 
 }
