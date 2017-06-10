@@ -1,14 +1,89 @@
 #include "NoteData.h"
 #include "util.h"
+#include <sstream>
 #include <algorithm>
 
 namespace rparser
 {
 
+char *n_type[] = {
+    "NOTE_EMPTY",
+    "NOTE_TAP",
+    "NOTE_TOUCH",
+    "NOTE_BGM",
+    "NOTE_BGA",
+    "NOTE_MIDI",
+    "NOTE_BMS",
+    "NOTE_REST",
+    "NOTE_SHOCK",
+};
+char *n_subtype_tap[] = {
+    "TAPNOTE_EMPTY",
+    "TAPNOTE_TAP",
+    "TAPNOTE_INVISIBLE",
+    "TAPNOTE_CHARGE",
+    "TAPNOTE_HCHARGE",
+    "TAPNOTE_TCHARGE",
+    "TAPNOTE_MINE",
+    "TAPNOTE_AUTOPLAY",
+    "TAPNOTE_FAKE",
+    "TAPNOTE_EXTRA",
+    "TAPNOTE_FREE",
+};
+char *n_subtype_bga[] = {
+    "NOTEBGA_EMPTY",
+    "NOTEBGA_BGA",
+    "NOTEBGA_MISS",
+    "NOTEBGA_LAYER1",
+    "NOTEBGA_LAYER2",
+};
+char *n_subtype_bms[] = {
+    "NOTEBMS_EMPTY",
+    "NOTEBMS_BPM",
+    "NOTEBMS_STOP",
+    "NOTEBMS_BGAOPAC",
+    "NOTEBMS_INVISIBLE",
+};
+
+std::string Note::toString()
+{
+    std::stringstream ss;
+    std::string sType, sSubtype;
+    sType = n_type[nType];
+    switch (nType)
+    {
+        case NOTE_TAP:
+        case NOTE_TOUCH:
+            sSubtype = n_subtype_tap[subType];
+            break;
+        case NOTE_BGA:
+            sSubtype = n_subtype_bga[subType];
+            break;
+        case NOTE_BGM:
+            sSubtype = "(COL NUMBER)";
+            break;
+        case NOTE_BMS:
+            sSubtype = n_subtype_bms[subType];
+            break;
+        default:
+            sSubtype = "(UNSUPPORTED)";
+            break;
+    }
+    ss << "[Object Note]\n" ;
+    ss << "type/subtype: " << sType << "," << sSubtype << 
+        " (" << nType << "," << subType << ")\n";
+    ss << "Value / EndValue: " << iValue << "," << iEndValue << std::endl;
+    ss << "Beat: " << fBeat << std::endl;
+    ss << "Row / iDuration: " << iRow << "," << iDuration << std::endl;
+    ss << "Time / fDuration: " << fTime << "," << fDuration << std::endl;
+    ss << "x / y: " << x << "," << y << std::endl;
+    return ss.str();
+}
+
 Note* NoteData::GetLastNoteAtTrack(int iTrackNum=-1, int iType=-1, int iSubType=-1)
 {
     // iterate from last to first
-    for (auto it=vNotes.rbegin(); it != vNote.rend(); ++it)
+    for (auto it=vNotes.rbegin(); it != vNotes.rend(); ++it)
     {
         if (iTrackNum < 0 || it->iTrack == iTrackNum)
         if (iType < 0 || it->iType == iType)
@@ -208,9 +283,22 @@ void NoteData::AddNote(const Note& n)
     vNotes.insert(vNotes.begin()+idx, n);
 }
 
+void NoteData::TrackMapping(int tracknum, int *trackmap)
+{
+    // only map for TAPNOTE
+    for (auto &n: vNotes)
+    {
+        if (n.nType != NoteType::NOTE_TAP) continue;
+        n.x = trackmap[n.x];
+    }
+}
+
 std::string const NoteData::toString()
 {
-    return "";
+    std::stringstream ss;
+    ss << "Total Note count: " << vNotes.size() << std::endl;
+    ss << "Last note Information\n" << vNotes.back().toString();
+    return ss.str();
 }
 
 void NoteData::SetResolution(int iRes)

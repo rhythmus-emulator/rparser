@@ -115,6 +115,7 @@ struct Note {
     Note() : x(0), y(0), iValue(0), iDuration(0),
         fVolume(0), iPitch(0),
         fTime(0), fDuration(0), iCombo(1) {}
+    std::string toString();
 };
 
 class NoteData {
@@ -178,8 +179,12 @@ public:
     void CopyRange(int rowFromBegin, int rowFromLength, int rowToBegin);
     void CopyRange(const NoteData& nd);
     void CopyRange(const NoteData& nd, int iStartRow, int iEndRow);
-    // @description useful for iidx(DP) style
+    
+    /*
+     * modification(option) utilities
+     */
     void TrackMapping(int tracknum, int *trackmap);
+    // @description useful for iidx(DP) style
     void TrackRandom(int side, int key);
     void TrackSRandom(int side, int key);
     void TrackHRandom(int side, int key);
