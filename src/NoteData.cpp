@@ -293,6 +293,50 @@ void NoteData::TrackMapping(int tracknum, int *trackmap)
     }
 }
 
+void NoteData::TrackSRandom(int side, int key)
+{
+	ASSERT(key<10 && key > 0 && side >= 0 && side < 2);
+	int vShuffle[10] = {
+		0,1,2,3,4,5,6,7,8,9
+	};
+	float curr_LN_length[10];
+	for (int i=0; i<10; i++) curr_LN_length[i]=0;
+
+	float curr_beat = -100;
+	int curr_side = 0;
+	int curr_shuffle_idx = 0;
+	for (auto &n: vNotes) {
+		if (n.nType != NoteType::NOTE_TAP) continue;
+		curr_side = n.x / 10;
+		if (curr_side != side) continue;
+		if (curr_beat != n.fBeat)
+		{
+			// new beat? then shuffle value.
+			std::random_shuffle(vShuffle, vShuffle+10);
+			curr_shuffle_idx = 0;
+			float delta_beat = n.fBeat - curr_beat;
+			curr_beat = n.fBeat;
+			// check longnote ends
+			for (int i=0; i<10; i++)
+			{
+				curr_LN_length[i] -= delta_beat;
+				if (curr_LN_length[i] < 0) curr_LN_length[i] = 0;
+			}
+		}
+		// prevent duplication with LN
+		while (curr_LN_length[ vShuffle[curr_shuffle_idx] ] > 0)
+			curr_shuffle_idx++;
+		ASSERT(curr_shuffle_idx < 10);
+		n.x = vShuffle[curr_shuffle_idx] + curr_side*10;
+		curr_shuffle_idx++;
+		// if current note is LN, then remember
+		if (n.subType == NoteTapType::TAPNOTE_CHARGE)
+		{
+			curr_LN_length[ vShuffle[curr_shuffle_idx] ] = n.fDuration;
+		}
+	}
+}
+
 std::string const NoteData::toString()
 {
     std::stringstream ss;

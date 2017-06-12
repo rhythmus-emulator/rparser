@@ -42,13 +42,8 @@ enum NoteTapType {
     TAPNOTE_TAP,
     // @description invisible, no damage, but scorable
     TAPNOTE_INVISIBLE,
-    // @description head of longnote
+    // @description head of longnote (various types)
     TAPNOTE_CHARGE,
-    // @description head of hell-charge note
-    TAPNOTE_HCHARGE,
-    // @description head of tick-charge note, like pump
-    TAPNOTE_TCHARGE,
-    // @description not sounds, only changes keysound
     TAPNOTE_MINE,
     TAPNOTE_AUTOPLAY,
     // @description drawn but not judged
@@ -108,9 +103,8 @@ struct Note {
     // x track / y means command in MIDI file format.
     int x,y;
 
-    // @description combo per note (generally 1)
-    // it may be over 1 in case of tick-longnote.
-    int iCombo;
+    // @description bmson attribute.
+    bool restart;
 
     Note() : x(0), y(0), iValue(0), iDuration(0),
         fVolume(0), iPitch(0),

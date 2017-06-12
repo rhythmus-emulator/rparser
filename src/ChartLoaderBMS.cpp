@@ -522,6 +522,7 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
         n.iValue = bn.value;
         n.iEndValue = 0;
         n.iDuration = n.fDuration = 0;
+        n.restart = true;
         int channel = bn.channel;
         if (channel == 1) {
             // BGM
