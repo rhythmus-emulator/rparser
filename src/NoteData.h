@@ -110,6 +110,7 @@ struct Note {
         fVolume(0), iPitch(0),
         fTime(0), fDuration(0), iCombo(1) {}
     std::string toString();
+    bool operator<( const TimingObject &other ) const;
 };
 
 class NoteData {
@@ -177,13 +178,13 @@ public:
     /*
      * modification(option) utilities
      */
-    void TrackMapping(int tracknum, int *trackmap);
+    void TrackMapping(int tracknum, int *trackmap, int s, int e);
     // @description useful for iidx(DP) style
     void TrackRandom(int side, int key);
-    void TrackSRandom(int side, int key);
-    void TrackHRandom(int side, int key);
+    void TrackSRandom(int side, int key, bool bHrandom=false);
     void TrackRRandom(int side, int key);
     void TrackMirror(int side, int key);
+    void TrackAllSC(int side);
     void TrackFlip();
     
 
