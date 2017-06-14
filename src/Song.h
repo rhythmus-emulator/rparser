@@ -8,11 +8,10 @@
 #include "MetaData.h"
 
 // you may want to support archive library.
-// (requires: zlip, libarchive)
-#define RPARSER_USE_ZIP
-#ifdef RPARSER_USE_ZIP
-#include <archive.h>
-#include <archive_entry.h>
+// (requires: zlip, libzip)
+#define RPARSER_USE_LIBZIP
+#ifdef RPARSER_USE_LIBZIP
+#include <zip.h>
 #endif
 
 #include "util.h"
@@ -22,66 +21,66 @@
 namespace rparser {
 
 char *SongErrorCode[] = {
-	"No Error",	// 0
-	"No Save file format (or unsupported file format) specified",	// 1
-	"The archive file isn't valid or supported one.",
-	"Corrupted archive file (or might have password)",
-	"This song archive file has no chart.",
-	"Unsupported song file format.",	// 5
+    "No Error", // 0
+    "No Save file format (or unsupported file format) specified",   // 1
+    "The archive file isn't valid or supported one.",
+    "Corrupted archive file (or might have password)",
+    "This song archive file has no chart.",
+    "Unsupported song file format.",    // 5
 };
 
 struct FileData {
-	std::string fn;
-	char *p;
-	int iLen;
-	bool isNewFile;
+    std::string fn;
+    unsigned char *p;
+    int iLen;
 };
 
-/* comment: may need to make 'save' module? */
-class SongReader {
+// TODO: move it to general IO util
+class SongIO {
 protected:
-	int error;
-	Song *s;
+    int error;
+    Song *s;
+    std::vector<std::string> m_vFilename;
+    std::vector<std::string> m_vFolder;
 public:
-	SongReader(Song *s): s(s), error(0) {};
-	virtual int Read(const std::string &path) = 0;
-	virtual int Test(const std::string &path) = 0;
+    SongIO(Song *s): s(s), error(0) {};
+    virtual int Open(const std::string &path) = 0;
+    virtual int Write(const FileData &fd) = 0;
+    virtual int Read(FileData &fd) = 0;
+    virtual int Flush() = 0;
+    virtual int ReadFiles() = 0;
+    virtual int Close() = 0;
+    virtual int Create(const std::string &path) = 0;
 };
 
-class SongGeneralReader : public SongReader {
+class SongBasicIO : public SongIO {
 public:
-	SongGeneralReader(Song *s): SongReader(s);
-	virtual int Read(const std::string &path);
-	virtual int Test(const std::string &path);
+    SongBasicIO(Song *s): SongIO(s);
+    int Open(const std::string &path);
+    int Write(const FileData &fd);
+    int Read(FileData &fd);
+    int ReadFiles(std::vector<FileData>& fd);
+    int Flush();
+    int Create(const std::string& path);
+    int Close();
+    static int Test(const std::string &path);
 };
 
-class SongArchiveReader : public SongReader {
+class SongArchiveIO : public SongIO {
+private:
+    zip_t *m_Archive;
 public:
-	SongArchiveReader(Song *s): SongReader(s);
-	virtual int Read(const std::string &path);
-	virtual int Test(const std::string &path);
-};
-
-class SongWriter {
-protected:
-	int error;
-	Song *s;
-public:
-	SongWriter(Song *s): s(s), error(0) {};
-	virtual int Write() = 0;
-};
-
-class SongGeneralWriter : public SongWriter {
-public:
-	SongGeneralWriter(Song *s): SongWriter(s) {};
-	virtual int Write();
-};
-
-class SongArchiveWriter : public SongWriter {
-	struct archive * pArchive;		// archive file handle
-public:
-	SongArchiveWriter(Song *s): SongWriter(s) {};
-	virtual int Write();
+    SongArchiveIO(Song *s): SongIO(s);
+    int Open(const std::string &path);
+    int Write(const FileData &fd);
+    int Read(FileData &fd);
+    int ReadFiles(std::vector<FileData>& fd);
+    int Flush();
+    int Create(const std::string& path);
+    int Close();
+    static int Test(const std::string &path);
+    SongArchiveIO() : m_Archive(0) {}
+    ~SongArchiveIO() { Close(); }
 };
 
 /*
@@ -95,26 +94,19 @@ private:
     // @description Song object responsive for removing all chart datas when destroyed.
     std::vector<Chart*> m_vCharts;
 
-	// @description in case of song has metadata
-	SongMetaData m_SongMeta;
+    // @description in case of song has metadata
+    SongMetaData m_SongMeta;
 
-	// @description loaded binaries (in case of archive, will be saved together when song is saved.)
-	std::vector<FileData> m_vFiles;
+    // not saved; just indicates current opening state.
+    std::string m_sPath;
+    CHARTTYPE m_charttype;          // Detected chart format of this song
+    bool bIsArchive;                // Is current song file loaded/saved in archive?
+    bool bFastLoad;                 // Enabled when OnlyChartLoad. chart won't be cached in m_vFiles, and you can't save file.
+    int iErrorcode;                 // @description error code
+    bool bLoading;                  // @description is song loading?
+    double dProgress;               // @description loading progress of file
 
-	// not saved; just indicates current opening state.
-	CHARTTYPE m_charttype;			// Detected chart format of this song
-	std::string sSongPath;			// current song archive or directory path
-	bool bIsArchive;				// Is current song file loaded/saved in archive?
-	bool bFastLoad;					// Enabled when OnlyChartLoad. chart won't be cached in m_vFiles, and you can't save file.
-	int iErrorcode;					// @description error code
-	bool bLoading;					// @description is song loading?
-	double dProgress;				// @description loading progress of file
-
-	// @description proper reader/writer pair which reads song file
-	// initialized when class begin setup.
-	std::vector<SongReader*> m_vSongHandlers;
-	SongReader* sr;					// current song reader
-	SongWriter* sw;					// current song writer
+    SongIO* m_IO;                   // current song reader/writer
 public:
     // @description
     // register chart to Song array.
@@ -128,57 +120,57 @@ public:
     void DeleteChart(const Chart* c);
 
 
-	// @description
-	// * SaveAll() method save all m_vFile together, with all charts.
-	virtual bool SaveAll();
-	// * SaveAll() method save all m_vFile together, with specified charts.
-	virtual bool SaveChart(const Chart* c);
+    // @description
+    // * SaveAll() method save all m_vFile together, with all charts.
+    virtual bool SaveAll();
+    // * SaveAll() method save all m_vFile together, with specified charts.
+    virtual bool SaveChart(const Chart* c);
 
 
-	// @description load song
-	// default: pass folder / archive (default)
-	// may can pass single chart:
-	// - in that case, LoadSongMetadata() is called, 
-	//   and automatically LoadChart() is ONLY once called for that only chart.
-	bool Load(const std::string &path,
-		SONGTYPE songtype = SONGTYPE::UNKNOWN,
-		bool onlychartread=false);
-	// @description Only load song metadata file (in case of osu)
-	bool LoadSongMetadata(const std::string &path, SONGTYPE songtype = SONGTYPE::UNKNOWN);
-	// @description in case of loading(importing) single chart into m_vCharts
-	bool LoadChart(const std::string& path, SONGTYPE songtype = SONGTYPE::UNKNOWN);
+    // @description load song
+    // default: pass folder / archive (default)
+    // may can pass single chart:
+    // - in that case, LoadSongMetadata() is called, 
+    //   and automatically LoadChart() is ONLY once called for that only chart.
+    bool Load(const std::string &path,
+        SONGTYPE songtype = SONGTYPE::UNKNOWN,
+        bool onlychartread=false);
+    // @description Only load song metadata file (in case of osu)
+    bool LoadSongMetadata(const std::string &path, SONGTYPE songtype = SONGTYPE::UNKNOWN);
+    // @description in case of loading(importing) single chart into m_vCharts
+    bool LoadChart(const std::string& path, SONGTYPE songtype = SONGTYPE::UNKNOWN);
 
 
-	// utilities
+    // utilities
     void GetCharts(std::vector<Chart*>& charts);
     int GetChartCount();
-	int GetError();
-	const char* GetErrorStr();
-	bool IsLoading();
-	double GetLoadingProgress();
+    int GetError();
+    const char* GetErrorStr();
+    bool IsLoading();
+    double GetLoadingProgress();
 
 
-	// resource part
-	FileData* GetResource(const std::string& fn);
-	bool UpdateResource(const FileData& d);				// replace(update) or insert FileData in m_vFiles
-	bool DeleteResource(const std::string& fn);
-	void GetResourceList(const std::vector<std::string>& v);
-	void ClearResource();								// clear all loaded resource file from memory pool
+    // resource part
+    FileData* GetResource(const std::string& fn);
+    bool UpdateResource(const FileData& d);             // replace(update) or insert FileData in m_vFiles
+    bool DeleteResource(const std::string& fn);
+    void GetResourceList(const std::vector<std::string>& v);
+    void ClearResource();                               // clear all loaded resource file from memory pool
 
 
-	// @description clear all current song metadata & resource
-	void Clear();
-	Song();
+    // @description clear all current song metadata & resource
+    void Clear();
+    Song();
     ~Song();
 private:
-	// read from directory
-	bool ReadDirectory(bool onlychartread=false);
-	// write into directory (only write in case of FileData.isNewFile is true)
-	bool WriteDirectory();
-	// read files into m_vFiles.
-	bool ReadArchiveFile(bool onlychartread=false);
-	// write to archive in m_vFiles.
-	bool WriteArchiveFile();
+    // read from directory
+    bool ReadDirectory(bool onlychartread=false);
+    // write into directory (only write in case of FileData.isNewFile is true)
+    bool WriteDirectory();
+    // read files into m_vFiles.
+    bool ReadArchiveFile(bool onlychartread=false);
+    // write to archive in m_vFiles.
+    bool WriteArchiveFile();
 };
 
 
@@ -190,8 +182,8 @@ private:
  */
 class Metadata;
 class SongMetaData : public Metadata {
-	// @description should only show at extra stage
-	bool bExtraStage;
+    // @description should only show at extra stage
+    bool bExtraStage;
 };
 
 SONGTYPE TestSongType(const std::string& path);

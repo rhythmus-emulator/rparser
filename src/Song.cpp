@@ -1,6 +1,107 @@
 #include "Song.h"
 #include "MetaData.h"
 
+
+// ------ class SongBasicIO ------
+
+
+
+// ------ class SongArchiveIO ------
+
+int rparser::SongArchiveIO::Open(const std::string& path)
+{
+    Close();
+    m_Archive = zip_open(path.c_str(), ZIP_RDONLY, &error);
+    if (error)
+    {
+        printf("Zip Reading Error occured - code %d\nstr (%s)\n", error, zip_error_to_str(error));
+        return error;
+    }
+    // get all file lists from zip
+    // TODO: should detect encoding
+    int iEntries = zip_get_num_entries(m_Archive);
+    zip_stat zStat;
+    for (int i=0; i<iEntries; i++)
+    {
+        zip_stat_index(m_Archive, i, ZIP_FL_UNCHANGED, &zStat);
+        m_vFilename.push_back(zStat.name);
+    }
+    // read 
+    return 0;
+}
+
+int rparser::SongArchiveIO::Read(FileData &fd)
+{
+    ASSERT(fd.p == 0 && m_Archive);
+    zip_file_t *zfp = zip_fopen(m_Archive, fd.fn.c_str(), ZIP_FL_UNCHANGED);
+    if (!zfp)
+    {
+        printf("Failed to read file(%s) from zip\n", fd.fn.c_str());
+        return -1;
+    }
+    zip_stat zStat;
+    zip_stat(m_Archive, fd.fn.c_str(), 0, &zStat);
+    fd.iLen = zStat.size;
+    fd.p = (unsigned char*)malloc(fd.iLen);
+    zip_fread(zfp, (void*)fd.p, fd.iLen);
+    zip_fclose(zfp);
+    return 0;
+}
+
+int rparser::SongArchiveIO::Write(const FileData &fd)
+{
+    ASSERT(m_Archive);
+    zip_source_t *s;
+    s = zip_source_buffer(m_Archive, fd.p, fd.iLen, 0);
+    if (!s)
+    {
+        printf("Zip source buffer creation failed!\n");
+        return -1;
+    }
+    error = zip_file_add(m_Archive, fd.fn.c_str(), s, ZIP_FL_ENC_UTF_8 | ZIP_FL_OVERWRITE);
+    zip_source_free(s);
+    if (error)
+    {
+        printf("Zip file appending failed! (code %d)\n", error);
+    }
+    return 0;
+}
+
+int rparser::SongArchiveIO::Flush()
+{
+    // do nothing?
+    // maybe need to call Close() ...
+    return 0;
+}
+
+int rparser::SongArchiveIO::Create(const std::string& path)
+{
+    Close();
+    m_Archive = zip_open(path.c_str(), ZIP_CREATE | ZIP_EXCL, &error);
+    if (error)
+    {
+        printf("Zip Creating Error occured - code %d\nstr (%s)\n", error, zip_error_to_str(error));
+        return error;
+    }
+    return 0;
+}
+
+int rparser::SongArchiveIO::Close()
+{
+    if (m_Archive)
+    {
+        return zip_close(m_Archive);
+    }
+    return 0;
+}
+
+int rparser::SongArchiveIO::Test(const std::string& path)
+{
+    return endsWith(path, ".zip") || endsWith(path, ".osz");
+}
+
+// ------ class Song ------
+
 void rparser::Song::RegisterChart(Chart * c)
 {
 	m_Charts.push_back(c);

@@ -443,7 +443,7 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
     for (int i=0;i<10000; i++)
         measurelen[i] = 1.0f;
     std::vector<BmsNote> vNotes;
-    int value_prev[1000];
+    int value_prev[1000];   // previous value of each channel
     memset(value_prev,0,sizeof(int)*1000);
 
     // Obtain Bms objects or set measure length
@@ -468,12 +468,14 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
             }
             int cur_res = value.size()/2;
             for (int i=0; i<cur_res; i++) {
+                n.value = atoi_bms(value.c_str() + i*2);
+                n.value_prev = value_prev[channel];
+                value_prev[channel]=n.value;
+                if (n.value == 0) { continue; }
                 n.measure = measure;
                 n.channel = channel;
                 n.den = cur_res;
                 n.num = i;
-                n.value = atoi_bms(value.c_str() + i*2);
-                n.value_prev = value_prev[channel]; value_prev[channel]=n.value;
                 n.colidx = colidx;
                 vNotes.append(n);
             }
