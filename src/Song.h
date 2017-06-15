@@ -36,12 +36,12 @@ struct FileData {
 };
 
 // TODO: move it to general IO util
-class SongIO {
+class IDirectory {
 protected:
     int error;
-    Song *s;
+    std::string m_sPath;
     std::vector<std::string> m_vFilename;
-    std::vector<std::string> m_vFolder;
+    std::vector<std::string> m_vFolder;     // folder of direct ancestor
 public:
     SongIO(Song *s): s(s), error(0) {};
     virtual int Open(const std::string &path) = 0;
@@ -53,9 +53,8 @@ public:
     virtual int Create(const std::string &path) = 0;
 };
 
-class SongBasicIO : public SongIO {
+class BasicDirectory : public IDirectory {
 public:
-    SongBasicIO(Song *s): SongIO(s);
     int Open(const std::string &path);
     int Write(const FileData &fd);
     int Read(FileData &fd);
@@ -66,11 +65,11 @@ public:
     static int Test(const std::string &path);
 };
 
-class SongArchiveIO : public SongIO {
+class ArchiveDirectory : public IDirectory {
 private:
+    std::string m_sEncoding;    // encoding of original archive file
     zip_t *m_Archive;
 public:
-    SongArchiveIO(Song *s): SongIO(s);
     int Open(const std::string &path);
     int Write(const FileData &fd);
     int Read(FileData &fd);
@@ -81,6 +80,7 @@ public:
     static int Test(const std::string &path);
     SongArchiveIO() : m_Archive(0) {}
     ~SongArchiveIO() { Close(); }
+    void SetEncoding(const std::string& sEncoding);
 };
 
 /*
@@ -103,10 +103,8 @@ private:
     bool bIsArchive;                // Is current song file loaded/saved in archive?
     bool bFastLoad;                 // Enabled when OnlyChartLoad. chart won't be cached in m_vFiles, and you can't save file.
     int iErrorcode;                 // @description error code
-    bool bLoading;                  // @description is song loading?
-    double dProgress;               // @description loading progress of file
 
-    SongIO* m_IO;                   // current song reader/writer
+    IDirectory *m_pDir;             // @description Song IO
 public:
     // @description
     // register chart to Song array.
@@ -132,13 +130,12 @@ public:
     // may can pass single chart:
     // - in that case, LoadSongMetadata() is called, 
     //   and automatically LoadChart() is ONLY once called for that only chart.
-    bool Load(const std::string &path,
-        SONGTYPE songtype = SONGTYPE::UNKNOWN,
-        bool onlychartread=false);
+    bool Open(const std::string &path,
+        SONGTYPE songtype = SONGTYPE::UNKNOWN);
     // @description Only load song metadata file (in case of osu)
     bool LoadSongMetadata(const std::string &path, SONGTYPE songtype = SONGTYPE::UNKNOWN);
     // @description in case of loading(importing) single chart into m_vCharts
-    bool LoadChart(const std::string& path, SONGTYPE songtype = SONGTYPE::UNKNOWN);
+    bool LoadChart(const std::string& relpath, SONGTYPE songtype = SONGTYPE::UNKNOWN);
 
 
     // utilities
@@ -146,31 +143,14 @@ public:
     int GetChartCount();
     int GetError();
     const char* GetErrorStr();
-    bool IsLoading();
-    double GetLoadingProgress();
 
 
-    // resource part
-    FileData* GetResource(const std::string& fn);
-    bool UpdateResource(const FileData& d);             // replace(update) or insert FileData in m_vFiles
-    bool DeleteResource(const std::string& fn);
-    void GetResourceList(const std::vector<std::string>& v);
-    void ClearResource();                               // clear all loaded resource file from memory pool
-
-
-    // @description clear all current song metadata & resource
-    void Clear();
+    // @description clear all current song metadata & resource, close directory.
+    void Close();
     Song();
     ~Song();
 private:
-    // read from directory
-    bool ReadDirectory(bool onlychartread=false);
-    // write into directory (only write in case of FileData.isNewFile is true)
-    bool WriteDirectory();
-    // read files into m_vFiles.
-    bool ReadArchiveFile(bool onlychartread=false);
-    // write to archive in m_vFiles.
-    bool WriteArchiveFile();
+    bool OpenDirectory();
 };
 
 
@@ -186,7 +166,7 @@ class SongMetaData : public Metadata {
     bool bExtraStage;
 };
 
-SONGTYPE TestSongType(const std::string& path);
+SONGTYPE rparser::TestSongTypeExtension(const std::string & fname);
 
 }
 

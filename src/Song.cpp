@@ -2,15 +2,56 @@
 #include "MetaData.h"
 
 
-// ------ class SongBasicIO ------
+// ------ class BasicDirectory ------
 
+int rparser::ArchiveDirectory::Open(const std::string &path)
+{
+	// parse all files to full depth
+	return 0;
+}
 
+int rparser::ArchiveDirectory::Write(const FileData &fd)
+{
+	return 0;
+}
 
-// ------ class SongArchiveIO ------
+int rparser::ArchiveDirectory::Read(FileData &fd)
+{
+	return 0;
+}
 
-int rparser::SongArchiveIO::Open(const std::string& path)
+int rparser::ArchiveDirectory::ReadFiles(std::vector<FileData>& fd)
+{
+	return 0;
+}
+
+int rparser::ArchiveDirectory::Flush()
+{
+	// do nothing
+	return 0;
+}
+
+int rparser::ArchiveDirectory::Create(const std::string& path)
+{
+	return 0;
+}
+
+int rparser::ArchiveDirectory::Close()
+{
+	return 0;
+}
+
+static int Test(const std::string &path)
+{
+	return 0;
+}
+
+// ------ class ArchiveDirectory ------
+
+int rparser::ArchiveDirectory::Open(const std::string& path)
 {
     Close();
+	m_sPath = path;
     m_Archive = zip_open(path.c_str(), ZIP_RDONLY, &error);
     if (error)
     {
@@ -30,7 +71,7 @@ int rparser::SongArchiveIO::Open(const std::string& path)
     return 0;
 }
 
-int rparser::SongArchiveIO::Read(FileData &fd)
+int rparser::ArchiveDirectory::Read(FileData &fd)
 {
     ASSERT(fd.p == 0 && m_Archive);
     zip_file_t *zfp = zip_fopen(m_Archive, fd.fn.c_str(), ZIP_FL_UNCHANGED);
@@ -48,7 +89,7 @@ int rparser::SongArchiveIO::Read(FileData &fd)
     return 0;
 }
 
-int rparser::SongArchiveIO::Write(const FileData &fd)
+int rparser::ArchiveDirectory::Write(const FileData &fd)
 {
     ASSERT(m_Archive);
     zip_source_t *s;
@@ -67,14 +108,14 @@ int rparser::SongArchiveIO::Write(const FileData &fd)
     return 0;
 }
 
-int rparser::SongArchiveIO::Flush()
+int rparser::ArchiveDirectory::Flush()
 {
     // do nothing?
     // maybe need to call Close() ...
     return 0;
 }
 
-int rparser::SongArchiveIO::Create(const std::string& path)
+int rparser::ArchiveDirectory::Create(const std::string& path)
 {
     Close();
     m_Archive = zip_open(path.c_str(), ZIP_CREATE | ZIP_EXCL, &error);
@@ -86,7 +127,7 @@ int rparser::SongArchiveIO::Create(const std::string& path)
     return 0;
 }
 
-int rparser::SongArchiveIO::Close()
+int rparser::ArchiveDirectory::Close()
 {
     if (m_Archive)
     {
@@ -95,9 +136,14 @@ int rparser::SongArchiveIO::Close()
     return 0;
 }
 
-int rparser::SongArchiveIO::Test(const std::string& path)
+int rparser::ArchiveDirectory::Test(const std::string& path)
 {
     return endsWith(path, ".zip") || endsWith(path, ".osz");
+}
+
+void rparser::ArchiveDirectorySetEncoding(const std::string& sEncoding)
+{
+	m_sEncoding = sEncoding;
 }
 
 // ------ class Song ------
@@ -154,15 +200,50 @@ bool rparser::Song::SaveSongAsOsu(const std::string & path)
 	return false;
 }
 
-bool rparser::Song::LoadSong(const std::string & path, SONGTYPE songtype)
+bool rparser::Song::OpenDirectory()
 {
-	// clear song before load
-	Clear();
+	std::string ext = GetExtension(fname);
+	lower(ext);
+	if (ext == "zip" || ext == "osz") return true;
 
+	if (BasicDirectory::Test(m_sPath))
+		m_pDir = new BasicDirectory();
+	else if (ext == "zip" || ext == "osz")
+		m_pDir = new ArchiveDirectory();
+	else return false;
+	ASSERT(m_pDir);
+	error = m_pDir->Open(path);
+	return error==0;
+}
+bool rparser::Song::Open(const std::string & path, SONGTYPE songtype)
+{
+	// initialize
+	Close();
 	m_errorcode = 0;
 	bool r = false;
 
-	// use proper method from songtype
+	// prepare IO (in case of valid song folder)
+	m_sPath = path;
+	if (!OpenDirectory())
+	{
+		// if it's not valid song file (neither archive nor folder)
+		// then just attempt to open with parent, then load single chart.
+		// if parent is also invalid song file, then return error.
+		printf("Song path open failed, attempting single chart loading ...");
+		m_sPath = getParentFolder(path);
+		if (!OpenDirectory())
+		{
+			return false;
+		}
+		std::string m_sChartPath = getFilename(path);
+		return LoadChart(path);
+	}
+
+	// if folder successfully opened, iterate all files for opening
+	// TODO
+	
+	m_sPath = getParentFolder(path);
+
 	switch (songtype) {
 	case SONGTYPE::BMS:
 		r = LoadSongFromBms(path);
@@ -362,11 +443,6 @@ const char * rparser::Song::GetErrorStr()
 	return SongErrorCode[m_errorcode];
 }
 
-char * rparser::Song::ReadResourceFile(const std::string & rel_path)
-{
-	return nullptr;
-}
-
 void rparser::Song::Clear()
 {
 	m_IsSongDir = false;
@@ -374,43 +450,20 @@ void rparser::Song::Clear()
 	m_SongDir.clear();
 	m_SongFilename.clear();
 	m_SongBaseDir.clear();
-	// TODO: clear zlib handle
-	for (auto p = m_Charts.begin(); p != m_Charts.end(); ++p) {
-		delete *p;
-	}
+	if (m_pDir) delete m_pDir;
 	m_Charts.clear();
 	m_errorcode = 0;
 	// archive must be in cleared state!
 	assert(m_archive == 0);
 }
 
+rparser::Song::Song()
+{
+}
+
 rparser::Song::~Song()
 {
 	Clear();
-}
-
-bool rparser::Song::PrepareArchiveRead(const std::string& path)
-{
-	// If it's extension is .osz, then we don't need to open it.
-	// because file format is already decided.
-	std::string song_ext = GetExtension(path);
-	lower(song_ext);
-	if (song_ext == "osz") {
-		m_SongType = SONGTYPE::OSU;
-		return true;
-	}
-
-	return true;
-}
-
-void rparser::Song::ClearArchiveRead()
-{
-	if (m_archive) {
-		// clear handle
-		//archive_read_finish(m_archive);
-		archive_read_free(m_archive);
-		m_archive = 0;
-	}
 }
 
 rparser::SONGTYPE rparser::TestSongTypeExtension(const std::string & fname)
@@ -433,10 +486,4 @@ rparser::SONGTYPE rparser::TestSongTypeExtension(const std::string & fname)
 	else if (strcmp(ext_c, "ojm") == 0)
 		return SONGTYPE::OJM;
 	return SONGTYPE::UNKNOWN;
-}
-
-rparser::SONGTYPE rparser::TestSongType(const std::string& path)
-{
-	// TODO: in case of zip file, open it and test them all
-	return TestSongTypeExtension(path);
 }
