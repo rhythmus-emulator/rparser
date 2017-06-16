@@ -51,6 +51,9 @@ public:
     virtual int ReadFiles() = 0;
     virtual int Close() = 0;
     virtual int Create(const std::string &path) = 0;
+
+    std::vector<std::string>& GetFileEntries();
+    std::vector<std::string>& GetFolderEntries();
 };
 
 class BasicDirectory : public IDirectory {
@@ -99,7 +102,7 @@ private:
 
     // not saved; just indicates current opening state.
     std::string m_sPath;
-    CHARTTYPE m_charttype;          // Detected chart format of this song
+    SONGTYPE m_Songtype;           // Detected chart format of this song
     bool bIsArchive;                // Is current song file loaded/saved in archive?
     bool bFastLoad;                 // Enabled when OnlyChartLoad. chart won't be cached in m_vFiles, and you can't save file.
     int iErrorcode;                 // @description error code
@@ -120,9 +123,10 @@ public:
 
     // @description
     // * SaveAll() method save all m_vFile together, with all charts.
-    virtual bool SaveAll();
+    bool SaveAll();
     // * SaveAll() method save all m_vFile together, with specified charts.
-    virtual bool SaveChart(const Chart* c);
+    bool SaveChart(const Chart* c);
+    bool SaveMetadata();
 
 
     // @description load song
@@ -130,15 +134,16 @@ public:
     // may can pass single chart:
     // - in that case, LoadSongMetadata() is called, 
     //   and automatically LoadChart() is ONLY once called for that only chart.
-    bool Open(const std::string &path,
-        SONGTYPE songtype = SONGTYPE::UNKNOWN);
-    // @description Only load song metadata file (in case of osu)
-    bool LoadSongMetadata(const std::string &path, SONGTYPE songtype = SONGTYPE::UNKNOWN);
+    // - Songtype only explicitly specified at here, not in LoadChart/LoadSongMetaData.
+    bool Open(const std::string &path, SONGTYPE songtype = SONGTYPE::UNKNOWN);
     // @description in case of loading(importing) single chart into m_vCharts
-    bool LoadChart(const std::string& relpath, SONGTYPE songtype = SONGTYPE::UNKNOWN);
+    bool LoadChart(const std::string& relpath);
+    // @description Only load song metadata file (in case of osu)
+    bool LoadSongMetadata();
 
 
     // utilities
+    static bool ReadCharts(const std::string &path, std::vector<Chart*>& charts);
     void GetCharts(std::vector<Chart*>& charts);
     int GetChartCount();
     int GetError();
@@ -167,6 +172,7 @@ class SongMetaData : public Metadata {
 };
 
 SONGTYPE rparser::TestSongTypeExtension(const std::string & fname);
+std::string rparser::GetSongTypeExtension(SONGTYPE iType);
 
 }
 

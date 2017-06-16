@@ -202,18 +202,14 @@ bool rparser::Song::SaveSongAsOsu(const std::string & path)
 
 bool rparser::Song::OpenDirectory()
 {
-	std::string ext = GetExtension(fname);
-	lower(ext);
-	if (ext == "zip" || ext == "osz") return true;
-
 	if (BasicDirectory::Test(m_sPath))
 		m_pDir = new BasicDirectory();
-	else if (ext == "zip" || ext == "osz")
+	else if (ArchiveDirectory::Test(m_sPath))
 		m_pDir = new ArchiveDirectory();
 	else return false;
 	ASSERT(m_pDir);
-	error = m_pDir->Open(path);
-	return error==0;
+	m_Songtype = m_pDir->Open(path);
+	return m_Songtype==0;
 }
 bool rparser::Song::Open(const std::string & path, SONGTYPE songtype)
 {
@@ -221,6 +217,7 @@ bool rparser::Song::Open(const std::string & path, SONGTYPE songtype)
 	Close();
 	m_errorcode = 0;
 	bool r = false;
+	m_Songtype = songtype;
 
 	// prepare IO (in case of valid song folder)
 	m_sPath = path;
@@ -229,198 +226,122 @@ bool rparser::Song::Open(const std::string & path, SONGTYPE songtype)
 		// if it's not valid song file (neither archive nor folder)
 		// then just attempt to open with parent, then load single chart.
 		// if parent is also invalid song file, then return error.
-		printf("Song path open failed, attempting single chart loading ...");
+		printf("Song path open failed, attempting single chart loading ...\n");
 		m_sPath = getParentFolder(path);
 		if (!OpenDirectory())
 		{
 			return false;
 		}
 		std::string m_sChartPath = getFilename(path);
+		if (m_Songtype == SONGTYPE::UNKNOWN)
+			m_Songtype = rparser::TestSongTypeExtension(m_sChartPath);
+		else if (m_Songtype != rparser::TestSongTypeExtension(m_sChartPath))
+		{
+			Close();
+			printf("Cannot detect valid song file.\n");
+			m_errorcode = 4;
+			return false;
+		}
 		return LoadChart(path);
 	}
 
-	// if folder successfully opened, iterate all files for opening
-	// TODO
-	
-	m_sPath = getParentFolder(path);
+	// if folder successfully opened, check songtype & valid
+	std::vector<std::string> m_vChartPaths;
+	for (std::string &fn: m_pDir->GetFileEntries())
+	{
+		if (m_Songtype == SONGTYPE::UNKNOWN)
+		{
+			m_Songtype = rparser::TestSongTypeExtension(fn);
+			m_vChartPaths.push_back(fn);
+		}
+		else if (m_Songtype == rparser::TestSongTypeExtension(fn))
+		{
+			m_vChartPaths.push_back(fn);
+		}
+	}
+	if (m_Songtype == SONGTYPE::UNKNOWN)
+	{
+		Close();
+		printf("No valid chart file found.\n");
+		m_errorcode = 4;
+		return false;
+	}
 
-	switch (songtype) {
+	// load charts
+	for (std::string &fn: m_vChartPaths)
+	{
+		LoadChart(fn);
+	}
+	// load song metadata (CHECK RESULT?)
+	LoadSongMetadata();
+
+	return true;
+}
+
+bool rparser::Song::LoadChart(const std::string& path)
+{
+	Chart *c = 0;
+	switch (m_Songtype) {
 	case SONGTYPE::BMS:
 		r = LoadSongFromBms(path);
 		break;
 	case SONGTYPE::BMSON:
-		r = LoadSongFromBms(path);
+		r = LoadSongFromBmsOn(path);
 		break;
 	case SONGTYPE::VOS:
-		r = LoadSongFromBms(path);
+		r = LoadSongFromVos(path);
 		break;
-	case SONGTYPE::UNKNOWN:
-		// first try to detect file format automatically
-		// then call recursively
-		m_SongType = TestSongType(path);
-		if (m_SongType == SONGTYPE::UNKNOWN) {
-			m_errorcode = 5;
-			break;
-		}
-		r = LoadSong(path, m_SongType);
 	default:
-		m_errorcode = 5;
+		ASSERT(m_Songtype != SONGTYPE::UNKNOWN);
 	}
-	return r;
+	if (c) m_vCharts.push_back(c);
+	return c;
 }
 
-bool rparser::Song::LoadFromArchive(const std::string & path)
+bool rparser::Song::LoadSongMetadata()
 {
-	// only in case of not directory
-	if (m_IsSongDir) {
-		m_errorcode = 2;
+	ASSERT(songtype != SONGTYPE::UNKNOWN);
+
+	// TODO
+	switch (songtype) {
+	case SONGTYPE::OSU:
 		return false;
 	}
-
-	// if it's invalid: errorcode 2
-	int r;
-	m_archive = archive_read_new();
-	archive_read_support_format_zip(m_archive);
-	r = archive_read_open_filename(m_archive, path.c_str(), 10240); // Note 1
-	if (r != ARCHIVE_OK) {
-		m_errorcode = 2;
-		ClearArchiveRead();
-		return false;
-	}
-
-	// read all archive entries (so get filename)
-	// and attempt to find base directory
-	// and attempt to find type of song object.
-	// TODO: Decode Shift_jis in case of UTF8 decoding failed.
-	struct archive_entry* entry;
-	int chartcount = 0;
-	for (;;) {
-		r = archive_read_next_header(m_archive, &entry);
-		if (r == ARCHIVE_EOF)
-			break;
-		if (r != ARCHIVE_OK) {
-			// makes error code and break, if any one is bad.
-			m_errorcode = 3;
-			ClearArchiveRead();
-			return false;
-		}
-		else {
-			// find extension
-			const char* fname = archive_entry_gname_utf8(entry);
-			SONGTYPE songtype = DetectSongTypeExtension(fname);
-			if (songtype != SONGTYPE::UNKNOWN) {
-				m_SongBaseDir = GetDirectoryname(fname);
-				m_SongType = songtype;
-
-				// start to read chart data, based on songtype
-				switch (m_SongType) {
-				case SONGTYPE::BMS:
-					// TODO
-					break;
-				default:
-
-				}
-			} else {
-				archive_read_data_skip(m_archive);
-			}
-		}
-	}
-		
-	// if it has no bms file, then it will have no chart.
-	// So we cannot decide this song file's format. reject.
-	if (chartcount <= 0) {
-		m_errorcode = 4;
-		ClearArchiveRead();
-		return false;
-	}
-
-	// read finished, so close archive once.
-	ClearArchiveRead();
+	return true;
 }
 
 bool rparser::Song::LoadSongFromBms(const std::string & path)
 {
-	m_errorcode = 0;
-	m_SongType = SONGTYPE::BMS;
-
-	// this format can be archive file
-	// if so, attempt to read as archive file
-	if (IsDirectory(path)) {
-		m_IsSongDir = true;
-	}
-	else {
-		m_IsSongDir = false;
-		LoadFromArchive(path);
-	}
-
-
-	// FIN
-
 	return false;
 }
-
 bool rparser::Song::LoadSongFromBmsOn(const std::string & path)
 {
-	m_errorcode = 0;
-	m_SongType = SONGTYPE::BMSON;
-
-	// this format can be archive file
-	// if so, attempt to read as archive file
-	if (IsDirectory(path)) {
-		m_IsSongDir = true;
-	}
-	else {
-		m_IsSongDir = false;
-		LoadFromArchive(path);
-	}
-
 	return false;
 }
-
 bool rparser::Song::LoadSongFromOsu(const std::string & path)
 {
-	m_errorcode = 0;
-	m_SongType = SONGTYPE::OSU;
-
-	// this format can be archive file
-	// if so, attempt to read as archive file
-	if (IsDirectory(path)) {
-		m_IsSongDir = true;
-	}
-	else {
-		m_IsSongDir = false;
-		LoadFromArchive(path);
-	}
-
 	return false;
 }
-
 bool rparser::Song::LoadSongFromVos(const std::string & path)
 {
-	m_errorcode = 0;
-	m_SongType = SONGTYPE::VOS;
-
-	// TODO directly read file
-
 	return false;
 }
 
-bool rparser::Song::LoadChart(const std::string & path, SONGTYPE songtype)
+static bool ReadCharts(const std::string &path, std::vector<Chart*>& charts)
 {
-	bool r = false;
-	switch (songtype) {
-	case SONGTYPE::BMS:
-		break;
-	default:
-		// do recursive work
-		songtype = DetectSongTypeExtension(path);
-		if (songtype == SONGTYPE::UNKNOWN) {
-			m_errorcode = 5;
-			break;
-		}
-		r = LoadChart(path, songtype);
+	Song* s = new Song();
+	if (!s->Open(path))
+	{
+		delete s;
+		return false;
 	}
-	return r;
+	// copy pointers and clear original pt container
+	// to prevent object deletion
+	charts = s->m_vCharts;
+	s->m_vCharts.clear();
+	s->Close();
+	delete s;
+	return true;
 }
 
 void rparser::Song::GetCharts(std::vector<Chart*>& charts)
@@ -443,18 +364,24 @@ const char * rparser::Song::GetErrorStr()
 	return SongErrorCode[m_errorcode];
 }
 
-void rparser::Song::Clear()
+void rparser::Song::Close()
 {
 	m_IsSongDir = false;
 	m_SongType = SONGTYPE::UNKNOWN;
 	m_SongDir.clear();
 	m_SongFilename.clear();
 	m_SongBaseDir.clear();
-	if (m_pDir) delete m_pDir;
+	if (m_pDir)
+	{
+		delete m_pDir;
+		m_pDir = 0;
+	}
+	for (Chart *c: m_vCharts)
+	{
+		delete c;
+	}
 	m_Charts.clear();
 	m_errorcode = 0;
-	// archive must be in cleared state!
-	assert(m_archive == 0);
 }
 
 rparser::Song::Song()
@@ -463,7 +390,7 @@ rparser::Song::Song()
 
 rparser::Song::~Song()
 {
-	Clear();
+	Close();
 }
 
 rparser::SONGTYPE rparser::TestSongTypeExtension(const std::string & fname)
