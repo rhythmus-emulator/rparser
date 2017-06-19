@@ -32,12 +32,8 @@ namespace rparser {
 int AttemptEncoding(std::string &s, int from_codepage=0);
 std::string DecodeTo(std::string &s, int to_codepage);
 #ifndef USE_ICONV	//#ifdef WIN32
-FILE* fopen_utf8(const wchar_t* fname, const char* mode);
 FILE* fopen_utf8(const char* fname, const char* mode);
-std::wstring DecodeUTF8ToWStr(const std::string& s);
-std::wstring DecodeUTF8ToWStr(char *p, int iLen);
-std::string DecodeWStrToUTF8(const std::wstring& s);
-int printf_utf8();
+int printf_utf8(const char* fmt, ...);
 #else
 #define fopen fopen_utf8
 #define printf printf_utf8
