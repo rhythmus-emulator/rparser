@@ -32,7 +32,9 @@ namespace rparser {
 int AttemptEncoding(std::string &s, int to_codepage, int from_codepage);
 int AttemptEncoding(std::string &s, int from_codepage=0);
 std::string DecodeTo(std::string &s, int to_codepage);
-#ifndef USE_ICONV	//#ifdef WIN32
+#ifdef WIN32
+int DecodeToWStr(const std::string& s, std::wstring& sOut, int from_codepage);
+int EncodeFromWStr(const std::wstring& sOut, std::string& s, int to_codepage);
 FILE* fopen_utf8(const char* fname, const char* mode);
 int printf_utf8(const char* fmt, ...);
 #else
@@ -55,17 +57,78 @@ int GetSeed();
 
 // string related
 
-void lower(std::string& s);
-bool EndsWith(const std::string& s1, const std::string& s2);
+std::string lower(const std::string& s);
+bool endsWith(const std::string& s1, const std::string& s2, bool casesensitive=true);
 // @description tidy pathname in case of using irregular separator
 std::string CleanPath(const std::string& path);
-// @description get absolute path
-std::string GetAbsolutePath(const std::string& path);
-
-std::string GetDirectoryname(const std::string& path);
+std::string GetDirectory(const std::string& path);
 std::string GetFilename(const std::string& path);
-std::string GetExtension(const std::string& path);
+std::string GetExtension(const std::string& path, std::string *sOutName=0);
+
+
+
+// Directory / Archive related
+
 bool IsDirectory(const std::string& path);
+// <path, isfile>
+typedef std::vector<std::pair<std::string, int>> DirFileList;
+bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecursive=100);
+
+struct FileData {
+    std::string fn;
+    unsigned char *p;
+    int iLen;
+};
+
+class IDirectory {
+protected:
+    int error;
+    std::string m_sPath;
+    std::vector<std::string> m_vFilename;
+    std::vector<std::string> m_vFolder;     // folder of direct ancestor
+public:
+    SongIO(Song *s): s(s), error(0) {};
+    virtual int Open(const std::string &path) = 0;
+    virtual int Write(const FileData &fd) = 0;
+    virtual int Read(FileData &fd) = 0;
+    virtual int Flush() = 0;
+    virtual int ReadFiles() = 0;
+    virtual int Close() = 0;
+    virtual int Create(const std::string &path) = 0;
+
+    std::vector<std::string>& GetFileEntries();
+    std::vector<std::string>& GetFolderEntries();
+};
+
+class BasicDirectory : public IDirectory {
+public:
+    int Open(const std::string &path);
+    int Write(const FileData &fd);
+    int Read(FileData &fd);
+    int ReadFiles(std::vector<FileData>& fd);
+    int Flush();
+    int Create(const std::string& path);
+    int Close();
+    static int Test(const std::string &path);
+};
+
+class ArchiveDirectory : public IDirectory {
+private:
+    std::string m_sEncoding;    // encoding of original archive file
+    zip_t *m_Archive;
+public:
+    int Open(const std::string &path);
+    int Write(const FileData &fd);
+    int Read(FileData &fd);
+    int ReadFiles(std::vector<FileData>& fd);
+    int Flush();
+    int Create(const std::string& path);
+    int Close();
+    static int Test(const std::string &path);
+    SongArchiveIO() : m_Archive(0) {}
+    ~SongArchiveIO() { Close(); }
+    void SetEncoding(const std::string& sEncoding);
+};
 
 
 

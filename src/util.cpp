@@ -184,10 +184,32 @@ int GetSeed() { return global_seed; }
 
 // string-path part
 
-void lower(std::string& s) {
-	std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+std::string lower(const std::string& s) {
+	std::string sOut(s);
+	std::transform(sOut.begin(), sOut.end(), sOut.begin(), ::tolower);
+	return sOut;
 }
-
+bool endsWith(const std::string& s1, const std::string& s2, bool casesensitive)
+{
+	if (casesensitive)
+	{
+		int l = (s1.size() > s2.size())?s1.size:s2.size();
+		const char* p1 = &s1.back();
+		const char* p2 = &s2.back();
+		while (l)
+		{
+			if (*p1 != *p2) return false;
+			p1--; p2--; l--;
+		}
+		return true;
+	}
+	else
+	{
+		std::string ss1 = lower(s1);
+		std::string ss2 = lower(s2);
+		return endsWith(ss1, ss2, true);
+	}
+}
 std::string CleanPath(const std::string& path)
 {
 	std::string r;
@@ -218,17 +240,23 @@ std::string GetFilename(const std::string & path)
 	return std::string(path.c_str()+pos+1);
 }
 
-std::string GetExtension(const std::string & path)
+std::string GetExtension(const std::string& path, std::string *sOutName=0)
 {
 	size_t pos = path.find_last_of('.');
 	if (pos == std::string::npos)
 		return path;
+	if (sOutName)
+	{
+		*sOutName = path.substr(0, pos);
+	}
 	return std::string(path.c_str() + pos + 1);
 }
 
+#ifdef WIN32
 bool IsDirectory(const std::string & path)
 {
-	std::wstring wpath = DecodeUTF8ToWStr(path);
+	std::wstring wpath;
+	DecodeToWStr(path, wpath, CP_UTF8);
 	DWORD ftyp = GetFileAttributesW(wpath.c_str());
 	if (ftyp == INVALID_FILE_ATTRIBUTES)
 		return false;  //something is wrong with your path!
@@ -238,30 +266,263 @@ bool IsDirectory(const std::string & path)
 
 	return false;    // this is not a directory!
 }
-
-FILE * fopen_utf8(const wchar_t * fname, const char * mode)
+bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecursive)
 {
-	return nullptr;
+    HANDLE hFind = INVALID_HANDLE_VALUE;
+    WIN32_FIND_DATA ffd;
+    std::wstring spec, wpath, mask="*";
+    std::stack<std::wstring> directories;	// currently going-to-search directories
+	std::stack<std::wstring> dir_name;		// name for current directories
+	std::wstring curr_dir_name;
+
+    directories.push(path);
+	dir_name.push("");
+
+    while (!directories.empty() && maxrecursive >= 0) {
+		maxrecursive--;
+        path = directories.top();
+        spec = path + L"\\" + mask;
+		curr_dir_name = dir_name.top();
+        directories.pop();
+		dir_name.pop();
+
+        hFind = FindFirstFile(spec.c_str(), &ffd);
+        if (hFind == INVALID_HANDLE_VALUE)  {
+            return false;
+        } 
+
+        do {
+            if (wcscmp(ffd.cFileName, L".") != 0 && 
+                wcscmp(ffd.cFileName, L"..") != 0) {
+                if (ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                    directories.push(path + L"\\" + ffd.cFileName);
+					dir_name.push(curr_dir_name + ffd.cFileName + L"\\");
+
+					std::string fn;
+					EncodeFromWStr(curr_dir_name + ffd.cFileName, fn, CP_UTF8);
+					vFiles.push_back(std::pairs<std::string, int>(fn,0));
+                }
+                else {
+					std::string fn;
+					EncodeFromWStr(curr_dir_name + ffd.cFileName, fn, CP_UTF8);
+					vFiles.push_back(std::pairs<std::string, int>(fn,1));
+                }
+            }
+        } while (FindNextFile(hFind, &ffd) != 0);
+
+        if (GetLastError() != ERROR_NO_MORE_FILES) {
+            FindClose(hFind);
+            return false;
+        }
+
+        FindClose(hFind);
+        hFind = INVALID_HANDLE_VALUE;
+    }
+
+	return true;
+}
+#else
+bool IsDirectory(const std::string& path)
+{
+	return true;
+}
+bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecursive)
+{
+    DIR *dp;
+    struct dirent *dirp;
+	std::vector<std::string> directories;
+	std::vector<std::string> dir_name;
+
+	directories.push(path);
+	dir_name.push("");
+
+	std::string curr_dir_name;
+	std::string curr_dir;
+
+	while (maxrecursive >= 0)
+	{
+		maxrecursive--;
+		curr_dir = directories.top();
+		curr_dir_name = dir_name.top();
+		directories.pop();
+		dir_name.pop();
+		if((dp  = opendir(curr_dir.c_str())) == NULL) {
+			printf("Error opening %s dir.\n", curr_dir.c_str());
+			return false;
+		}
+		while ((dirp = readdir(dp)) != NULL) {
+			if (dirp->d_type == DT_DIR)
+			{
+				directories.push(curr_dir + "/" + dirp->d_name);
+				dir_name.push(curr_dir_name + dirp->d_name + "/");
+			}
+			else if (dirp->d_type == DT_REG)
+			{
+				vFiles.push_back(std::pair<std::string, int>(curr_dir_name + string(dirp->d_name), 1));
+			}
+		}
+		closedir(dp);
+	}
+
+	return true;
+}
+#endif
+
+// ------ class BasicDirectory ------
+
+int rparser::ArchiveDirectory::Open(const std::string &path)
+{
+	// parse all files to full depth
+	return 0;
 }
 
-FILE * fopen_utf8(const char * fname, const char * mode)
+int rparser::ArchiveDirectory::Write(const FileData &fd)
 {
-	return nullptr;
+	return 0;
 }
 
-std::wstring DecodeUTF8ToWStr(const std::string & s)
+int rparser::ArchiveDirectory::Read(FileData &fd)
 {
-	return std::wstring();
+	return 0;
 }
 
-std::wstring DecodeUTF8ToWStr(char * p, int iLen)
+int rparser::ArchiveDirectory::ReadFiles(std::vector<FileData>& fd)
 {
-	return std::wstring();
+	return 0;
 }
 
-std::string DecodeWStrToUTF8(const std::wstring & s)
+int rparser::ArchiveDirectory::Flush()
 {
-	return std::string();
+	// do nothing
+	return 0;
+}
+
+int rparser::ArchiveDirectory::Create(const std::string& path)
+{
+	return 0;
+}
+
+int rparser::ArchiveDirectory::Close()
+{
+	return 0;
+}
+
+static int Test(const std::string &path)
+{
+	return 0;
+}
+
+// ------ class ArchiveDirectory ------
+
+int rparser::ArchiveDirectory::Open(const std::string& path)
+{
+    Close();
+	m_sPath = path;
+    m_Archive = zip_open(path.c_str(), ZIP_RDONLY, &error);
+    if (error)
+    {
+        printf("Zip Reading Error occured - code %d\nstr (%s)\n", error, zip_error_to_str(error));
+        return error;
+    }
+    // get all file lists from zip
+    // TODO: should detect encoding
+    int iEntries = zip_get_num_entries(m_Archive);
+    zip_stat zStat;
+    for (int i=0; i<iEntries; i++)
+    {
+        zip_stat_index(m_Archive, i, ZIP_FL_UNCHANGED, &zStat);
+        m_vFilename.push_back(zStat.name);
+    }
+    // read 
+    return 0;
+}
+
+int rparser::ArchiveDirectory::Read(FileData &fd)
+{
+    ASSERT(fd.p == 0 && m_Archive);
+    zip_file_t *zfp = zip_fopen(m_Archive, fd.fn.c_str(), ZIP_FL_UNCHANGED);
+    if (!zfp)
+    {
+        printf("Failed to read file(%s) from zip\n", fd.fn.c_str());
+        return -1;
+    }
+    zip_stat zStat;
+    zip_stat(m_Archive, fd.fn.c_str(), 0, &zStat);
+    fd.iLen = zStat.size;
+    fd.p = (unsigned char*)malloc(fd.iLen);
+    zip_fread(zfp, (void*)fd.p, fd.iLen);
+    zip_fclose(zfp);
+    return 0;
+}
+
+int rparser::ArchiveDirectory::Write(const FileData &fd)
+{
+    ASSERT(m_Archive);
+    zip_source_t *s;
+    s = zip_source_buffer(m_Archive, fd.p, fd.iLen, 0);
+    if (!s)
+    {
+        printf("Zip source buffer creation failed!\n");
+        return -1;
+    }
+    error = zip_file_add(m_Archive, fd.fn.c_str(), s, ZIP_FL_ENC_UTF_8 | ZIP_FL_OVERWRITE);
+    zip_source_free(s);
+    if (error)
+    {
+        printf("Zip file appending failed! (code %d)\n", error);
+    }
+    return 0;
+}
+
+int rparser::ArchiveDirectory::Flush()
+{
+    // do nothing?
+    // maybe need to call Close() ...
+    return 0;
+}
+
+int rparser::ArchiveDirectory::Create(const std::string& path)
+{
+    Close();
+    m_Archive = zip_open(path.c_str(), ZIP_CREATE | ZIP_EXCL, &error);
+    if (error)
+    {
+        printf("Zip Creating Error occured - code %d\nstr (%s)\n", error, zip_error_to_str(error));
+        return error;
+    }
+    return 0;
+}
+
+int rparser::ArchiveDirectory::Close()
+{
+    if (m_Archive)
+    {
+        return zip_close(m_Archive);
+    }
+    return 0;
+}
+
+int rparser::ArchiveDirectory::Test(const std::string& path)
+{
+    return endsWith(path, ".zip") || endsWith(path, ".osz");
+}
+
+void rparser::ArchiveDirectory::SetEncoding(const std::string& sEncoding)
+{
+	m_sEncoding = sEncoding;
+}
+
+
+
+// BMS-related utils
+
+int atoi_bms(const char* p)
+{
+	return 0;
+}
+int atoi_bms16(const char* p)
+{
+	return 0;
 }
 
 }

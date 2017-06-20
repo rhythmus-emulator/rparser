@@ -1,5 +1,6 @@
 #include "MetaData.h"
 #include "util.h"
+#include <stdlib.h>
 
 namespace rparser {
 
@@ -35,13 +36,6 @@ double GetAttribute<double>(const std::string& key) const
 {
     return GetAttribute<double>(key,0);
 }
-void _I_want_to_avoid_link_error()
-{
-    MetaData m;
-    int a = m.GetAttribute<int>("a");
-    int a = m.GetAttribute<int>("a");
-}
-
 void MetaData::SetAttribute(const std::string& key, int value)
 {
     char s[100];
