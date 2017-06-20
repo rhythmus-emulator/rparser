@@ -115,6 +115,16 @@ int EncodeFromWStr(const std::wstring& sOut, std::string& s, int to_codepage)
 	utf8size = WideCharToMultiByte(to_codepage, 0, sOut.data(), sOut.size(), s.data(), utf8size, 0, 0);
 	return utf8size;
 }
+int AttemptEncoding(std::string &s, int to_codepage, int from_codepage)
+{
+	// to UTF16
+	std::wstring sWstr;
+	if (DecodeToWStr(s, sWstr, from_codepage) == 0)
+		return 0;
+
+	// from UTF16
+	return EncodeFromWStr(sWstr, s, to_codepage);
+}
 int AttemptEncoding(std::string &s, int from_codepage)
 {
 	if (iLen == 0)

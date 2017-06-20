@@ -29,6 +29,7 @@ namespace rparser {
 // this returns UTF-8 string using specified encoding.
 // if no encoding found then it returns 0 with no string changed.
 // if from_codepage=0, then attempt encoding Shift_JIS / CP949
+int AttemptEncoding(std::string &s, int to_codepage, int from_codepage);
 int AttemptEncoding(std::string &s, int from_codepage=0);
 std::string DecodeTo(std::string &s, int to_codepage);
 #ifndef USE_ICONV	//#ifdef WIN32
