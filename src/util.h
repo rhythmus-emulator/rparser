@@ -58,6 +58,8 @@ int GetSeed();
 // string related
 
 std::string lower(const std::string& s);
+int split(const std::string& str, const char sep=' ', std::vector<std::string>& vsOut);
+#define IN(v,o) ((v).find(o) != (v).end())
 bool endsWith(const std::string& s1, const std::string& s2, bool casesensitive=true);
 // @description tidy pathname in case of using irregular separator
 std::string CleanPath(const std::string& path);
@@ -70,6 +72,7 @@ std::string GetExtension(const std::string& path, std::string *sOutName=0);
 // Directory / Archive related
 
 bool IsDirectory(const std::string& path);
+bool CreateDirectory(const std::string& path);
 // <path, isfile>
 typedef std::vector<std::pair<std::string, int>> DirFileList;
 bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecursive=100);
@@ -77,7 +80,7 @@ bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecu
 struct FileData {
     std::string fn;
     unsigned char *p;
-    int iLen;
+    long long iLen;
 };
 
 class IDirectory {
@@ -96,11 +99,15 @@ public:
     virtual int Close() = 0;
     virtual int Create(const std::string &path) = 0;
 
-    std::vector<std::string>& GetFileEntries();
-    std::vector<std::string>& GetFolderEntries();
+    // @description read file with smart-file-finding routine
+    bool ReadSmart(FileData &fd);
+
+    std::vector<std::string> GetFileEntries(const char* ext_filter=0);   // sep with semicolon
+    std::vector<std::string> GetFolderEntries();
 };
 
 class BasicDirectory : public IDirectory {
+    int m_iRecursiveDepth;          // directory recursive depth (in BasicFolder)
 public:
     int Open(const std::string &path);
     int Write(const FileData &fd);
@@ -109,7 +116,10 @@ public:
     int Flush();
     int Create(const std::string& path);
     int Close();
+    void SetRecursiveDepth(int iRecursiveDepth);
     static int Test(const std::string &path);
+
+    BasicDirectory() : m_iRecursiveDepth(100) {}
 };
 
 class ArchiveDirectory : public IDirectory {
@@ -127,7 +137,7 @@ public:
     static int Test(const std::string &path);
     SongArchiveIO() : m_Archive(0) {}
     ~SongArchiveIO() { Close(); }
-    void SetEncoding(const std::string& sEncoding);
+    void SetCodepage(int iCodepage);
 };
 
 
@@ -137,7 +147,7 @@ public:
 // @description only change 2 character; 00-ZZ to integer
 int atoi_bms(const char* p);
 // 00-FF
-int atoi_bms16(const char* p);
+int atoi_bms16(const char* p, int length=2);
 
 
 };
