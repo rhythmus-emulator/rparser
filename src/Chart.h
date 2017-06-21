@@ -11,17 +11,6 @@
 
 namespace rparser {
 
-enum class CHARTTYPE {
-	UNKNOWN,
-	BMS,
-	BMSON,
-	OSU,
-	VOS,
-	SM,
-	DTX,
-	OJM,
-};
-
 /*
  * @description
  * chart data contains: notedata, timingdata, metadata

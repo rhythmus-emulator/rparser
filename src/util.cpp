@@ -2,7 +2,8 @@
 #include <string>
 #include <sstream>
 #include <algorithm>
-#include <dirent.h>
+#include <stack>
+//#include <dirent.h>
 
 #ifdef WIN32
 #include <windows.h>
@@ -114,7 +115,7 @@ int EncodeFromWStr(const std::wstring& sOut, std::string& s, int to_codepage)
 	ASSERT(utf8size);
 	s.clear();
 	s.append( utf8size, ' ' );
-	utf8size = WideCharToMultiByte(to_codepage, 0, sOut.data(), sOut.size(), s.data(), utf8size, 0, 0);
+	utf8size = WideCharToMultiByte(to_codepage, 0, sOut.data(), sOut.size(), (char*)s.data(), utf8size, 0, 0);
 	return utf8size;
 }
 int AttemptEncoding(std::string &s, int to_codepage, int from_codepage)
@@ -129,7 +130,7 @@ int AttemptEncoding(std::string &s, int to_codepage, int from_codepage)
 }
 int AttemptEncoding(std::string &s, int from_codepage)
 {
-	if (iLen == 0)
+	if (from_codepage == 0)
 	{
 		int iSize = 0;
 		iSize = AttemptEncoding(s, 949);
@@ -160,7 +161,8 @@ int DecodeTo(std::string &s, int to_codepage)
 FILE* fopen_utf8(const char* fname, const char* mode)
 {
 	std::wstring sWfn;
-	std::wstring sWmode(mode);
+    std::string smode(mode);
+    std::wstring sWmode;    sWmode.assign(smode.begin(), smode.end());
 	DecodeToWStr(fname, sWfn, CP_UTF8);
 	FILE* f=0;
 	if (_wfopen_s(&f, sWfn.c_str(), sWmode.c_str()) != 0)
@@ -191,12 +193,12 @@ std::string lower(const std::string& s) {
 	std::transform(sOut.begin(), sOut.end(), sOut.begin(), ::tolower);
 	return sOut;
 }
-int split(const std::string& str, const char sep=' ', std::vector<std::string>& vsOut)
+int split(const std::string& str, const char sep, std::vector<std::string>& vsOut)
 {
     std::stringstream ss;
-    ss.str(s);
+    ss.str(str);
     std::string item;
-    while (std::getline(ss, item, delim)) {
+    while (std::getline(ss, item, sep)) {
 		vsOut.push_back(item);
     }
 }
@@ -234,8 +236,11 @@ std::string CleanPath(const std::string& path)
 	}
 	return r;
 }
-
-std::string GetDirectoryname(const std::string & path)
+std::string GetParentDirectory(const std::string& path)
+{
+    return GetDirectory(GetDirectory(path));
+}
+std::string GetDirectory(const std::string & path)
 {
 	size_t pos = path.find_last_of('/');
 	if (pos == std::string::npos)
@@ -286,24 +291,25 @@ bool CreateDirectory(const std::string& path)
 bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecursive)
 {
     HANDLE hFind = INVALID_HANDLE_VALUE;
-    WIN32_FIND_DATA ffd;
-    std::wstring spec, wpath, mask="*";
+    WIN32_FIND_DATAW ffd;
+    std::wstring spec, wpath, mask=L"*";
     std::stack<std::wstring> directories;	// currently going-to-search directories
 	std::stack<std::wstring> dir_name;		// name for current directories
 	std::wstring curr_dir_name;
 
-    directories.push(path);
-	dir_name.push("");
+    DecodeToWStr(path, wpath, CP_UTF8);
+    directories.push(wpath);
+	dir_name.push(L"");
 
     while (!directories.empty() && maxrecursive >= 0) {
 		maxrecursive--;
-        path = directories.top();
-        spec = path + L"\\" + mask;
+        wpath = directories.top();
+        spec = wpath + L"\\" + mask;
 		curr_dir_name = dir_name.top();
         directories.pop();
 		dir_name.pop();
 
-        hFind = FindFirstFile(spec.c_str(), &ffd);
+        hFind = FindFirstFileW(spec.c_str(), &ffd);
         if (hFind == INVALID_HANDLE_VALUE)  {
             return false;
         } 
@@ -312,20 +318,20 @@ bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecu
             if (wcscmp(ffd.cFileName, L".") != 0 && 
                 wcscmp(ffd.cFileName, L"..") != 0) {
                 if (ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-                    directories.push(path + L"\\" + ffd.cFileName);
+                    directories.push(wpath + L"\\" + ffd.cFileName);
 					dir_name.push(curr_dir_name + ffd.cFileName + L"\\");
 
 					std::string fn;
 					EncodeFromWStr(curr_dir_name + ffd.cFileName, fn, CP_UTF8);
-					vFiles.push_back(std::pairs<std::string, int>(fn,0));
+					vFiles.push_back(std::pair<std::string, int>(fn,0));
                 }
                 else {
 					std::string fn;
 					EncodeFromWStr(curr_dir_name + ffd.cFileName, fn, CP_UTF8);
-					vFiles.push_back(std::pairs<std::string, int>(fn,1));
+					vFiles.push_back(std::pair<std::string, int>(fn,1));
                 }
             }
-        } while (FindNextFile(hFind, &ffd) != 0);
+        } while (FindNextFileW(hFind, &ffd) != 0);
 
         if (GetLastError() != ERROR_NO_MORE_FILES) {
             FindClose(hFind);
@@ -393,12 +399,18 @@ bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecu
 }
 #endif
 
+void DeleteFileData(FileData& fd)
+{
+    if (fd.p) free(fd.p);
+    fd.p = 0;
+}
+
 // ------ class IDirectory ------
 
 bool IDirectory::ReadSmart(FileData &fd)
 {
 	// first do search with specified name
-	if (m_vFilename.find(fd.fn) != m_vFilename.end())
+	if (IN(m_vFilename, fd.fn))
 		return Read(fd)>0;
 	
 	// second split ext, and find similar files(ext)
@@ -409,10 +421,10 @@ bool IDirectory::ReadSmart(FileData &fd)
 		sExt == ".flac" ||
 		sExt == ".mp3")
 	{
-		if (m_vFilename.find(sFileNameNoExt + ".wav") != m_vFilename.end()) fd.fn = sFileNameNoExt + ".wav";
-		else if (m_vFilename.find(sFileNameNoExt + ".ogg") != m_vFilename.end()) fd.fn = sFileNameNoExt + ".ogg";
-		else if (m_vFilename.find(sFileNameNoExt + ".flac") != m_vFilename.end()) fd.fn = sFileNameNoExt + ".flac";
-		else if (m_vFilename.find(sFileNameNoExt + ".mp3") != m_vFilename.end()) fd.fn = sFileNameNoExt + ".mp3";
+		if (IN(m_vFilename, ".wav")) fd.fn = sFileNameNoExt + ".wav";
+		else if (IN(m_vFilename, ".ogg")) fd.fn = sFileNameNoExt + ".ogg";
+		else if (IN(m_vFilename, ".flac")) fd.fn = sFileNameNoExt + ".flac";
+		else if (IN(m_vFilename, ".mp3")) fd.fn = sFileNameNoExt + ".mp3";
 		else return false;
 		return Read(fd)>0;
 	}
@@ -423,12 +435,12 @@ bool IDirectory::ReadSmart(FileData &fd)
 		sExt == ".webm" ||
 		sExt == ".mkv")
 	{
-		if (m_vFilename.find(sFileNameNoExt + ".avi") != m_vFilename.end()) fd.fn = sFileNameNoExt + ".avi";
-		else if (m_vFilename.find(sFileNameNoExt + ".wmv") != m_vFilename.end()) fd.fn = sFileNameNoExt + ".wmv";
-		else if (m_vFilename.find(sFileNameNoExt + ".mpg") != m_vFilename.end()) fd.fn = sFileNameNoExt + ".mpg";
-		else if (m_vFilename.find(sFileNameNoExt + ".mpeg") != m_vFilename.end()) fd.fn = sFileNameNoExt + ".mpeg";
-		else if (m_vFilename.find(sFileNameNoExt + ".webm") != m_vFilename.end()) fd.fn = sFileNameNoExt + ".webm";
-		else if (m_vFilename.find(sFileNameNoExt + ".mkv") != m_vFilename.end()) fd.fn = sFileNameNoExt + ".mkv";
+		if (IN(m_vFilename, ".avi")) fd.fn = sFileNameNoExt + ".avi";
+		else if (IN(m_vFilename, ".wmv")) fd.fn = sFileNameNoExt + ".wmv";
+		else if (IN(m_vFilename, ".mpg")) fd.fn = sFileNameNoExt + ".mpg";
+		else if (IN(m_vFilename, ".mpeg")) fd.fn = sFileNameNoExt + ".mpeg";
+		else if (IN(m_vFilename, ".webm")) fd.fn = sFileNameNoExt + ".webm";
+		else if (IN(m_vFilename, ".mkv")) fd.fn = sFileNameNoExt + ".mkv";
 		else return false;
 		return Read(fd)>0;
 	}
@@ -438,11 +450,11 @@ bool IDirectory::ReadSmart(FileData &fd)
 		sExt == ".png" ||
 		sExt == ".gif")
 	{
-		if (m_vFilename.find(sFileNameNoExt + ".bmp") != m_vFilename.end()) fd.fn = sFileNameNoExt + ".bmp";
-		else if (m_vFilename.find(sFileNameNoExt + ".jpg") != m_vFilename.end()) fd.fn = sFileNameNoExt + ".jpg";
-		else if (m_vFilename.find(sFileNameNoExt + ".jpeg") != m_vFilename.end()) fd.fn = sFileNameNoExt + ".jpeg";
-		else if (m_vFilename.find(sFileNameNoExt + ".png") != m_vFilename.end()) fd.fn = sFileNameNoExt + ".png";
-		else if (m_vFilename.find(sFileNameNoExt + ".gif") != m_vFilename.end()) fd.fn = sFileNameNoExt + ".gif";
+		if (IN(m_vFilename, ".bmp")) fd.fn = sFileNameNoExt + ".bmp";
+		else if (IN(m_vFilename, ".jpg")) fd.fn = sFileNameNoExt + ".jpg";
+		else if (IN(m_vFilename, ".jpeg")) fd.fn = sFileNameNoExt + ".jpeg";
+		else if (IN(m_vFilename, ".png")) fd.fn = sFileNameNoExt + ".png";
+		else if (IN(m_vFilename, ".gif")) fd.fn = sFileNameNoExt + ".gif";
 		else return false;
 		return Read(fd)>0;
 	}
@@ -450,7 +462,13 @@ bool IDirectory::ReadSmart(FileData &fd)
 	return false;
 }
 
-std::vector<std::string> GetFileEntries(const char* ext_filter=0)
+int IDirectory::Read(const std::string fpath, FileData &fd)
+{
+    fd.fn = fpath;
+    return Read(fd);
+}
+
+std::vector<std::string> IDirectory::GetFileEntries(const char* ext_filter=0)
 {
 	if (!ext_filter) return m_vFilename;
 
@@ -466,7 +484,7 @@ std::vector<std::string> GetFileEntries(const char* ext_filter=0)
 	return vsOut;
 }
 
-std::vector<std::string>& GetFolderEntries()
+std::vector<std::string> IDirectory::GetFolderEntries()
 {
 	return m_vFolder;
 }
@@ -476,7 +494,7 @@ std::vector<std::string>& GetFolderEntries()
 int rparser::BasicDirectory::Open(const std::string &path)
 {
 	if (!IsDirectory(path)) return -1;
-	std::vector<DirFileList> vFiles;
+    DirFileList vFiles;
 	GetDirectoryFiles(path, vFiles, m_iRecursiveDepth);
 	for (auto& entry: vFiles)
 	{
@@ -496,7 +514,7 @@ int rparser::BasicDirectory::Write(const FileData &fd)
 	std::string sFullpath = m_sPath + "/" + fd.fn;
 	FILE *fp = fopen_utf8(sFullpath.c_str(), "wb");
 	if (!fp) return 0;
-	int r = fwrite(fp, fd.p, fd.iLen);
+	int r = fwrite(fd.p, 1, fd.iLen, fp);
 	fclose(fp);
 	return r;
 }
@@ -511,22 +529,24 @@ int rparser::BasicDirectory::Read(FileData &fd)
 	fseek(fp, 0, SEEK_SET);
 	ASSERT(fd.p == 0);
 	fd.p = (unsigned char*)malloc(fd.iLen);
-	fd.iLen = fread(fp, fd.p, fd.iLen);
+	fd.iLen = fread(fd.p, 1, fd.iLen, fp);
 	return fd.iLen;
 }
 
 int rparser::BasicDirectory::ReadFiles(std::vector<FileData>& fd)
 {
-	FileData fd;
+	FileData fdat;
 	int r = m_vFilename.size();
 	for (auto &fn : m_vFilename)
 	{
-		fd.fn = fn;
-		if (!Read(fd))
+        fdat.fn = fn;
+        fdat.p = 0;
+		if (!Read(fdat))
 		{
 			r = 0;
 			break;
 		}
+        fd.push_back(fdat);
 	}
 	return r;
 }
@@ -539,7 +559,7 @@ int rparser::BasicDirectory::Flush()
 
 int rparser::BasicDirectory::Create(const std::string& path)
 {
-	return CreateDirectory(path);
+	return CreateDirectory_RPARSER(path);
 }
 
 int rparser::BasicDirectory::Close()
@@ -548,7 +568,12 @@ int rparser::BasicDirectory::Close()
 	return 0;
 }
 
-static int Test(const std::string &path)
+void rparser::BasicDirectory::SetRecursiveDepth(int iRecursiveDepth)
+{
+    m_iRecursiveDepth = iRecursiveDepth;
+}
+
+int rparser::BasicDirectory::Test(const std::string &path)
 {
 	return IsDirectory(path);
 }
@@ -562,12 +587,15 @@ int rparser::ArchiveDirectory::Open(const std::string& path)
     m_Archive = zip_open(path.c_str(), ZIP_RDONLY, &error);
     if (error)
     {
-        printf("Zip Reading Error occured - code %d\nstr (%s)\n", error, zip_error_to_str(error));
+        zip_error_t zerror;
+        zip_error_init_with_code(&zerror, error);
+        printf("Zip Reading Error occured - code %d\nstr (%s)\n", error, zip_error_strerror(&zerror));
+        zip_error_fini(&zerror);
         return error;
     }
     // get all file lists from zip, with encoding
-    int iEntries = zip_get_num_entries(m_Archive);
-    zip_stat zStat;
+    int iEntries = zip_get_num_entries(m_Archive, ZIP_FL_UNCHANGED);
+    struct zip_stat zStat;
     for (int i=0; i<iEntries; i++)
     {
         zip_stat_index(m_Archive, i, ZIP_FL_UNCHANGED, &zStat);
@@ -591,12 +619,17 @@ int rparser::ArchiveDirectory::Read(FileData &fd)
         printf("Failed to read file(%s) from zip\n", fd.fn.c_str());
         return -1;
     }
-    zip_stat zStat;
+    struct zip_stat zStat;
     zip_stat(m_Archive, fd.fn.c_str(), 0, &zStat);
     fd.iLen = zStat.size;
     fd.p = (unsigned char*)malloc(fd.iLen);
     zip_fread(zfp, (void*)fd.p, fd.iLen);
     zip_fclose(zfp);
+    return 0;
+}
+
+int rparser::ArchiveDirectory::ReadFiles(std::vector<FileData>& fd)
+{
     return 0;
 }
 
@@ -634,7 +667,10 @@ int rparser::ArchiveDirectory::Create(const std::string& path)
     m_Archive = zip_open(path.c_str(), ZIP_CREATE | ZIP_EXCL, &error);
     if (error)
     {
-        printf("Zip Creating Error occured - code %d\nstr (%s)\n", error, zip_error_to_str(error));
+        zip_error_t zerror;
+        zip_error_init_with_code(&zerror, error);
+        printf("Zip Creating Error occured - code %d\nstr (%s)\n", error, zip_error_strerror(&zerror));
+        zip_error_fini(&zerror);
         return error;
     }
     return 0;

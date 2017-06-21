@@ -9,6 +9,8 @@
 
 #include <stdio.h>
 #include <string>
+#include <vector>
+#include <zip.h>
 
 #include <assert.h>
 #define ASSERT assert
@@ -31,7 +33,7 @@ namespace rparser {
 // if from_codepage=0, then attempt encoding Shift_JIS / CP949
 int AttemptEncoding(std::string &s, int to_codepage, int from_codepage);
 int AttemptEncoding(std::string &s, int from_codepage=0);
-std::string DecodeTo(std::string &s, int to_codepage);
+int DecodeTo(std::string &s, int to_codepage);
 #ifdef WIN32
 int DecodeToWStr(const std::string& s, std::wstring& sOut, int from_codepage);
 int EncodeFromWStr(const std::wstring& sOut, std::string& s, int to_codepage);
@@ -58,12 +60,13 @@ int GetSeed();
 // string related
 
 std::string lower(const std::string& s);
-int split(const std::string& str, const char sep=' ', std::vector<std::string>& vsOut);
-#define IN(v,o) ((v).find(o) != (v).end())
+int split(const std::string& str, const char sep, std::vector<std::string>& vsOut);
+#define IN(v,o) (std::find((v).begin(), (v).end(), (o)) != (v).end())
 bool endsWith(const std::string& s1, const std::string& s2, bool casesensitive=true);
 // @description tidy pathname in case of using irregular separator
 std::string CleanPath(const std::string& path);
 std::string GetDirectory(const std::string& path);
+std::string GetParentDirectory(const std::string& path);
 std::string GetFilename(const std::string& path);
 std::string GetExtension(const std::string& path, std::string *sOutName=0);
 
@@ -73,6 +76,7 @@ std::string GetExtension(const std::string& path, std::string *sOutName=0);
 
 bool IsDirectory(const std::string& path);
 bool CreateDirectory(const std::string& path);
+#define CreateDirectory_RPARSER CreateDirectory
 // <path, isfile>
 typedef std::vector<std::pair<std::string, int>> DirFileList;
 bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecursive=100);
@@ -82,6 +86,7 @@ struct FileData {
     unsigned char *p;
     long long iLen;
 };
+void DeleteFileData(FileData& fd);
 
 class IDirectory {
 protected:
@@ -90,12 +95,13 @@ protected:
     std::vector<std::string> m_vFilename;
     std::vector<std::string> m_vFolder;     // folder of direct ancestor
 public:
-    SongIO(Song *s): s(s), error(0) {};
+    IDirectory(): error(0) {};
     virtual int Open(const std::string &path) = 0;
     virtual int Write(const FileData &fd) = 0;
     virtual int Read(FileData &fd) = 0;
+    virtual int Read(const std::string fpath, FileData &fd);
     virtual int Flush() = 0;
-    virtual int ReadFiles() = 0;
+    virtual int ReadFiles(std::vector<FileData>& fd) = 0;
     virtual int Close() = 0;
     virtual int Create(const std::string &path) = 0;
 
@@ -124,7 +130,7 @@ public:
 
 class ArchiveDirectory : public IDirectory {
 private:
-    std::string m_sEncoding;    // encoding of original archive file
+    int m_iCodepage;    // encoding of original archive file
     zip_t *m_Archive;
 public:
     int Open(const std::string &path);
@@ -135,8 +141,8 @@ public:
     int Create(const std::string& path);
     int Close();
     static int Test(const std::string &path);
-    SongArchiveIO() : m_Archive(0) {}
-    ~SongArchiveIO() { Close(); }
+    ArchiveDirectory() : m_Archive(0) {}
+    ~ArchiveDirectory() { Close(); }
     void SetCodepage(int iCodepage);
 };
 

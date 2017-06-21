@@ -2,6 +2,10 @@
 #ifndef RPARSER_NOTEWRITER_H
 #define RPARSER_NOTEWRITER_H
 
+#include "Chart.h"
+
+namespace rparser {
+
 class ChartWriter {
 protected:
     const Chart *c;
@@ -11,7 +15,8 @@ public:
     virtual int Write() = 0;
 };
 
-int WriteChart( const Chart *c, const std::string &fn );
-int WriteChart( const Chart *c, std::stream& s );
+int WriteChart(const Chart *c, const std::string &fn);
+
+}
 
 #endif

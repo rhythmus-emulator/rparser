@@ -21,9 +21,9 @@ protected:
 public:
     ChartLoader(Chart* c): c(c), error(0), m_iSeed(-1) {};
     void SetSeed(int seed);
-    virtual bool Test( const char* p, int iLen ) = 0;
+    virtual bool Test( const void* p, int iLen ) = 0;
     virtual bool TestName( const char *fn ) = 0;
-    virtual bool Load( const char* p, int iLen ) = 0;
+    virtual bool Load( const void* p, int iLen ) = 0;
 };
 
 
@@ -32,27 +32,27 @@ private:
     bool procExpansion;         // should process expand command?
     std::vector<Note> notes;    // parsed note objects
 
-    void ReadHeader(const char* p, int iLen);
-    void ReadObjects(const char* p, int iLen);
+    void ReadHeader(const void* p, int iLen);
+    void ReadObjects(const void* p, int iLen);
 public:
     ChartLoaderBMS(Chart* c, bool procExpansion=true): ChartLoader(c) {};
-    bool Test( const char* p, int iLen );
+    bool Test( const void* p, int iLen );
     bool TestName( const char *fn );
-    bool Load( const char* p, int iLen );
+    bool Load( const void* p, int iLen );
 };
 
 
 class ChartLoaderVOS : public ChartLoader {
 public:
     ChartLoaderVOS(Chart* c): ChartLoader(c) {};
-    bool Test( const char* p, int iLen );
+    bool Test( const void* p, int iLen );
     bool TestName( const char *fn );
-    bool Load( const char* p, int iLen );
+    bool Load( const void* p, int iLen );
 };
 
 
 int LoadChart( const std::string& fn, SONGTYPE songtype = SONGTYPE::UNKNOWN );
-int LoadChart( const char* p, int iLen, SONGTYPE songtype = SONGTYPE::UNKNOWN );
+int LoadChart( const void* p, int iLen, SONGTYPE songtype = SONGTYPE::UNKNOWN );
 
 }
 

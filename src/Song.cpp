@@ -1,59 +1,65 @@
 #include "Song.h"
 #include "MetaData.h"
+#include "ChartLoader.h"
+#include "ChartWriter.h"
 
 
 // ------ class Song ------
 
 void rparser::Song::RegisterChart(Chart * c)
 {
-	m_Charts.push_back(c);
+	m_vCharts.push_back(c);
 }
 
 void rparser::Song::DeleteChart(const Chart * c_)
 {
-	for (auto p = m_Charts.begin(); p != m_Charts.end(); ++p) {
+	for (auto p = m_vCharts.begin(); p != m_vCharts.end(); ++p) {
 		if (*p == c_) {
-			m_Charts.erase(p);
+			m_vCharts.erase(p);
 			return;
 		}
 	}
 }
 
-bool rparser::Song::SaveSong(const std::string & path, SONGTYPE songtype)
+bool rparser::Song::SaveSong()
 {
-	m_errorcode = 0;
-	bool r = false;
+	m_iErrorcode = 0;
+	bool r = true;
 
-	switch (m_SongType) {
-	case SONGTYPE::BMS:
-		r = SaveSongAsBms(path);
-		break;
-	case SONGTYPE::BMSON:
-		r = SaveSongAsBmsOn(path);
-		break;
-	case SONGTYPE::OSU:
-		r = SaveSongAsOsu(path);
-		break;
-	default:
-		m_errorcode = 1;
-	}
+    r &= SaveMetadata();
+    for (auto &c: m_vCharts)
+        r &= SaveChart(c);
 
 	return r;
 }
 
-bool rparser::Song::SaveSongAsBms(const std::string & path)
+bool rparser::Song::SaveMetadata()
 {
-	return false;
+    // TODO
+    return false;
 }
 
-bool rparser::Song::SaveSongAsBmsOn(const std::string & path)
+bool rparser::Song::SaveChart(const Chart* c)
 {
-	return false;
-}
-
-bool rparser::Song::SaveSongAsOsu(const std::string & path)
-{
-	return false;
+    ChartWriter *cWriter;
+    switch (m_Songtype) {
+        /*
+    case SONGTYPE::BMS:
+        cWriter = new ChartWriterBMS(c);
+        break;
+    case SONGTYPE::BMSON:
+        r = SaveSongAsBmsOn(path);
+        break;
+    case SONGTYPE::OSU:
+        r = SaveSongAsOsu(path);
+        break;
+        */
+    default:
+        m_iErrorcode = 1;
+        return false;
+    }
+    // TODO
+    return true;
 }
 
 bool rparser::Song::OpenDirectory()
@@ -64,14 +70,14 @@ bool rparser::Song::OpenDirectory()
 		m_pDir = new ArchiveDirectory();
 	else return false;
 	ASSERT(m_pDir);
-	m_Songtype = m_pDir->Open(path);
-	return m_Songtype==0;
+	int r = m_pDir->Open(m_sPath);
+	return r==0;
 }
 bool rparser::Song::Open(const std::string & path, SONGTYPE songtype)
 {
 	// initialize
 	Close();
-	m_errorcode = 0;
+	m_iErrorcode = 0;
 	bool r = false;
 	m_Songtype = songtype;
 
@@ -83,19 +89,19 @@ bool rparser::Song::Open(const std::string & path, SONGTYPE songtype)
 		// then just attempt to open with parent, then load single chart.
 		// if parent is also invalid song file, then return error.
 		printf("Song path open failed, attempting single chart loading ...\n");
-		m_sPath = getParentFolder(path);
+		m_sPath = GetParentDirectory(path);
 		if (!OpenDirectory())
 		{
 			return false;
 		}
-		std::string m_sChartPath = getFilename(path);
+		std::string m_sChartPath = GetFilename(path);
 		if (m_Songtype == SONGTYPE::UNKNOWN)
 			m_Songtype = rparser::TestSongTypeExtension(m_sChartPath);
 		else if (m_Songtype != rparser::TestSongTypeExtension(m_sChartPath))
 		{
 			Close();
 			printf("Cannot detect valid song file.\n");
-			m_errorcode = 4;
+            m_iErrorcode = 4;
 			return false;
 		}
 		return LoadChart(path);
@@ -119,7 +125,7 @@ bool rparser::Song::Open(const std::string & path, SONGTYPE songtype)
 	{
 		Close();
 		printf("No valid chart file found.\n");
-		m_errorcode = 4;
+        m_iErrorcode = 4;
 		return false;
 	}
 
@@ -134,56 +140,49 @@ bool rparser::Song::Open(const std::string & path, SONGTYPE songtype)
 	return true;
 }
 
+bool rparser::Song::LoadSongMetadata()
+{
+    ASSERT(m_Songtype != SONGTYPE::UNKNOWN);
+
+    // TODO
+    switch (m_Songtype) {
+    case SONGTYPE::OSU:
+        return false;
+    }
+    return true;
+}
+
 bool rparser::Song::LoadChart(const std::string& path)
 {
+    ASSERT(m_pDir);
+    ChartLoader* cLoader;
 	Chart *c = 0;
 	switch (m_Songtype) {
 	case SONGTYPE::BMS:
-		r = LoadSongFromBms(path);
+        cLoader = new ChartLoaderBMS(c);
 		break;
+    /*
 	case SONGTYPE::BMSON:
-		r = LoadSongFromBmsOn(path);
+		LoadSongFromBmsOn(path);
 		break;
 	case SONGTYPE::VOS:
-		r = LoadSongFromVos(path);
+		LoadSongFromVos(path);
 		break;
+    */
 	default:
 		ASSERT(m_Songtype != SONGTYPE::UNKNOWN);
 	}
-	if (c) m_vCharts.push_back(c);
+
+    FileData fDat;
+    m_pDir->Read(path, fDat);
+    if (cLoader->Load(fDat.p, fDat.iLen))
+        m_vCharts.push_back(c);
+    delete cLoader;
+    DeleteFileData(fDat);
 	return c;
 }
 
-bool rparser::Song::LoadSongMetadata()
-{
-	ASSERT(songtype != SONGTYPE::UNKNOWN);
-
-	// TODO
-	switch (songtype) {
-	case SONGTYPE::OSU:
-		return false;
-	}
-	return true;
-}
-
-bool rparser::Song::LoadSongFromBms(const std::string & path)
-{
-	return false;
-}
-bool rparser::Song::LoadSongFromBmsOn(const std::string & path)
-{
-	return false;
-}
-bool rparser::Song::LoadSongFromOsu(const std::string & path)
-{
-	return false;
-}
-bool rparser::Song::LoadSongFromVos(const std::string & path)
-{
-	return false;
-}
-
-static bool ReadCharts(const std::string &path, std::vector<Chart*>& charts)
+bool rparser::Song::ReadCharts(const std::string &path, std::vector<Chart*>& charts)
 {
 	Song* s = new Song();
 	if (!s->Open(path))
@@ -202,31 +201,27 @@ static bool ReadCharts(const std::string &path, std::vector<Chart*>& charts)
 
 void rparser::Song::GetCharts(std::vector<Chart*>& charts)
 {
-	charts = m_Charts;
+	charts = m_vCharts;
 }
 
 int rparser::Song::GetChartCount()
 {
-	return m_Charts.size();
+	return m_vCharts.size();
 }
 
 int rparser::Song::GetError()
 {
-	return m_errorcode;
+	return m_iErrorcode;
 }
 
 const char * rparser::Song::GetErrorStr()
 {
-	return SongErrorCode[m_errorcode];
+	return SongErrorCode[m_iErrorcode];
 }
 
 void rparser::Song::Close()
 {
-	m_IsSongDir = false;
-	m_SongType = SONGTYPE::UNKNOWN;
-	m_SongDir.clear();
-	m_SongFilename.clear();
-	m_SongBaseDir.clear();
+    m_Songtype = SONGTYPE::UNKNOWN;
 	if (m_pDir)
 	{
 		delete m_pDir;
@@ -236,11 +231,12 @@ void rparser::Song::Close()
 	{
 		delete c;
 	}
-	m_Charts.clear();
-	m_errorcode = 0;
+	m_vCharts.clear();
+    m_iErrorcode = 0;
 }
 
 rparser::Song::Song()
+    : m_Songtype(SONGTYPE::UNKNOWN), m_pDir(0), m_iErrorcode(0)
 {
 }
 
@@ -270,3 +266,25 @@ rparser::SONGTYPE rparser::TestSongTypeExtension(const std::string & fname)
 		return SONGTYPE::OJM;
 	return SONGTYPE::UNKNOWN;
 }
+
+std::string rparser::GetSongTypeExtension(SONGTYPE iType)
+{
+    switch (iType)
+    {
+    case SONGTYPE::BMS:
+        return "bms";
+    case SONGTYPE::BMSON:
+        return "bmson";
+    case SONGTYPE::VOS:
+        return "vos";
+    case SONGTYPE::OSU:
+        return "osu";
+    case SONGTYPE::SM:
+        return "sm";
+    case SONGTYPE::OJM:
+        return "ojm";
+    default:
+        return "";
+    }
+}
+

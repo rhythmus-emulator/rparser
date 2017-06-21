@@ -10,5 +10,5 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin/lib")
 
 # add subdirectories
-add_subdirectories("${PROJECT_SOURCE_DIR}/src")
-add_subdirectories("${PROJECT_SOURCE_DIR}/test")
+add_subdirectory("${PROJECT_SOURCE_DIR}/src")
+#add_subdirectory("${PROJECT_SOURCE_DIR}/test")

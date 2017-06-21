@@ -29,6 +29,16 @@ char *SongErrorCode[] = {
     "Unsupported song file format.",    // 5
 };
 
+enum SONGTYPE {
+	UNKNOWN,
+	BMS,
+	BMSON,
+	OSU,
+	VOS,
+	SM,
+	DTX,
+	OJM,
+};
 
 
 /*
@@ -47,10 +57,9 @@ private:
 
     // not saved; just indicates current opening state.
     std::string m_sPath;
-    SONGTYPE m_Songtype;           // Detected chart format of this song
-    bool bIsArchive;                // Is current song file loaded/saved in archive?
-    bool bFastLoad;                 // Enabled when OnlyChartLoad. chart won't be cached in m_vFiles, and you can't save file.
-    int iErrorcode;                 // @description error code
+    SONGTYPE m_Songtype;            // Detected chart format of this song
+    bool m_bIsArchive;                // Is current song file loaded/saved in archive?
+    int m_iErrorcode;               // @description error code
 
     IDirectory *m_pDir;             // @description Song IO
 public:
@@ -67,9 +76,9 @@ public:
 
 
     // @description
-    // * SaveAll() method save all m_vFile together, with all charts.
-    bool SaveAll();
-    // * SaveAll() method save all m_vFile together, with specified charts.
+    // * SaveSong() method save all m_vFile together, with all charts.
+    bool SaveSong();
+    // * SaveChart() method save all m_vFile together, with specified charts.
     bool SaveChart(const Chart* c);
     bool SaveMetadata();
 
@@ -110,14 +119,14 @@ private:
  * In that case, we use songmetadata to keep track of such format.
  * This metadata will be ignored in case of unsupported format (like bms)
  */
-class Metadata;
-class SongMetaData : public Metadata {
+#include "MetaData.h"
+class SongMetaData : public MetaData {
     // @description should only show at extra stage
     bool bExtraStage;
 };
 
-SONGTYPE rparser::TestSongTypeExtension(const std::string & fname);
-std::string rparser::GetSongTypeExtension(SONGTYPE iType);
+SONGTYPE TestSongTypeExtension(const std::string & fname);
+std::string GetSongTypeExtension(SONGTYPE iType);
 
 }
 
