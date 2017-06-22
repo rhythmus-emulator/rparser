@@ -182,7 +182,7 @@ int NoteData::GetLastNoteRow()
     return 0;
 }
 
-int NoteData::GetLastNoteTime()
+float NoteData::GetLastNoteTime()
 {
     return 0;
 }

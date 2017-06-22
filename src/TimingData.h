@@ -174,10 +174,10 @@ struct LookupObject {
     float end_delay_msec;       // DELAY time
 
     float bps;                  // beat per second
-}
+};
 
 // BPM, STOP, WARP, MEASURE
-#define NUM_TIMINGOBJ_TYPE 6
+#define NUM_TIMINGOBJECT_TYPE 6
 enum TYPE_TIMINGOBJ {
     TYPE_BPM=0,
     TYPE_STOP=1,
@@ -236,7 +236,7 @@ public:
     void SortObjects(TYPE_TIMINGOBJ type);
     void SortAllObjects();
     std::vector<TimingObject *>& GetTimingObjects(TYPE_TIMINGOBJ type);
-    const std::vector<TimingObject *>& GetTimingObjects(TYPE_TIMINGOBJ type);
+    const std::vector<TimingObject *>& GetTimingObjects(TYPE_TIMINGOBJ type) const;
 
     // @description
     // kind of metadata
@@ -252,6 +252,8 @@ public:
 
     // @description fill BPM/STOP data in case of bms's object exists
     void LoadBpmStopObject(const NoteData& nd, const MetaData& md);
+
+    std::string toString();
 
     TimingData();
     ~TimingData();
@@ -286,6 +288,13 @@ private:
     WarpObject* ToWarp(TimingObject* obj);
     ScrollObject* ToScroll(TimingObject* obj);
     MeasureObject* ToMeasure(TimingObject* obj);
+
+    // @description
+    // loads special timing data from note/metadata object
+    // (mostly for BMS object)
+    friend class Chart;
+    void ClearExternObject();
+    void LoadExternObject(const MetaData &metadata, const NoteData &notedata);
 };
 
 }

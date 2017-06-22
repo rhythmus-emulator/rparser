@@ -7,6 +7,7 @@
 
 #include <map>
 #include <vector>
+#include <algorithm>
 #include "TimingData.h"
 
 /*
@@ -108,9 +109,13 @@ struct Note {
 
     Note() : x(0), y(0), iValue(0), iDuration(0),
         fVolume(0), iPitch(0),
-        fTime(0), fDuration(0), iCombo(1) {}
+        fTime(0), fDuration(0) {}
+
     std::string toString();
     bool operator<( const TimingObject &other ) const;
+    bool IsTappableNote();
+    int GetPlayerSide();
+    int GetTrack();
 };
 
 class NoteData {
@@ -126,14 +131,10 @@ public:
     typedef std::vector<Note>::iterator trackiter;
     typedef std::vector<Note>::const_iterator const_trackiter;
 
-    trackiter begin(int tracknum) { return tracks[tracknum]->begin(); };
-    trackiter end(int tracknum) { return tracks[tracknum]->end(); };
-    trackiter lower_bound(int tracknum, int row) { return tracks[tracknum]->lower_bound(row); };
-    trackiter upper_bound(int tracknum, int row) { return tracks[tracknum]->upper_bound(row); };
-    const_trackiter begin(int tracknum) { return tracks[tracknum]->begin(); };
-    const_trackiter end(int tracknum) { return tracks[tracknum]->end(); };
-    const_trackiter lower_bound(int tracknum, int row) { return tracks[tracknum]->lower_bound(row); };
-    const_trackiter upper_bound(int tracknum, int row) { return tracks[tracknum]->upper_bound(row); };
+    trackiter begin() { return m_Track.begin(); };
+    trackiter end() { return m_Track.end(); };
+    trackiter lower_bound(int row) { return std::lower_bound(m_Track.begin(), m_Track.end(), row); };
+    trackiter upper_bound(int row) { return std::upper_bound(m_Track.begin(), m_Track.end(), row); };
     Note* GetLastNoteAtTrack(int iTrackNum=-1, int iType=-1, int iSubType=-1);
 
 
@@ -152,7 +153,7 @@ public:
     int GetNoteCount(int iTrackNum);
     // @description 
     int GetLastNoteRow();
-    int GetLastNoteTime();
+    float GetLastNoteTime();
     bool IsHoldNoteAtRow(int track, int row);
     NoteType GetNoteTypeAtRow(int track, int row);
     Note* GetNoteAtRow(int track, int row);

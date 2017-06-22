@@ -42,7 +42,7 @@ struct BPMChannel {
  * contains metadata(header) part for song
  */
 class MetaData {
-    public:
+public:
     // @description supports int, string, float, double types.
     template<typename T>
     T GetAttribute(const std::string& key) const;
@@ -86,8 +86,9 @@ class MetaData {
     std::string sExpand;            // Expand command (like BMS #if~#endif)
 
     // barlength & notecount is located at TimingData / NoteData.
+    std::string toString();
 
-    private:
+private:
     SoundChannel m_SoundChannel;
     BGAChannel m_BGAChannel;
     BPMChannel m_BPMChannel;

@@ -8,6 +8,7 @@
 #include "NoteData.h"
 #include "MetaData.h"
 #include "TimingData.h"
+#include <sstream>
 
 namespace rparser {
 
@@ -15,26 +16,23 @@ namespace rparser {
  * @description
  * chart data contains: notedata, timingdata, metadata
  */
+struct ChartSummaryData;
 class Chart {
 public:
-    MetaData* GetMetaData() const;
-    NoteData* GetNoteData() const;
-    TimingData* GetTimingData() const;
+    const MetaData* GetMetaData() const;
+    const NoteData* GetNoteData() const;
+    const TimingData* GetTimingData() const;
     MetaData* GetMetaData();
     NoteData* GetNoteData();
     TimingData* GetTimingData();
-    const ChartMetaData* GetChartSummary() const;  // cannot modify, read-only
+    const ChartSummaryData* GetChartSummary() const;  // cannot modify, read-only
     std::string GetFilePath() const;
+    std::string GetHash() const;
     void UpdateChartSummary();
+    void UpdateHash(const void* p, int iLen);
 
     // @description clone myself to another chart
     Chart* Clone();
-
-    // @description read & write utilities
-    int Read(const std::string& path);
-    int Read(const char* p, int iLen);
-    int Write(const std::string& path);
-    int Write(std::stream& s);
 
     // @description change resolution for chart globally
     void ChangeResolution(int newRes);
@@ -44,6 +42,11 @@ public:
     // @description call this function when calculate fBeat from iRow
     // (cf: playing after editing)
     void UpdateBeatData();
+
+    std::string toString();
+
+    Chart();
+    Chart(Chart* c);
 private:
     MetaData m_Metadata;
     NoteData m_Notedata;
@@ -65,31 +68,28 @@ struct ChartSummaryData {
     std::string sFilePath;
     std::string sFormat;
     std::string sHash;      // MD5
-    CHARTTYPE iFormat;      // chart file type
 
     int iNoteCount;
+    int iTrackCount;
     float fLastNoteTime;    // msec
 
     // @description basc BPM of the song
     int iBPM;
-    // @description is bpm changes during song playing?
-    bool isBPMChanges;
     int iMaxBPM;
     int iMinBPM;
+    bool isBPMChanges;
     // @description is bomb object exists?
-    bool isBomb;
-    // @description is wrap object(negative bpm) exists?
-    bool isWrap;
-    bool isSTOP;
-    // @description is backspin scratch exists?
-    bool isBSS;
+    bool isBSS;         // backspin scratch
     bool isCharge;
     bool isHellCharge;
+    bool isBomb;
+    // @description timingdata related
+    bool isWarp;
+    bool isStop;
     // @description is command exists/processed? (in case of BMS)
     bool isCommand;
-    
-    void FillHash(const char* p, int iLen);
-    void Fill(const Chart& chart);
+
+    std::string toString();
 };
 
 
