@@ -154,11 +154,6 @@ public:
      */
     void FillSummaryData(ChartSummaryData& cmd);
     // @description 
-    int GetLastNoteRow();
-    float GetLastNoteTime();
-    bool IsHoldNoteAtRow(int track, int row);
-    NoteType GetNoteTypeAtRow(int track, int row);
-    Note* GetNoteAtRow(int track, int row);
     bool IsRangeEmpty(int track, int iStartRow, int iEndRow);
     bool IsRowEmpty(int row);
     bool IsTrackEmpty(int track);
@@ -168,15 +163,16 @@ public:
     /*
      * modification utilities
      */
-    void RemoveNotes();
+    bool IsHoldNoteAtRow(int row, int track = -1);
+    NoteType GetNoteTypeAtRow(int row, int track = -1);
+    Note* GetNoteAtRow(int row, int track=-1);
+    void GetNotes(std::vector<Note*>& vNotes, int row=-1, int track=-1);
+    void RemoveNotes(const std::vector<Note*> vNotes);
     void RemoveNotes(int iStartRow, int iEndRow, bool bInclusive);
     void AddNote(const Note& n);
-    void SetNoteDuplicatable(int bNoteDuplicatable);
-    void Clear();
-    void ClearRange(int iStartRow, int iEndRow);
     void CopyRange(int rowFromBegin, int rowFromLength, int rowToBegin);
-    void CopyRange(const NoteData& nd);
-    void CopyRange(const NoteData& nd, int iStartRow, int iEndRow);
+    void CopyRange(const std::vector<Note*> vNotes, int rowToBegin);
+    void SetNoteDuplicatable(int bNoteDuplicatable);
     
     /*
      * modification(option) utilities
