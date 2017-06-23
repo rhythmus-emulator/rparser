@@ -1,4 +1,5 @@
 #include "NoteData.h"
+#include "Chart.h"
 #include "util.h"
 #include <sstream>
 #include <algorithm>
@@ -73,31 +74,49 @@ std::string Note::toString()
     ss << "type/subtype: " << sType << "," << sSubtype << 
         " (" << nType << "," << subType << ")\n";
     ss << "Value / EndValue: " << iValue << "," << iEndValue << std::endl;
-    ss << "Beat: " << fBeat << std::endl;
+    ss << "Beat / BeatLength: " << fBeat << "," << fBeatLength << std::endl;
     ss << "Row / iDuration: " << iRow << "," << iDuration << std::endl;
-    ss << "Time / fDuration: " << fTime << "," << fDuration << std::endl;
+    ss << "Time / fDuration: " << fTime << "," << fTimeLength << std::endl;
     ss << "x / y: " << x << "," << y << std::endl;
     return ss.str();
 }
 
-Note* NoteData::GetLastNoteAtTrack(int iTrackNum=-1, int iType=-1, int iSubType=-1)
-{
-    // iterate from last to first
-    for (auto it=vNotes.rbegin(); it != vNotes.rend(); ++it)
-    {
-        if (iTrackNum < 0 || it->iTrack == iTrackNum)
-        if (iType < 0 || it->iType == iType)
-        if (iSubType < 0 || it->iSubType == iSubType)
-            return *it;
-    }
-    // found no note
-    return 0;
-}
-
-bool NoteData::operator<( const NoteData &other ) const
+bool Note::operator<( const Note &other ) const
 {
 	// first compare beat, next track(x).
 	return (fBeat == other.fBeat) ? x < other.x : fBeat < other.fBeat;
+}
+
+bool Note::IsTappableNote()
+{
+    return true;
+}
+int Note::GetPlayerSide()
+{
+}
+int Note::GetTrack()
+{
+    return y;
+}
+
+
+
+
+
+// ------ class NoteData ------
+
+Note* NoteData::GetLastNoteAtTrack(int iTrackNum = -1, int iType = -1, int iSubType = -1)
+{
+    // iterate from last to first
+    for (auto it = m_Track.rbegin(); it != m_Track.rend(); ++it)
+    {
+        if (iTrackNum < 0 || it->GetTrack() == iTrackNum)
+            if (iType < 0 || it->nType == iType)
+                if (iSubType < 0 || it->subType == iSubType)
+                    return &(*it);
+    }
+    // found no note
+    return 0;
 }
 
 void FillNoteTimingData(std::vector<Note>& vNotes, const TimingData& td)
@@ -107,25 +126,20 @@ void FillNoteTimingData(std::vector<Note>& vNotes, const TimingData& td)
     Note* curr_note;
     for(int i=0; i<vNotes.size(); ++i)
     {
-        curr_beat = vNotes[i].fBeat;
-        curr_note = vNotes[i].n;
+        curr_note = &vNotes[i];
         // time calculation for current row
-        if(curr_note.fBeat != curr_beat)
+        if(curr_note->fBeat != curr_beat)
         {
-            curr_beat= curr_note.fBeat();
-            curr_row_second= timing_data->GetElapsedTimeFromBeat(curr_beat);
-            ++curr_row_id;
+            curr_beat= curr_note->fBeat;
+            curr_row_second = td.LookupMSecFromBeat(curr_beat);
         }
         if(curr_note->nType != NoteType::NOTE_EMPTY)
         {
-            curr_note->occurs_at_second= curr_row_second;
-            curr_note->id_in_chart= static_cast<float>(curr_note_id);
+            curr_note->fTime = curr_row_second;
             // in case of hold note, calculate end time too
-            if(curr_note->type == TapNoteType::TAPNOTE_CHARGE || 
-               curr_note->type == TapNoteType::TAPNOTE_HCHARGE || 
-               curr_note->type == TapNoteType::TAPNOTE_TCHARGE)
+            if(curr_note->subType == NoteTapType::TAPNOTE_CHARGE)
             {
-                curr_note->end_second= timing_data->GetElapsedTimeFromBeat(NoteRowToBeat(curr_row + curr_note->iDuration));
+                curr_note->fTimeLength = td.LookupMSecFromBeat(curr_beat + curr_note->fBeatLength);
             }
         }
     }
@@ -133,7 +147,7 @@ void FillNoteTimingData(std::vector<Note>& vNotes, const TimingData& td)
 // @description
 // fill all note's timing data from row(beat) data.
 // MUST have correct beatdata first to get correct timing.
-void NoteData::FillTimingData(const TimingData& td)
+void NoteData::FillTimingData(TimingData& td)
 {
     // prepare lookup
     td.PrepareLookup();
@@ -144,47 +158,35 @@ void NoteData::FillTimingData(const TimingData& td)
     FillNoteTimingData(m_Track, td);
 
     // finish? TODO: make internal counter
-    td->ReleaseLookup();
+    td.ClearLookup();
 }
 
 
 /*
 * metadata utilities
 */
-int NoteData::GetTrackCount()
+void NoteData::FillSummaryData(ChartSummaryData& cmd)
 {
-    return m_Tracks.size();
-}
-
-void NoteData::SetTrackCount(int iTrackCnt)
-{
-    ASSERT(iTrackCnt > 0);
-    m_Tracks.resize( iTrackCnt );
-}
-
-int NoteData::GetNoteCount()
-{
-    int i=0;
-    int iNoteCount=0;
-    for (i=0; i<GetTrackCount(); i++)
-        iNoteCount += GetNoteCount(i);
-    return iNoteCount;
-}
-
-int NoteData::GetNoteCount(int iTrackNum)
-{
-    return m_Tracks[iTrackNum].size();
-}
-
-// @description 
-int NoteData::GetLastNoteRow()
-{
-    return 0;
-}
-
-float NoteData::GetLastNoteTime()
-{
-    return 0;
+    cmd.iTrackCount = 0;
+    cmd.iNoteCount = 0;
+    cmd.isBomb = false;
+    cmd.isBSS = false;
+    cmd.isCharge = false;
+    cmd.fLastNoteTime = 0;
+    for (auto it = this->begin(); it != this->end(); ++it)
+    {
+        if (it->IsTappableNote())
+        {
+            cmd.iNoteCount++;
+            if (cmd.fLastNoteTime < it->fTime + it->fTimeLength)
+                cmd.fLastNoteTime = it->fTime + it->fTimeLength;
+        }
+        cmd.isBomb |= it->nType == NoteTapType::TAPNOTE_MINE;
+        cmd.isCharge |= it->nType == NoteTapType::TAPNOTE_CHARGE;
+        if (it->GetTrack() % 10 == 0)
+            cmd.isBSS |= it->nType == NoteTapType::TAPNOTE_CHARGE;
+        if (cmd.iTrackCount < it->GetTrack()) cmd.iTrackCount = it->GetTrack();
+    }
 }
 
 bool NoteData::IsHoldNoteAtRow(int track, int row)
@@ -194,7 +196,7 @@ bool NoteData::IsHoldNoteAtRow(int track, int row)
 
 NoteType NoteData::GetNoteTypeAtRow(int track, int row)
 {
-    return 0;
+    return GetNoteAtRow(track, row)->nType;
 }
 
 Note* NoteData::GetNoteAtRow(int track, int row)
@@ -212,19 +214,14 @@ bool NoteData::IsRowEmpty(int row)
     return 0;
 }
 
-bool NoteData::IsTrackEmpty(int track)
-{
-    return 0;
-}
-
 bool NoteData::IsEmpty()
 {
-    return 0;
+    return m_Track.empty();
 }
 
 void NoteData::CopyRange(int rowFromBegin, int rowFromLength, int rowToBegin)
 {
-    return 0;
+    return;
 }
 
 void NoteData::SetNoteDuplicatable(int bNoteDuplicatable)
@@ -232,31 +229,38 @@ void NoteData::SetNoteDuplicatable(int bNoteDuplicatable)
     m_bNoteDuplicatable = bNoteDuplicatable;
 }
 
-void NoteData::AddNote(const Note& n)
+void NoteData::AddNote(const Note& n_)
 {
+    // little trick: if fBeat == 0, then update fBeat value.
+    Note n = n_;
+    if (n.fBeat == 0)
+    {
+        n.fBeat = n.iRow / (float)m_iRes;
+    }
+
     // COMMENT: note duplication won't be checked when loading file.
     // COMMENT: m_bNoteDuplicatable does these work -
     // - if LN, then remove all iRow object in iDuration in same x.
     // - if TapNote/BGM, then check iRow/x/y.
 
     // search is same type of note exists in same row
-    int idx = vNotes.begin() - vNotes.lower_bound(n);
+    int idx = m_Track.begin() - lower_bound(n);
     if (m_bNoteDuplicatable)
     {
         // only check for object in same row
-        while (idx < vNotes.size() && vNotes[idx].iRow == n.iRow)
+        while (idx < m_Track.size() && m_Track[idx].iRow == n.iRow)
         {
             // if found note occupies same type & row & position, then erase it.
-            if (vNotes[idx].nType == n.nType && 
-                vNotes[idx].x == n.x && vNotes[idx].y == n.y)
+            if (m_Track[idx].nType == n.nType &&
+                m_Track[idx].x == n.x && m_Track[idx].y == n.y)
             {
-                vNotes.erase(vNotes.begin()+idx);
+                m_Track.erase(m_Track.begin()+idx);
             }
             // if found note is row-occupying-object (ex: SHOCK), erase it
-            else if (vNotes[idx].nType == NoteType::NOTE_SHOCK ||
-                    vNotes[idx].nType == NoteType::NOTE_REST)
+            else if (m_Track[idx].nType == NoteType::NOTE_SHOCK ||
+                     m_Track[idx].nType == NoteType::NOTE_REST)
             {
-                vNotes.erase(vNotes.begin()+idx);
+                m_Track.erase(m_Track.begin()+idx);
             }
             else
             {
@@ -265,34 +269,32 @@ void NoteData::AddNote(const Note& n)
         }
         // iterate from here to first to check LN
         int idx_copy = idx;
-        while (idx_copy => 0)
+        while (idx_copy >= 0)
         {
-            if (vNotes[idx_copy].tType == TapNoteType::TAPNOTE_CHARGE ||
-                vNotes[idx_copy].tType == TapNoteType::TAPNOTE_HCHARGE ||
-                vNotes[idx_copy].tType == TapNoteType::TAPNOTE_TCHARGE ||
-                vNotes[idx_copy].tType == TapNoteType::TAPNOTE_FREE)
+            if (m_Track[idx_copy].subType == NoteTapType::TAPNOTE_CHARGE ||
+                m_Track[idx_copy].subType == NoteTapType::TAPNOTE_FREE)
                 {
                     // check for range for ranged-note
                     // (assume only 1 longnote can be overlapped,
                     //  to prevent performance decreasing by all-range-search)
-                    if (vNotes[idx_copy].x == n.x &&
-                        vNotes[idx_copy].y == n.y &&
-                        vNotes[idx_copy].iRow+vNotes[idx_copy].iDuration > n.iRow)
+                    if (m_Track[idx_copy].x == n.x &&
+                        m_Track[idx_copy].y == n.y &&
+                        m_Track[idx_copy].iRow + m_Track[idx_copy].iDuration > n.iRow)
                     {
-                        vNotes.erase(vNotes.begin()+idx_copy);
+                        m_Track.erase(m_Track.begin()+idx_copy);
                         break;
                     }
                 }
             --idx_copy;
         }
     }
-    vNotes.insert(vNotes.begin()+idx, n);
+    m_Track.insert(m_Track.begin()+idx, n);
 }
 
 void NoteData::TrackMapping(int tracknum, int *trackmap, int s, int e)
 {
     // only map for TAPNOTE
-    for (auto &n: vNotes)
+    for (auto &n: m_Track)
     {
         if (n.nType != NoteType::NOTE_TAP) continue;
 		if (n.x < s || n.x >= e) continue;
@@ -306,14 +308,14 @@ void NoteData::TrackSRandom(int side, int key, bool bHrandom)
 	int vShuffle[10] = {
 		0,1,2,3,4,5,6,7,8,9
 	};
-	float curr_LN_length[10];
+	float curr_LN_length[10];   // LN length in beat
 	for (int i=0; i<10; i++) curr_LN_length[i]=0;
 
 	float curr_beat = -100;		// current lane's beat
 	int curr_side = 0;			// current note's lane side
 	int curr_shuffle_idx = 0;	// shuffling index
 	int curr_note_cnt = 0;		// note count of current beat
-	for (auto &n: vNotes) {
+	for (auto &n: m_Track) {
 		if (n.nType != NoteType::NOTE_TAP) continue;
 		curr_side = n.x / 10;
 		if (curr_side != side) continue;
@@ -361,7 +363,7 @@ void NoteData::TrackSRandom(int side, int key, bool bHrandom)
 		// if current note is LN, then remember
 		if (n.subType == NoteTapType::TAPNOTE_CHARGE)
 		{
-			curr_LN_length[ vShuffle[curr_shuffle_idx] ] = n.fDuration;
+			curr_LN_length[ vShuffle[curr_shuffle_idx] ] = n.fBeatLength;
 		}
 	}
 }
@@ -384,7 +386,7 @@ void NoteData::TrackRRandom(int side, int key)
 		vShuffle[i] -= iMoveVal;
 		if (vShuffle[i] < 0) vShuffle[i] += key;
 	}
-	TrackMapping(key, vTrackmap, side*10, side*10+key);
+	TrackMapping(key, vShuffle, side*10, side*10+key);
 }
 
 void NoteData::TrackMirror(int side, int key)
@@ -403,7 +405,7 @@ void NoteData::TrackAllSC(int side)
 	float curr_beat = -100;		// current beat (to detect beat changing)
 	int curr_sc = 0;			// current row has SC?
 	std::vector<Note*> vNotes_sc_candidate;
-	for (auto &n: vNotes)
+	for (auto &n: m_Track)
 	{
 		if (n.fBeat != curr_beat)
 		{

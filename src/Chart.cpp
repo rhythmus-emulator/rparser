@@ -97,8 +97,10 @@ std::string Chart::toString()
 
 void Chart::UpdateChartSummary()
 {
-    m_ChartSummaryData.iNoteCount = m_Notedata.GetNoteCount();
-    m_ChartSummaryData.iTrackCount = m_Notedata.GetTrackCount();
+    m_Notedata.FillSummaryData(m_ChartSummaryData);
+    // fill metadata after notedata, as Trackcount should be overwritten.
+
+
     m_ChartSummaryData.fLastNoteTime = m_Notedata.GetLastNoteTime();
     // iterate through Note objects
     m_ChartSummaryData.isBomb = false;

@@ -23,13 +23,19 @@ class MetaData;
 // fBeat value only can be set directly when file loading.
 
 class TimingObject {
+private:
+    int m_iRow;         // for editing
+    float m_fBeat;      // for playing (to prevent timing mismatch caused by resolution)
+    bool m_bSpecial;    // special object? (like BMS object)
 public:
     virtual TYPE_TIMINGOBJ GetType() { return TYPE_TIMINGOBJ::TYPE_INVALID; }
     virtual std::string toString();
-    int GetRow const { return m_iRow; }
+    int GetRow() const { return m_iRow; }
     int SetRow(int iRow) { m_iRow = iRow; }
-    int GetBeat const { return m_fBeat; }
+    int GetBeat() const { return m_fBeat; }
     int SetBeat(int fBeat) { m_fBeat = fBeat; }
+    bool GetIsSpecial() const { return m_bSpecial; }
+    void SetIsSpecial(bool bSpecial) { m_bSpecial = bSpecial; }
     virtual bool IsPositionSame(const TimingObject &other) const
     {
         return GetRow() == other.GetRow();
@@ -52,9 +58,6 @@ public:
     }
 
     TimingObject(int iRow, float fBeat) : m_iRow(iRow), m_fBeat(fBeat) {}
-private:
-    int m_iRow;     // for editing
-    float m_fBeat;  // for playing (to prevent timing mismatch caused by resolution)
 };
 
 class BpmObject: public TimingObject {
@@ -104,8 +107,8 @@ public:
     void SetBeatLength(float fLength);
     float GetBeatLength();
 
-    WarpObject(int iRow, float fBeat, int iWarpRows, bool bWarpEnds=false)
-        : TimingObject(iRow, fBeat), m_iWarpRows(iWarpRows), m_bWarpEnds(bWarpEnds) {}
+    WarpObject(int iRow, float fBeat, int iLength, bool fLength)
+        : TimingObject(iRow, fBeat), m_iLength(iLength), m_fLength(fLength) {}
 private:
     int m_iLength;      // warp length in row
     float m_fLength;    // warp length in beat
@@ -138,8 +141,8 @@ public:
     bool operator==( const TimingObject &other ) const;
     bool operator!=( const TimingObject &other ) const;
 
-    MeasureObject(int iMeasure, float dMeasure=1.0)
-        : TimingObject(0, 0),  m_dMeasure(dMeasure) {}
+    MeasureObject(int iMeasure, float fLength=1.0)
+        : TimingObject(0, 0), m_fLength(fLength) {}
 private:
     int m_iMeasure;         // measure number
     float m_fLength;        // measure length (in beat)
@@ -223,9 +226,10 @@ public:
 
     // search using lookup objects
     void PrepareLookup();
+    void ClearLookup();
     LookupObject* const FindLookupObject(std::vector<float, LookupObject*> const& sorted_objs, float v);
-    float LookupBeatFromMSec(float msec);
-    float LookupMSecFromBeat(float beat);
+    const float LookupBeatFromMSec(float msec) const;
+    const float LookupMSecFromBeat(float beat) const;
 
     // functions related in editing
     void DeleteRows(int iStartRow, int iRowsToDelete);

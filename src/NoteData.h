@@ -93,10 +93,11 @@ struct Note {
     // This information is only for playing
     // (to reduce loss of incompatible resolution)
     float fBeat;
+    float fBeatLength;  // beat duration of msec
     // @description time information (won't be saved)
     // won't be filled until you call FillTimingData()
     float fTime;        // msec
-    float fDuration;    // duration of msec
+    float fTimeLength;  // msec
 
     // @description
     // BMS: x means track number in TapNote, col number in BGM.
@@ -109,15 +110,17 @@ struct Note {
 
     Note() : x(0), y(0), iValue(0), iDuration(0),
         fVolume(0), iPitch(0),
-        fTime(0), fDuration(0) {}
+        fTime(0), fTimeLength(0), fBeat(0), fBeatLength(0) {}
 
     std::string toString();
-    bool operator<( const TimingObject &other ) const;
+    bool operator<( const Note &other ) const;
     bool IsTappableNote();
     int GetPlayerSide();
     int GetTrack();
 };
 
+
+class ChartSummaryData;
 class NoteData {
 public:
     /*
@@ -135,22 +138,21 @@ public:
     trackiter end() { return m_Track.end(); };
     trackiter lower_bound(int row) { return std::lower_bound(m_Track.begin(), m_Track.end(), row); };
     trackiter upper_bound(int row) { return std::upper_bound(m_Track.begin(), m_Track.end(), row); };
+    trackiter lower_bound(Note &n) { return std::lower_bound(m_Track.begin(), m_Track.end(), n); };
+    trackiter upper_bound(Note &n) { return std::upper_bound(m_Track.begin(), m_Track.end(), n); };
     Note* GetLastNoteAtTrack(int iTrackNum=-1, int iType=-1, int iSubType=-1);
 
 
     // @description calculate fBeat from iRow(after editing)
     void CalculateNoteBeat();
     // @description fill all note's timing data from beat data.
-    void FillTimingData(const TimingData& td);
+    void FillTimingData(TimingData& td);
 
 
     /*
      * metadata utilities
      */
-    int GetTrackCount();
-    void SetTrackCount(int iTrackCnt);
-    int GetNoteCount();
-    int GetNoteCount(int iTrackNum);
+    void FillSummaryData(ChartSummaryData& cmd);
     // @description 
     int GetLastNoteRow();
     float GetLastNoteTime();
