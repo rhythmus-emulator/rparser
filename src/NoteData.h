@@ -121,6 +121,7 @@ struct Note {
 
 
 class ChartSummaryData;
+class NoteSelection;
 class NoteData {
 public:
     /*
@@ -154,7 +155,7 @@ public:
      */
     void FillSummaryData(ChartSummaryData& cmd);
     // @description 
-    bool IsRangeEmpty(int track, int iStartRow, int iEndRow);
+    bool IsRangeEmpty(int iStartRow, int iEndRow);
     bool IsRowEmpty(int row);
     bool IsTrackEmpty(int track);
     bool IsEmpty();
@@ -166,18 +167,26 @@ public:
     bool IsHoldNoteAtRow(int row, int track = -1);
     NoteType GetNoteTypeAtRow(int row, int track = -1);
     Note* GetNoteAtRow(int row, int track=-1);
-    void GetNotes(std::vector<Note*>& vNotes, int row=-1, int track=-1);
-    void RemoveNotes(const std::vector<Note*> vNotes);
+    int GetNoteIndexAtRow(int row, int track = -1);
+    void GetNotesWithType(NoteSelection &vNotes, int nType=-1, int subType=-1);
+    void GetNotesAtRow(NoteSelection &vNotes, int row = -1, int track = -1);
     void RemoveNotes(int iStartRow, int iEndRow, bool bInclusive);
-    void AddNote(const Note& n);
+    void RemoveNotes(const NoteSelection& vNotes);
     void CopyRange(int rowFromBegin, int rowFromLength, int rowToBegin);
-    void CopyRange(const std::vector<Note*> vNotes, int rowToBegin);
+    void CopyRange(const NoteSelection& vNotes, int rowToBegin);
+    void MoveRange(int rowFromBegin, int rowFromLength, int rowToBegin);
+    void MoveRange(const NoteSelection& vNotes, int rowToBegin);
+    void InsertBlank(int rowFromBegin, int rowFromLength);
     void SetNoteDuplicatable(int bNoteDuplicatable);
+    void AddNote(const Note& n);
+    void AddTapNote(int iRow);
+    void AddLongNote(int iRow, int iLength);
     
+
     /*
      * modification(option) utilities
      */
-    void TrackMapping(int tracknum, int *trackmap, int s, int e);
+    void TrackMapping(int *trackmap, int s, int e);
     // @description useful for iidx(DP) style
     void TrackRandom(int side, int key);
     void TrackSRandom(int side, int key, bool bHrandom=false);
@@ -205,6 +214,21 @@ private:
     // @description
     // allow duplication in track based game? (iRow and track duplicatable)
     int m_bNoteDuplicatable;
+};
+
+class NoteSelection
+{
+private:
+    // COMMENT: this vector should be in always sorted state
+    std::vector<Note*> m_vNotes;
+    friend class NoteData;      // only notedata class can directly access to this object
+public:
+    void SelectNote(const Note* n);
+    void UnSelectNote(const Note* n);
+    std::vector<Note*>& GetSelection();
+    std::vector<Note*>::iterator begin();
+    std::vector<Note*>::iterator end();
+    void Clear();
 };
 
 }

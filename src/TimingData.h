@@ -6,6 +6,7 @@
 #define RPARSER_TIMINGDATA_H
 
 #include <string>
+#include <map>
 
 namespace rparser {
 
@@ -28,8 +29,8 @@ private:
     float m_fBeat;      // for playing (to prevent timing mismatch caused by resolution)
     bool m_bSpecial;    // special object? (like BMS object)
 public:
-    virtual TYPE_TIMINGOBJ GetType() { return TYPE_TIMINGOBJ::TYPE_INVALID; }
-    virtual std::string toString();
+    virtual TYPE_TIMINGOBJ GetType() const { return TYPE_TIMINGOBJ::TYPE_INVALID; }
+    virtual std::string toString() const;
     int GetRow() const { return m_iRow; }
     int SetRow(int iRow) { m_iRow = iRow; }
     int GetBeat() const { return m_fBeat; }
@@ -62,11 +63,11 @@ public:
 
 class BpmObject: public TimingObject {
 public:
-    TYPE_TIMINGOBJ GetType() { return TYPE_TIMINGOBJ::TYPE_BPM; }
-    std::string toString();
+    TYPE_TIMINGOBJ GetType() const { return TYPE_TIMINGOBJ::TYPE_BPM; }
+    std::string toString() const;
 
     void SetValue(float dBpm);
-    float GetValue();
+    float GetValue() const;
 
     BpmObject(int iRow, float fBeat, float dBpm)
         : TimingObject(iRow, fBeat), m_dBpm(dBpm) {}
@@ -76,13 +77,13 @@ private:
 
 class StopObject: public TimingObject {
 public:
-    TYPE_TIMINGOBJ GetType() { return TYPE_TIMINGOBJ::TYPE_STOP; }
-    std::string toString();
+    TYPE_TIMINGOBJ GetType() const { return TYPE_TIMINGOBJ::TYPE_STOP; }
+    std::string toString() const;
 
     void SetValue(float dStopMSec);
-    float GetValue();
+    float GetValue() const;
     void SetDelay(bool bDelay);
-    bool GetDelay();
+    bool GetDelay() const;
 
     StopObject(int iRow, float fBeat, float dStopMSec)
         : TimingObject(iRow, fBeat), m_dStopMSec(dStopMSec), m_bDelay(false) {}
@@ -97,15 +98,15 @@ private:
 
 class WarpObject: public TimingObject {
 public:
-    TYPE_TIMINGOBJ GetType() { return TYPE_TIMINGOBJ::TYPE_WARP; }
-    std::string toString();
+    TYPE_TIMINGOBJ GetType() const { return TYPE_TIMINGOBJ::TYPE_WARP; }
+    std::string toString() const;
 
     void SetValue(int iWarpLength);
-    int GetValue();
+    int GetValue() const;
     void SetLength(int iLength);
-    int GetLength();
+    int GetLength() const;
     void SetBeatLength(float fLength);
-    float GetBeatLength();
+    float GetBeatLength() const;
 
     WarpObject(int iRow, float fBeat, int iLength, bool fLength)
         : TimingObject(iRow, fBeat), m_iLength(iLength), m_fLength(fLength) {}
@@ -117,8 +118,8 @@ private:
 // TODO: currently unusable
 class ScrollObject: public TimingObject {
 public:
-    TYPE_TIMINGOBJ GetType() { return TYPE_TIMINGOBJ::TYPE_SCROLL; }
-    std::string toString();
+    TYPE_TIMINGOBJ GetType() const { return TYPE_TIMINGOBJ::TYPE_SCROLL; }
+    std::string toString() const;
     ScrollObject(int iRow, float fBeat)
         : TimingObject(iRow, fBeat) {}
 private:
@@ -128,15 +129,15 @@ private:
 // measure object compares object with Measure_idx, not Row_idx
 class MeasureObject: public TimingObject {
 public:
-    TYPE_TIMINGOBJ GetType() { return TYPE_TIMINGOBJ::TYPE_MEASURE; }
-    std::string toString();
+    TYPE_TIMINGOBJ GetType() const { return TYPE_TIMINGOBJ::TYPE_MEASURE; }
+    std::string toString() const;
 
     void SetLength(float fLength=1.0);
-    float GetLength();
+    float GetLength() const;
     void SetMeasure(int iMeasure);
-    float GetMeasure();
+    int GetMeasure() const;
 
-    bool IsPositionSame(const TimingObject &other) const;
+    bool IsPositionSame(const MeasureObject &other) const;
     bool operator<( const TimingObject &other ) const;
     bool operator==( const TimingObject &other ) const;
     bool operator!=( const TimingObject &other ) const;
@@ -150,11 +151,11 @@ private:
 
 class TickObject: public TimingObject {
 public:
-    TYPE_TIMINGOBJ GetType() { return TYPE_TIMINGOBJ::TYPE_TICK; }
+    TYPE_TIMINGOBJ GetType() const { return TYPE_TIMINGOBJ::TYPE_TICK; }
     std::string toString();
     static const unsigned long DEFAULT_TICK_COUNT = 4;
 
-    unsigned long GetValue();
+    unsigned long GetValue() const;
     void SetValue(unsigned long iTick=4);
 
     TickObject(int iRow, float fBeat, unsigned long iTick=4)

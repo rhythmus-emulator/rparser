@@ -1,4 +1,5 @@
 #include "TimingData.h"
+#include "util.h"
 #include <sstream>
 
 namespace rparser {
@@ -36,74 +37,74 @@ struct ts_less_row : std::binary_function <TimingObject*, TimingObject*, bool>
 
 /* Objects */
 
-std::string TimingObject::toString() {
+std::string TimingObject::toString() const {
     std::stringstream ss;
-    ss << "TimingObject Row: " << iRow;
+    ss << "TimingObject Row: " << m_iRow;
     return ss.str();
 }
 
-std::string ScrollObject::toString() {
+std::string ScrollObject::toString() const {
     std::stringstream ss;
-    ss << "ScrollObject Row: " << iRow << ", (Unusable)";
+    ss << "ScrollObject Row: " << GetRow() << ", (Unusable)";
     return ss.str();
 }
 
-void BpmObject::SetValue(float dBpm) { m_dBpm = Bpm; }
-float BpmObject::GetValue() { return m_dBpm; }
-std::string BpmObject::toString() {
+void BpmObject::SetValue(float dBpm) { m_dBpm = dBpm; }
+float BpmObject::GetValue() const { return m_dBpm; }
+std::string BpmObject::toString() const {
     std::stringstream ss;
-    ss << "BpmObject Row: " << iRow << ", Value: " << m_dBpm;
+    ss << "BpmObject Row: " << GetRow() << ", Value: " << m_dBpm;
     return ss.str();
 }
 
 void StopObject::SetValue(float dStopMSec) { m_dStopMSec = dStopMSec; }
-float StopObject::GetValue() { return m_dStopMSec; }
+float StopObject::GetValue() const { return m_dStopMSec; }
 void StopObject::SetDelay(bool bDelay) { m_bDelay = bDelay; }
-bool StopObject::GetDelay() { return m_bDelay }
-std::string StopObject::toString() {
+bool StopObject::GetDelay() const { return m_bDelay; }
+std::string StopObject::toString() const {
     std::stringstream ss;
-    ss << "StopObject Row: " << iRow << ", Value: " << m_dMeasure;
+    ss << "StopObject Row: " << GetRow() << ", Stop(Before): " << m_bDelay << "/Stop(After):" << m_dStopMSec;
     return ss.str();
 }
 
-void WarpObject::SetValue(int iWarpRows) { m_iWarpRows = iWarpRows; }
-int WarpObject::GetValue() { return m_iWarpRows; }
+void WarpObject::SetValue(int iWarpRows) { m_iLength = iWarpRows; }
+int WarpObject::GetValue() const { return m_iLength; }
 void WarpObject::SetLength(int iLength) { m_iLength = iLength; }
-int WarpObject::GetLength() { return m_iLength; }
+int WarpObject::GetLength() const { return m_iLength; }
 void WarpObject::SetBeatLength(float fLength) { m_fLength = fLength; }
-float WarpObject::GetBeatLength() { return m_fLength; }
-std::string WarpObject::toString() {
+float WarpObject::GetBeatLength() const { return m_fLength; }
+std::string WarpObject::toString() const {
     std::stringstream ss;
-    ss << "WarpObject Row: " << iRow << ", Value: " << m_dMeasure << ", Length: " << m_iLength;
+    ss << "WarpObject Row: " << GetRow() << ", Length: " << m_iLength;
     return ss.str();
 }
 
-unsigned long TickObject::GetValue() { return m_iTick; }
+unsigned long TickObject::GetValue() const { return m_iTick; }
 void TickObject::SetValue(unsigned long iTick) { m_iTick = iTick; }
 std::string TickObject::toString() {
     std::stringstream ss;
-    ss << "TickObject Row: " << iRow << ", Value: " << m_dMeasure;
+    ss << "TickObject Row: " << GetRow() << ", Value(Tick): " << m_iTick;
     return ss.str();
 }
 
 void MeasureObject::SetLength(float fLength) { m_fLength = fLength; }
-float MeasureObject::GetLength() { return m_fLength; }
-void MeasureObject::SetMeasure(int dMeasure) { m_iMeasure = iMeasure; }
-int MeasureObject::GetMeasure() { return m_iMeasure; }
-std::string MeasureObject::toString() {
+float MeasureObject::GetLength() const { return m_fLength; }
+void MeasureObject::SetMeasure(int iMeasure) { m_iMeasure = iMeasure; }
+int MeasureObject::GetMeasure() const { return m_iMeasure; }
+std::string MeasureObject::toString() const {
     std::stringstream ss;
-    ss << "MeasureObject Row: " << iRow << ", Value: " << m_dMeasure;
+    ss << "MeasureObject Row: " << GetRow() << ", Value: " << m_iMeasure;
     return ss.str();
 }
-bool MeasureObject::IsPositionSame(const TimingObject &other) const
-{ return GetMeasure() == static_cast<const MeasureObject&>(other).GetMeasure(); }
-bool MeasureObject::operator<( const TimingObject &other ) const;
+bool MeasureObject::IsPositionSame(const MeasureObject &other) const
+{ return GetMeasure() == other.GetMeasure(); }
+bool MeasureObject::operator<( const TimingObject &other ) const
 { return GetMeasure() < static_cast<const MeasureObject&>(other).GetMeasure(); }
-bool MeasureObject::operator==( const TimingObject &other ) const;
+bool MeasureObject::operator==( const TimingObject &other ) const
 { return GetType() == other.GetType()
     && GetMeasure() == static_cast<const MeasureObject&>(other).GetMeasure()
     && GetLength() == static_cast<const MeasureObject&>(other).GetLength(); }
-bool MeasureObject::operator!=( const TimingObject &other ) const;
+bool MeasureObject::operator!=( const TimingObject &other ) const
 { return !operator==(other); }
 
 
@@ -111,10 +112,10 @@ bool MeasureObject::operator!=( const TimingObject &other ) const;
 /* TimingData */
 
 TimingData::TimingData() {
-    AddObject( BpmSegment(0, RPARSER_DEFAULT_BPM) );
-    AddObject( ScrollSegment(0) );
-    AddObject( MeasureSegment(1.0) );
-    AddObject( TickObject(4) );
+    AddObject( BpmSegment(0, 0, RPARSER_DEFAULT_BPM) );
+    AddObject( ScrollSegment(0, 0) );
+    AddObject( MeasureSegment(0, 1.0) );
+    AddObject( TickObject(0, 0, 4) );
 }
 
 int TimingData::GetBpm()

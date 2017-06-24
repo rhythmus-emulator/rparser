@@ -93,6 +93,7 @@ bool Note::IsTappableNote()
 }
 int Note::GetPlayerSide()
 {
+    return y / 10;
 }
 int Note::GetTrack()
 {
@@ -189,29 +190,119 @@ void NoteData::FillSummaryData(ChartSummaryData& cmd)
     }
 }
 
-bool NoteData::IsHoldNoteAtRow(int track, int row)
+void NoteData::CalculateNoteBeat()
 {
-    return 0;
+    for (auto it = begin(); it != end(); ++it)
+    {
+        it->fBeat = it->iRow / (float)m_iRes;
+        it->fBeatLength = it->iDuration / (float)m_iRes;
+    }
+}
+bool NoteData::IsHoldNoteAtRow(int row, int track)
+{
+    // start from origin with selected track
+    NoteSelection vSelected;
+    GetNotesAtRow(vSelected, -1, track);
+    for (auto it = vSelected.begin(); it != vSelected.end(); ++it)
+    {
+        Note *n = (*it);
+        if (n->iRow <= row && n->iRow + n->iDuration >= row)
+            return true;
+    }
+    return false;
 }
 
-NoteType NoteData::GetNoteTypeAtRow(int track, int row)
+void NoteData::GetNotesWithType(NoteSelection &vNotes, int nType = -1, int subType = -1)
 {
-    return GetNoteAtRow(track, row)->nType;
+    // iterate from first to end
+    for (auto &n : m_Track)
+    {
+
+    }
 }
 
-Note* NoteData::GetNoteAtRow(int track, int row)
+void NoteData::GetNotesAtRow(NoteSelection &vNotes, int row = -1, int track = -1)
 {
-    return 0;
+    // iterate from first to end
+    for (auto &n : m_Track)
+    {
+
+    }
 }
 
-bool NoteData::IsRangeEmpty(int track, int iStartRow, int iEndRow)
+NoteType NoteData::GetNoteTypeAtRow(int row, int track = -1)
 {
-    return 0;
+    Note *n = GetNoteAtRow(row, track);
+    if (!n) return NoteType::NOTE_EMPTY;
+    else return n->nType;
+}
+
+Note* NoteData::GetNoteAtRow(int iRow, int track)
+{
+    int idx = GetNoteIndexAtRow(iRow, track);
+    if (idx < 0) return 0;
+    else return &m_Track[idx];
+}
+
+int NoteData::GetNoteIndexAtRow(int iRow, int track)
+{
+    // returns same or less object
+    std::vector<Note>& vObjs = m_Track;
+    if (vObjs.size() == 0) return -1;
+
+    int min = 0, max = vObjs.size() - 1;
+    int l = min, r = max;
+    int curr_idx = 0;
+    while (l <= r)
+    {
+        int m = (l + r) / 2;
+        if ((m == min || vObjs[m].iRow <= iRow) && (m == max || iRow < vObjs[m + 1].iRow))
+        {
+            curr_idx = m;
+            break;
+        }
+        else if (vObjs[m].iRow <= iRow)
+        {
+            l = m + 1;
+        }
+        else
+        {
+            r = m - 1;
+        }
+    }
+    // check track
+    while (curr_idx > 0 && vObjs[curr_idx - 1].iRow == iRow) curr_idx--;
+    if (track < 0) return curr_idx;     // track==-1 -> return note with any track
+    while (curr_idx < vObjs.size())
+    {
+        if (vObjs[curr_idx].iRow != iRow) break;
+        if (vObjs[curr_idx].GetTrack() == track) return curr_idx;
+        curr_idx++;
+    }
+    // no track found
+    return -1;
+}
+
+bool NoteData::IsRangeEmpty(int iStartRow, int iEndRow)
+{
+    auto it = lower_bound(iStartRow);
+    return (it->iRow > iEndRow);
 }
 
 bool NoteData::IsRowEmpty(int row)
 {
-    return 0;
+    auto it = lower_bound(row);
+    return (it->iRow != row);
+}
+
+bool NoteData::IsTrackEmpty(int track)
+{
+    for (auto it = begin(); it != end(); ++it)
+    {
+        if (it->GetTrack() == track)
+            return false;
+    }
+    return true;
 }
 
 bool NoteData::IsEmpty()
@@ -291,7 +382,7 @@ void NoteData::AddNote(const Note& n_)
     m_Track.insert(m_Track.begin()+idx, n);
 }
 
-void NoteData::TrackMapping(int tracknum, int *trackmap, int s, int e)
+void NoteData::TrackMapping(int *trackmap, int s, int e)
 {
     // only map for TAPNOTE
     for (auto &n: m_Track)
@@ -373,7 +464,7 @@ void NoteData::TrackRandom(int side, int key)
 	ASSERT(side >= 0 && key >= 0 && key < 10);
 	int vShuffle[10] = {0,1,2,3,4,5,6,7,8,9};
 	std::random_shuffle(vShuffle, vShuffle+key);
-	TrackMapping(key, vShuffle, side*10, side*10+key);
+	TrackMapping(vShuffle, side*10, side*10+key);
 }
 
 void NoteData::TrackRRandom(int side, int key)
@@ -386,7 +477,7 @@ void NoteData::TrackRRandom(int side, int key)
 		vShuffle[i] -= iMoveVal;
 		if (vShuffle[i] < 0) vShuffle[i] += key;
 	}
-	TrackMapping(key, vShuffle, side*10, side*10+key);
+	TrackMapping(vShuffle, side*10, side*10+key);
 }
 
 void NoteData::TrackMirror(int side, int key)
@@ -397,7 +488,7 @@ void NoteData::TrackMirror(int side, int key)
 	{
 		vTrackmap[i] = key-i-1;
 	}
-	TrackMapping(key, vTrackmap, side*10, side*10+key);
+	TrackMapping(vTrackmap, side*10, side*10+key);
 }
 
 void NoteData::TrackAllSC(int side)
@@ -438,25 +529,24 @@ void NoteData::TrackFlip()
 		10,11,12,13,14,15,16,17,18,19,
 		0,1,2,3,4,5,6,7,8,9,
 	};
-	TrackMapping(key, vTrackmap, 0, 20);
+	TrackMapping(vTrackmap, 0, 20);
 }
 
 std::string const NoteData::toString()
 {
     std::stringstream ss;
-    ss << "Total Note count: " << vNotes.size() << std::endl;
-    ss << "Last note Information\n" << vNotes.back().toString();
+    ss << "Total Note count: " << m_Track.size() << std::endl;
+    ss << "Last note Information\n" << m_Track.back().toString();
     return ss.str();
 }
 
 void NoteData::SetResolution(int iRes)
 {
     float fRatio = (float)iRes / m_iRes;
-        for (auto n: m_Track)
-        {
-            n.iRow *= fRatio;
-            n.iDuration *= fRatio;
-        }
+    for (auto n: m_Track)
+    {
+        n.iRow *= fRatio;
+        n.iDuration *= fRatio;
     }
     m_iRes = iRes;
 }
