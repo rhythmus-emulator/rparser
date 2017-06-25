@@ -135,8 +135,10 @@ public:
     typedef std::vector<Note>::iterator trackiter;
     typedef std::vector<Note>::const_iterator const_trackiter;
 
-    trackiter begin() { return m_Track.begin(); };
-    trackiter end() { return m_Track.end(); };
+	trackiter begin() { return m_Track.begin(); };
+	trackiter end() { return m_Track.end(); };
+	const_trackiter begin() const { return m_Track.begin(); };
+	const_trackiter end() const { return m_Track.end(); };
     trackiter lower_bound(int row) { return std::lower_bound(m_Track.begin(), m_Track.end(), row); };
     trackiter upper_bound(int row) { return std::upper_bound(m_Track.begin(), m_Track.end(), row); };
     trackiter lower_bound(Note &n) { return std::lower_bound(m_Track.begin(), m_Track.end(), n); };

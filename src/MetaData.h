@@ -32,8 +32,13 @@ struct BGAChannel {
 
 // @description depreciated, only for Bms file type.
 struct BPMChannel {
-    std::map<int, int> bpm;
-    bool GetBpm(int channel, float &out);
+	std::map<int, int> bpm;
+	bool GetBpm(int channel, float &out) const;
+};
+struct STOPChannel {
+	std::map<int, int> stop;	// #STOP command (key, value)
+	std::map<float, int> STP;	// #STP command
+	bool GetStop(int channel, float &out) const;
 };
 
 
@@ -57,9 +62,14 @@ public:
 
     // @description
     // It returns valid Channel object pointer always (without exception)
-    SoundChannel* GetSoundChannel() { return &m_SoundChannel; };
-    BGAChannel* GetBGAChannel() { return &m_BGAChannel; };
-    BPMChannel* GetBPMChannel() { return &m_BPMChannel; };
+	SoundChannel* GetSoundChannel() { return &m_SoundChannel; };
+	BGAChannel* GetBGAChannel() { return &m_BGAChannel; };
+	BPMChannel* GetBPMChannel() { return &m_BPMChannel; };
+	STOPChannel* GetSTOPChannel() { return &m_STOPChannel; };
+	const SoundChannel* GetSoundChannel() const { return &m_SoundChannel; };
+	const BGAChannel* GetBGAChannel() const { return &m_BGAChannel; };
+	const BPMChannel* GetBPMChannel() const { return &m_BPMChannel; };
+	const STOPChannel* GetSTOPChannel() const { return &m_STOPChannel; };
 
     // @description
     // general attributes, mainly used in playing
@@ -91,7 +101,8 @@ public:
 private:
     SoundChannel m_SoundChannel;
     BGAChannel m_BGAChannel;
-    BPMChannel m_BPMChannel;
+	BPMChannel m_BPMChannel;
+	STOPChannel m_STOPChannel;
     // other metadata for some other purpose
     std::map<std::string, std::string> m_sAttributes;
 };

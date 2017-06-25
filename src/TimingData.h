@@ -7,6 +7,7 @@
 
 #include <string>
 #include <map>
+#include <vector>
 
 namespace rparser {
 
@@ -68,6 +69,7 @@ public:
 
     void SetValue(float dBpm);
     float GetValue() const;
+	float GetBPS() const;
 
     BpmObject(int iRow, float fBeat, float dBpm)
         : TimingObject(iRow, fBeat), m_dBpm(dBpm) {}
@@ -120,9 +122,12 @@ class ScrollObject: public TimingObject {
 public:
     TYPE_TIMINGOBJ GetType() const { return TYPE_TIMINGOBJ::TYPE_SCROLL; }
     std::string toString() const;
+	float GetValue() const;
+	void SetValue(float v);
     ScrollObject(int iRow, float fBeat)
-        : TimingObject(iRow, fBeat) {}
+        : TimingObject(iRow, fBeat), m_Scroll(1) {}
 private:
+	float m_Scroll;
 };
 
 // default measure signature length: 4/4 -> 1.0
@@ -223,14 +228,13 @@ public:
     TimingObject* GetNextObject(TYPE_TIMINGOBJ iType, int iStartRow);
     TimingObject* GetObjectAtRow(TYPE_TIMINGOBJ iType, int iRow);
     int GetObjectIndexAtRow( TYPE_TIMINGOBJ iType, int iRow );          // returns -1 if obj not exists
-    int GetBpm();
 
     // search using lookup objects
     void PrepareLookup();
     void ClearLookup();
-    LookupObject* const FindLookupObject(std::vector<float, LookupObject*> const& sorted_objs, float v);
-    const float LookupBeatFromMSec(float msec) const;
-    const float LookupMSecFromBeat(float beat) const;
+    LookupObject* const FindLookupObject(std::map<float, LookupObject*> const& sorted_objs, float v) const;
+    float LookupBeatFromMSec(float msec) const;
+    float LookupMSecFromBeat(float beat) const;
 
     // functions related in editing
     void DeleteRows(int iStartRow, int iRowsToDelete);
@@ -249,6 +253,9 @@ public:
     bool HasBpmChange();
     bool HasStop();
     bool HasWarp();
+	int GetBpm();
+
+	std::string toString();
 
     // don't call these methods directly
     void SetResolution(int iRes);
@@ -257,8 +264,6 @@ public:
 
     // @description fill BPM/STOP data in case of bms's object exists
     void LoadBpmStopObject(const NoteData& nd, const MetaData& md);
-
-    std::string toString();
 
     TimingData();
     ~TimingData();
@@ -285,6 +290,7 @@ private:
     void AddObject(const WarpObject& obj);
     void AddObject(const ScrollObject& obj);
     void AddObject(const MeasureObject& obj);
+	void AddObject(const TickObject& obj);
     // @description
     // automatically add/modify/sort object.
     void AddObject(TimingObject *obj);
