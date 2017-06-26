@@ -1,6 +1,6 @@
 /* supports bms, bme, bml formats. */
 
-#include "NoteLoader.h"
+#include "ChartLoader.h"
 #include "Chart.h"
 #include "util.h"
 #include <vector>
@@ -9,6 +9,7 @@
 #include <cstdlib>
 
 namespace rparser {
+
 /* common */
 void ParseLine(const std::string& line, std::string& name, std::string& value, char sep=0)
 {

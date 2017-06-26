@@ -42,11 +42,23 @@ enum SONGTYPE {
 
 
 /*
+* @description
+* Some type(like osu ...) of song file has metadata in song, not in chart.
+* In that case, we use songmetadata to keep track of such format.
+* This metadata will be ignored in case of unsupported format (like bms)
+*/
+#include "MetaData.h"
+class SongMetaData : public MetaData {
+    // @description should only show at extra stage
+    bool bExtraStage;
+};
+
+
+/*
  * @description
  * Song contains all charts using same(or similar) resources.
  * So all charts must be in same folder.
  */
-class SongMetaData;
 class Song {
 private:
     // @description Song object responsive for removing all chart datas when destroyed.
@@ -113,17 +125,6 @@ private:
 };
 
 
-/*
- * @description
- * Some type(like osu ...) of song file has metadata in song, not in chart.
- * In that case, we use songmetadata to keep track of such format.
- * This metadata will be ignored in case of unsupported format (like bms)
- */
-#include "MetaData.h"
-class SongMetaData : public MetaData {
-    // @description should only show at extra stage
-    bool bExtraStage;
-};
 
 SONGTYPE TestSongTypeExtension(const std::string & fname);
 std::string GetSongTypeExtension(SONGTYPE iType);

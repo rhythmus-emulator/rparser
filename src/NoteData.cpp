@@ -106,7 +106,7 @@ int Note::GetTrack()
 
 // ------ class NoteData ------
 
-Note* NoteData::GetLastNoteAtTrack(int iTrackNum = -1, int iType = -1, int iSubType = -1)
+Note* NoteData::GetLastNoteAtTrack(int iTrackNum, int iType, int iSubType)
 {
     // iterate from last to first
     for (auto it = m_Track.rbegin(); it != m_Track.rend(); ++it)
@@ -212,7 +212,7 @@ bool NoteData::IsHoldNoteAtRow(int row, int track)
     return false;
 }
 
-void NoteData::GetNotesWithType(NoteSelection &vNotes, int nType = -1, int subType = -1)
+void NoteData::GetNotesWithType(NoteSelection &vNotes, int nType, int subType)
 {
     // iterate from first to end
     for (auto &n : m_Track)
@@ -221,7 +221,7 @@ void NoteData::GetNotesWithType(NoteSelection &vNotes, int nType = -1, int subTy
     }
 }
 
-void NoteData::GetNotesAtRow(NoteSelection &vNotes, int row = -1, int track = -1)
+void NoteData::GetNotesAtRow(NoteSelection &vNotes, int row, int track)
 {
     // iterate from first to end
     for (auto &n : m_Track)
@@ -230,7 +230,7 @@ void NoteData::GetNotesAtRow(NoteSelection &vNotes, int row = -1, int track = -1
     }
 }
 
-NoteType NoteData::GetNoteTypeAtRow(int row, int track = -1)
+NoteType NoteData::GetNoteTypeAtRow(int row, int track)
 {
     Note *n = GetNoteAtRow(row, track);
     if (!n) return NoteType::NOTE_EMPTY;

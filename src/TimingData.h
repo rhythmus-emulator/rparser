@@ -14,6 +14,27 @@ namespace rparser {
 class NoteData;
 class MetaData;
 
+// BPM, STOP, WARP, MEASURE
+#define NUM_TIMINGOBJECT_TYPE 6
+enum TYPE_TIMINGOBJ {
+	TYPE_BPM = 0,
+	TYPE_STOP = 1,
+	TYPE_WARP = 2,
+	TYPE_SCROLL = 3,
+	TYPE_MEASURE = 4,
+	TYPE_TICK = 5,
+	TYPE_INVALID = 6
+};
+
+enum class LOOKUP_TYPE {
+	LOOKUP_NONE,    // just clear lookup data
+	LOOKUP_BPM,
+	LOOKUP_BEAT
+};
+
+#define RPARSER_DEFAULT_BPM 120
+class ChartSummaryData;
+
 /*
  * COMMENT:
  * Some metadata in bms (BPM, STP) wants to be stored as metadata,
@@ -185,26 +206,6 @@ struct LookupObject {
     float bps;                  // beat per second
 };
 
-// BPM, STOP, WARP, MEASURE
-#define NUM_TIMINGOBJECT_TYPE 6
-enum TYPE_TIMINGOBJ {
-    TYPE_BPM=0,
-    TYPE_STOP=1,
-    TYPE_WARP=2,
-    TYPE_SCROLL=3,
-    TYPE_MEASURE=4,
-    TYPE_TICK=5,
-    TYPE_INVALID=6
-};
-
-enum class LOOKUP_TYPE {
-    LOOKUP_NONE,    // just clear lookup data
-    LOOKUP_BPM,
-    LOOKUP_BEAT
-};
-
-#define RPARSER_DEFAULT_BPM 120
-class ChartSummaryData;
 
 /*
  * @description
@@ -214,8 +215,6 @@ class ChartSummaryData;
  */
 class TimingData {
 public:
-    TimingData();
-
     // measure related
     void GetBeatMeasureFromRow(unsigned long row, unsigned long &beatidx, unsigned long &beat);
     float GetBeatFromMeasure(float fMeasure);

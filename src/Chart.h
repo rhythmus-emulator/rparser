@@ -12,11 +12,51 @@
 
 namespace rparser {
 
+
+
+/*
+* @description
+* only contains brief chart metadata, which may be useful for visualizing status.
+* Also these status won't be saved.
+*/
+struct ChartSummaryData {
+    std::string sFilePath;
+    std::string sFormat;
+    std::string sHash;      // MD5
+
+    std::string sTitle;
+    std::string sSubTitle;
+    std::string sLongTitle;
+    std::string sArtist;
+    std::string sGenre;
+
+    int iNoteCount;
+    int iTrackCount;
+    float fLastNoteTime;    // msec
+
+						    // @description basc BPM of the song
+    int iBPM;
+    int iMaxBPM;
+    int iMinBPM;
+    bool isBPMChanges;
+    // @description is bomb object exists?
+    bool isBSS;         // backspin scratch
+    bool isCharge;
+    bool isHellCharge;
+    bool isBomb;
+    // @description timingdata related
+    bool isWarp;
+    bool isStop;
+    // @description is command exists/processed? (in case of BMS)
+    bool isCommand;
+
+    std::string toString();
+};
+
 /*
  * @description
  * chart data contains: notedata, timingdata, metadata
  */
-struct ChartSummaryData;
 class Chart {
 public:
     const MetaData* GetMetaData() const;
@@ -58,45 +98,6 @@ private:
 
 
 
-
-/*
- * @description
- * only contains brief chart metadata, which may be useful for visualizing status.
- * Also these status won't be saved.
- */
-struct ChartSummaryData {
-    std::string sFilePath;
-    std::string sFormat;
-    std::string sHash;      // MD5
-
-    std::string sTitle;
-    std::string sSubTitle;
-    std::string sLongTitle;
-    std::string sArtist;
-    std::string sGenre;
-
-    int iNoteCount;
-    int iTrackCount;
-    float fLastNoteTime;    // msec
-
-    // @description basc BPM of the song
-    int iBPM;
-    int iMaxBPM;
-    int iMinBPM;
-    bool isBPMChanges;
-    // @description is bomb object exists?
-    bool isBSS;         // backspin scratch
-    bool isCharge;
-    bool isHellCharge;
-    bool isBomb;
-    // @description timingdata related
-    bool isWarp;
-    bool isStop;
-    // @description is command exists/processed? (in case of BMS)
-    bool isCommand;
-
-    std::string toString();
-};
 
 
 }
