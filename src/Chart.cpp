@@ -98,32 +98,9 @@ std::string Chart::toString()
 void Chart::UpdateChartSummary()
 {
     m_Notedata.FillSummaryData(m_ChartSummaryData);
-    // fill metadata after notedata, as Trackcount should be overwritten.
-
-
-    m_ChartSummaryData.fLastNoteTime = m_Notedata.GetLastNoteTime();
-    // iterate through Note objects
-    m_ChartSummaryData.isBomb = false;
-    m_ChartSummaryData.isBSS = false;
-    m_ChartSummaryData.isCharge = false;
-    for (auto it = m_Notedata.begin(); it != m_Notedata.end(); ++it)
-    {
-        if (it->IsTappableNote())
-        {
-            m_ChartSummaryData.iNoteCount++;
-        }
-        m_ChartSummaryData.isBomb |= it->nType == NoteTapType::TAPNOTE_MINE;
-        m_ChartSummaryData.isCharge |= it->nType == NoteTapType::TAPNOTE_CHARGE;
-        if (it->GetTrack() % 10 == 0)
-            m_ChartSummaryData.isBSS |= it->nType == NoteTapType::TAPNOTE_CHARGE;
-    }
-    // iterate through Timing objects
-    m_ChartSummaryData.isWarp = m_Timingdata.HasWarp();
-    m_ChartSummaryData.isStop = m_Timingdata.HasStop();
-    m_ChartSummaryData.isBPMChanges = m_Timingdata.HasBpmChange();
-    // iscommand
-    m_ChartSummaryData.isCommand = !m_Metadata.sExpand.empty();
-    // TODO hellcharge from metadata
+    m_Timingdata.FillSummaryData(m_ChartSummaryData);
+    // fill metadata most lately, as Trackcount/BPM should be overwritten.
+    m_Metadata.FillSummaryData(m_ChartSummaryData);
 }
 Chart* Chart::Clone()
 {

@@ -5,6 +5,7 @@
 // use NoteData.h module for importing Bpm/Stop
 #include "NoteData.h"
 #include "MetaData.h"
+#include "Chart.h"
 
 namespace rparser {
 
@@ -124,12 +125,6 @@ TimingData::TimingData() {
     AddObject( ScrollObject(0, 0) );
     AddObject( MeasureObject(0, 1.0) );
     AddObject( TickObject(0, 0, 4) );
-}
-
-int TimingData::GetBpm()
-{
-    // first part BPM, mainly used for metadata
-    return ToBpm(m_TimingObjs[TYPE_TIMINGOBJ::TYPE_BPM][0])->GetValue();
 }
 
 BpmObject* TimingData::GetNextBpmObject(int iStartRow) { return ToBpm(GetNextObject(TYPE_TIMINGOBJ::TYPE_BPM, iStartRow)); }
@@ -580,7 +575,7 @@ void TimingData::UpdateBeatData()
     }
 }
 
-void TimingData::LoadBpmStopObject(const NoteData& nd, const MetaData& md)
+void TimingData::LoadExternObject(const MetaData &md, const NoteData &nd)
 {
     // note's row/beat position should be filled before calling this function.
 	// start of the warp
@@ -618,7 +613,9 @@ void TimingData::LoadBpmStopObject(const NoteData& nd, const MetaData& md)
 				printf("[BpmObject] Value %d is not on channel value(invalid), ignored", it->iValue);
 				continue;
 			}
-			AddObject(new BpmObject(it->iRow, it->fBeat, fBpm));
+            BpmObject *p = new BpmObject(it->iRow, it->fBeat, fBpm);
+            p->SetIsSpecial(true);
+            AddObject(p);
 		}
 		// STOP
 		else if (it->subType == NoteBmsType::NOTEBMS_STOP)
@@ -629,7 +626,9 @@ void TimingData::LoadBpmStopObject(const NoteData& nd, const MetaData& md)
 				printf("[StopObject] Value %d is not on channel value(invalid), ignored", it->iValue);
 				continue;
 			}
-			AddObject(new StopObject(it->iRow, it->fBeat, fStop));
+            StopObject *p = new StopObject(it->iRow, it->fBeat, fStop);
+            p->SetIsSpecial(true);
+			AddObject(p);
 		}
 	}
 
@@ -638,8 +637,33 @@ void TimingData::LoadBpmStopObject(const NoteData& nd, const MetaData& md)
 	{
 		float fBeat = GetBeatFromMeasure(it->first);
 		float fStop = it->second;
-		AddObject(new StopObject(fBeat * m_iRes, fBeat, fStop));
+        StopObject *p = new StopObject(fBeat * m_iRes, fBeat, fStop);
+        p->SetIsSpecial(true);
+        AddObject(p);
 	}
+}
+
+void TimingData::ClearExternObject()
+{
+    // iterate through BPM/STOP for Special object
+    auto vObjs_bpm = GetTimingObjects(TYPE_TIMINGOBJ::TYPE_BPM);
+    auto vObjs_stop = GetTimingObjects(TYPE_TIMINGOBJ::TYPE_STOP);
+    for (int i = 0; i < vObjs_bpm.size(); i++)
+    {
+        if (vObjs_bpm[i]->GetIsSpecial())
+        {
+            vObjs_bpm.erase(vObjs_bpm.begin() + i);
+            i--;
+        }
+    }
+    for (int i = 0; i < vObjs_stop.size(); i++)
+    {
+        if (vObjs_stop[i]->GetIsSpecial())
+        {
+            vObjs_stop.erase(vObjs_stop.begin() + i);
+            i--;
+        }
+    }
 }
 
 // @description
@@ -669,15 +693,6 @@ const std::vector<TimingObject *>& TimingData::GetTimingObjects(TYPE_TIMINGOBJ t
 {
     return m_TimingObjs[type];
 }
-
-bool TimingData::HasScrollChange()
-{
-    const std::vector<TimingObject*> &tobjs = GetTimingObjects(TYPE_TIMINGOBJ::TYPE_SCROLL);
-    return (tobjs.size()>1 || ToScroll(tobjs[0])->GetValue() != 1);
-}
-bool TimingData::HasBpmChange() { return !GetTimingObjects(TYPE_TIMINGOBJ::TYPE_STOP).size() > 1; }
-bool TimingData::HasStop() { return !GetTimingObjects(TYPE_TIMINGOBJ::TYPE_STOP).empty(); }
-bool TimingData::HasWarp() { return !GetTimingObjects(TYPE_TIMINGOBJ::TYPE_WARP).empty(); }
 
 void TimingData::AddObject(TimingObject *obj)
 {
@@ -728,11 +743,90 @@ void TimingData::AddObject(TimingObject *obj)
     }
 }
 
-BpmObject* ToBpm(TimingObject* obj) { return static_cast<BpmObject*>(obj); }
-StopObject* ToStop(TimingObject* obj) { return static_cast<StopObject*>(obj); }
-WarpObject* ToWarp(TimingObject* obj) { return static_cast<WarpObject*>(obj); }
-ScrollObject* ToScroll(TimingObject* obj) { return static_cast<ScrollObject*>(obj); }
-MeasureObject* ToMeasure(TimingObject* obj) { return static_cast<MeasureObject*>(obj); }
+// TODO: debug this code - is default copy constructor is enough?
+void TimingData::AddObject(const BpmObject& obj) { AddObject(new BpmObject(obj)); }
+void TimingData::AddObject(const StopObject& obj) { AddObject(new StopObject(obj)); }
+void TimingData::AddObject(const WarpObject& obj) { AddObject(new WarpObject(obj)); }
+void TimingData::AddObject(const ScrollObject& obj) { AddObject(new ScrollObject(obj)); }
+void TimingData::AddObject(const MeasureObject& obj) { AddObject(new MeasureObject(obj)); }
+void TimingData::AddObject(const TickObject& obj) { AddObject(new TickObject(obj)); }
+
+BpmObject* TimingData::ToBpm(TimingObject* obj) { return static_cast<BpmObject*>(obj); }
+StopObject* TimingData::ToStop(TimingObject* obj) { return static_cast<StopObject*>(obj); }
+WarpObject* TimingData::ToWarp(TimingObject* obj) { return static_cast<WarpObject*>(obj); }
+ScrollObject* TimingData::ToScroll(TimingObject* obj) { return static_cast<ScrollObject*>(obj); }
+MeasureObject* TimingData::ToMeasure(TimingObject* obj) { return static_cast<MeasureObject*>(obj); }
+const BpmObject* TimingData::ToBpm(TimingObject* obj) const { return static_cast<BpmObject*>(obj); }
+const StopObject* TimingData::ToStop(TimingObject* obj) const { return static_cast<StopObject*>(obj); }
+const WarpObject* TimingData::ToWarp(TimingObject* obj) const { return static_cast<WarpObject*>(obj); }
+const ScrollObject* TimingData::ToScroll(TimingObject* obj) const { return static_cast<ScrollObject*>(obj); }
+const MeasureObject* TimingData::ToMeasure(TimingObject* obj) const { return static_cast<MeasureObject*>(obj); }
+
+
+
+/* Metadata part */
+
+float TimingData::GetBpm() const
+{
+    // first part BPM, mainly used for metadata
+    return ToBpm(m_TimingObjs[TYPE_TIMINGOBJ::TYPE_BPM][0])->GetValue();
+}
+float TimingData::GetMaxBpm() const
+{
+    float fBpm= 0;
+    for (auto &tobj : m_TimingObjs[TYPE_TIMINGOBJ::TYPE_BPM])
+    {
+        const BpmObject *pBpm = ToBpm(tobj);
+        if (fBpm < pBpm->GetValue())
+            fBpm = pBpm->GetValue();
+    }
+    return fBpm;
+}
+float TimingData::GetMinBpm() const
+{
+    float fBpm = std::numeric_limits<float>::max();
+    for (auto &tobj : m_TimingObjs[TYPE_TIMINGOBJ::TYPE_BPM])
+    {
+        const BpmObject *pBpm = ToBpm(tobj);
+        if (fBpm > pBpm->GetValue())
+            fBpm = pBpm->GetValue();
+    }
+    return fBpm;
+}
+
+bool TimingData::HasScrollChange() const
+{
+    const std::vector<TimingObject*> &tobjs = GetTimingObjects(TYPE_TIMINGOBJ::TYPE_SCROLL);
+    return (tobjs.size()>1 || ToScroll(tobjs[0])->GetValue() != 1);
+}
+bool TimingData::HasBpmChange() const { return !GetTimingObjects(TYPE_TIMINGOBJ::TYPE_STOP).size() > 1; }
+bool TimingData::HasStop() const { return !GetTimingObjects(TYPE_TIMINGOBJ::TYPE_STOP).empty(); }
+bool TimingData::HasWarp() const { return !GetTimingObjects(TYPE_TIMINGOBJ::TYPE_WARP).empty(); }
+
+void TimingData::FillSummaryData(ChartSummaryData &csd) const
+{
+    csd.iBPM = GetBpm();
+    csd.iMaxBPM = GetMaxBpm();
+    csd.iMinBPM = GetMinBpm();
+    csd.isBPMChanges = HasBpmChange();
+    csd.isWarp = HasWarp();
+    csd.isStop = HasStop();
+}
+
+std::string TimingData::toString() const
+{
+    ChartSummaryData csd;
+    FillSummaryData(csd);
+
+    std::stringstream ss;
+    ss << "BPM: " << csd.iBPM << std::endl;
+    ss << "MaxBPM: " << csd.iMaxBPM << std::endl;
+    ss << "MinBPM: " << csd.iMinBPM << std::endl;
+    ss << "BPMChange? : " << csd.isBPMChanges << std::endl;
+    ss << "Warp? : " << csd.isWarp << std::endl;
+    ss << "Stop? : " << csd.isStop << std::endl;
+    return ss.str();
+}
 
 TimingData::TimingData()
 {

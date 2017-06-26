@@ -69,6 +69,12 @@ struct ChartSummaryData {
     std::string sFormat;
     std::string sHash;      // MD5
 
+    std::string sTitle;
+    std::string sSubTitle;
+    std::string sLongTitle;
+    std::string sArtist;
+    std::string sGenre;
+
     int iNoteCount;
     int iTrackCount;
     float fLastNoteTime;    // msec

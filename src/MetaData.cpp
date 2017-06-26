@@ -1,11 +1,32 @@
 #include "MetaData.h"
+#include "Chart.h"  // chartsummarydata
 #include "util.h"
 #include <stdlib.h>
 
 namespace rparser {
 
-template<>
-int GetAttribute<int>(const std::string& key, int fallback) const
+// Channels
+
+bool BPMChannel::GetBpm(int channel, float &out) const
+{
+    auto it = bpm.find(channel);
+    if (it == bpm.end()) return false;
+    else out = it->second; return true;
+}
+
+bool STOPChannel::GetStop(int channel, float &out) const
+{
+    auto it = stop.find(channel);
+    if (it == stop.end()) return false;
+    else out = it->second; return true;
+}
+
+
+
+// ------ class MetaData ------
+
+template<typename T>
+T MetaData::GetAttribute<int>(const std::string& key, T fallback) const
 {
     auto it = m_sAttributes.find(key);
     if (it == m_sAttributes.end()) return fallback;
@@ -15,8 +36,8 @@ int GetAttribute<int>(const std::string& key, int fallback) const
     if (*endptr != 0) return fallback;
     else return r;
 }
-template<>
-double GetAttribute<double>(const std::string& key, double fallback) const
+template<typename T>
+T MetaData::GetAttribute<double>(const std::string& key, T fallback) const
 {
     auto it = m_sAttributes.find(key);
     if (it == m_sAttributes.end()) return fallback;
@@ -26,20 +47,20 @@ double GetAttribute<double>(const std::string& key, double fallback) const
     if (*endptr != 0) return fallback;
     else return r;
 }
-template<>
-int GetAttribute<int>(const std::string& key) const
+template<typename T>
+T MetaData::GetAttribute<int>(const std::string& key) const
 {
     return GetAttribute<int>(key,0);
 }
-template<>
-double GetAttribute<double>(const std::string& key) const
+template<typename T>
+T MetaData::GetAttribute<double>(const std::string& key) const
 {
     return GetAttribute<double>(key,0);
 }
 void MetaData::SetAttribute(const std::string& key, int value)
 {
     char s[100];
-    itoa(s, 10, value);
+    itoa(value, s, 10);
     SetAttribute(key ,s);
 }
 void MetaData::SetAttribute(const std::string& key, const std::string& value)
@@ -50,7 +71,7 @@ void MetaData::SetAttribute(const std::string& key, double value)
 {
     // enough space to assign string
     char s[100];
-    gcvt(s, 10, value);
+    gcvt(value, 10, s);
     SetAttribute(key, s);
 }
 bool MetaData::IsAttributeExist(const std::string& key)
@@ -76,16 +97,36 @@ bool MetaData::SetEncoding(int from_codepage, int to_codepage)
     // also do encoding process for all Sound/BGA channels
     for (auto &bga: m_BGAChannel.bga)
     {
-        AttemptEncoding(bga.fn, to_codepage, from_codepage);
+        AttemptEncoding(bga.second.fn, to_codepage, from_codepage);
     }
     for (auto &fn: m_SoundChannel.fn)
     {
-        AttemptEncoding(fn, to_codepage, from_codepage);
+        AttemptEncoding(fn.second, to_codepage, from_codepage);
     }
     for (auto &pair: m_sAttributes)
     {
-        AttemptEncoding(pair->second, to_codepage, from_codepage);
+        AttemptEncoding(pair.second, to_codepage, from_codepage);
     }
+}
+void MetaData::FillSummaryData(ChartSummaryData &csd) const
+{
+    csd.isCommand = !sExpand.empty();
+    csd.sTitle = sTitle;
+    csd.sSubTitle = sSubTitle;
+    csd.sLongTitle = sTitle + " " + sSubTitle;
+    csd.sArtist = sArtist;
+    csd.sGenre = sGenre;
+}
+
+std::string MetaData::toString()
+{
+    std::stringstream ss;
+    ss << "Title: " << sTitle << std::endl;
+    ss << "SubTitle: " << sSubTitle << std::endl;
+    ss << "Artist: " << sArtist << std::endl;
+    ss << "Genre: " << sGenre << std::endl;
+    ss << "Is Expand Command? : " << !sExpand.empty() << std::endl;
+    return ss.str();
 }
 
 }

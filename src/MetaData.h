@@ -9,6 +9,7 @@
 #define RPARSER_METADATA_H
 
 //#define MAX_CHANNEL_COUNT 10240
+#include <map>
 
 namespace rparser {
 
@@ -41,6 +42,7 @@ struct STOPChannel {
 	bool GetStop(int channel, float &out) const;
 };
 
+class ChartSummaryData;
 
 /*
  * @description
@@ -96,8 +98,8 @@ public:
     std::string sExpand;            // Expand command (like BMS #if~#endif)
 
     // barlength & notecount is located at TimingData / NoteData.
+    void FillSummaryData(ChartSummaryData &csd) const;
     std::string toString();
-
 private:
     SoundChannel m_SoundChannel;
     BGAChannel m_BGAChannel;
@@ -106,7 +108,6 @@ private:
     // other metadata for some other purpose
     std::map<std::string, std::string> m_sAttributes;
 };
-
 
 }
 

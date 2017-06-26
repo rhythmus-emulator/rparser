@@ -204,6 +204,7 @@ enum class LOOKUP_TYPE {
 };
 
 #define RPARSER_DEFAULT_BPM 120
+class ChartSummaryData;
 
 /*
  * @description
@@ -249,21 +250,21 @@ public:
 
     // @description
     // kind of metadata
-    bool HasScrollChange();
-    bool HasBpmChange();
-    bool HasStop();
-    bool HasWarp();
-	int GetBpm();
+    bool HasScrollChange() const;
+    bool HasBpmChange() const;
+    bool HasStop() const;
+    bool HasWarp() const;
+    float GetBpm() const;
+    float GetMaxBpm() const;
+    float GetMinBpm() const;
 
-	std::string toString();
+    void FillSummaryData(ChartSummaryData &csd) const;
+	std::string toString() const;
 
     // don't call these methods directly
     void SetResolution(int iRes);
     int GetResolution();
     void UpdateBeatData();
-
-    // @description fill BPM/STOP data in case of bms's object exists
-    void LoadBpmStopObject(const NoteData& nd, const MetaData& md);
 
     TimingData();
     ~TimingData();
@@ -299,6 +300,11 @@ private:
     WarpObject* ToWarp(TimingObject* obj);
     ScrollObject* ToScroll(TimingObject* obj);
     MeasureObject* ToMeasure(TimingObject* obj);
+    const BpmObject* ToBpm(TimingObject* obj) const;
+    const StopObject* ToStop(TimingObject* obj) const;
+    const WarpObject* ToWarp(TimingObject* obj) const;
+    const ScrollObject* ToScroll(TimingObject* obj) const;
+    const MeasureObject* ToMeasure(TimingObject* obj) const;
 
     // @description
     // loads special timing data from note/metadata object
