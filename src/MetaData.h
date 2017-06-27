@@ -42,7 +42,7 @@ struct STOPChannel {
 	bool GetStop(int channel, float &out) const;
 };
 
-class ChartSummaryData;
+struct ChartSummaryData;
 
 /*
  * @description

@@ -33,7 +33,7 @@ enum class LOOKUP_TYPE {
 };
 
 #define RPARSER_DEFAULT_BPM 120
-class ChartSummaryData;
+struct ChartSummaryData;
 
 /*
  * COMMENT:

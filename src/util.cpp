@@ -214,7 +214,7 @@ int split(const std::string& str, const char sep, std::vector<std::string>& vsOu
 }
 int split(const std::string& str, const char sep, std::string &s1, std::string &s2)
 {
-    auto sSep = std::find(str.begin(), str.end(), [&](char c) { return c == sep; });
+    auto sSep = std::find_if(str.begin(), str.end(), [&](char c) { return c == sep; });
     if (sSep == str.end()) return 0;
     s1 = std::string(str.begin(), sSep);
     s2 = std::string(sSep+1, str.end());
@@ -224,7 +224,7 @@ bool endsWith(const std::string& s1, const std::string& s2, bool casesensitive)
 {
 	if (casesensitive)
 	{
-		int l = (s1.size() > s2.size())?s1.size:s2.size();
+		int l = (s1.size() > s2.size())?s1.size():s2.size();
 		const char* p1 = &s1.back();
 		const char* p2 = &s2.back();
 		while (l)
@@ -244,12 +244,12 @@ bool endsWith(const std::string& s1, const std::string& s2, bool casesensitive)
 std::string CleanPath(const std::string& path)
 {
 	std::string r;
-	for (int i = 0; i < path.length(); i++) {
+	for (unsigned int i = 0; i < path.length(); i++) {
 		char c = path[i];
 		if (c == '\\')
 			c = '/';
-		else if (c == '¥')
-			c = '/';
+		//else if (c == '¥')
+		//	c = '/';
 		r.push_back(c);
 	}
 	return r;
@@ -274,7 +274,7 @@ std::string GetFilename(const std::string & path)
 	return std::string(path.c_str()+pos+1);
 }
 
-std::string GetExtension(const std::string& path, std::string *sOutName=0)
+std::string GetExtension(const std::string& path, std::string *sOutName)
 {
 	size_t pos = path.find_last_of('.');
 	if (pos == std::string::npos)
@@ -428,7 +428,7 @@ void DeleteFileData(FileData& fd)
 bool IDirectory::ReadSmart(FileData &fd)
 {
 	// first do search with specified name
-	if (IN(m_vFilename, fd.fn))
+	if (IN_ARRAY(m_vFilename, fd.fn))
 		return Read(fd)>0;
 	
 	// second split ext, and find similar files(ext)
@@ -486,7 +486,7 @@ int IDirectory::Read(const std::string fpath, FileData &fd)
     return Read(fd);
 }
 
-std::vector<std::string> IDirectory::GetFileEntries(const char* ext_filter=0)
+std::vector<std::string> IDirectory::GetFileEntries(const char* ext_filter)
 {
 	if (!ext_filter) return m_vFilename;
 
@@ -496,7 +496,7 @@ std::vector<std::string> IDirectory::GetFileEntries(const char* ext_filter=0)
 	for (auto &fn: m_vFilename)
 	{
 		std::string sExt = GetExtension(fn);
-		if (IN(exts, sExt))
+		if (IN_ARRAY(exts, sExt))
 			vsOut.push_back(fn);
 	}
 	return vsOut;
@@ -525,6 +525,7 @@ int rparser::BasicDirectory::Open(const std::string &path)
 			m_vFolder.push_back(entry.first);
 		}
 	}
+    return 0;
 }
 
 int rparser::BasicDirectory::Write(const FileData &fd)

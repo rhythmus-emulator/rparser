@@ -120,13 +120,6 @@ bool MeasureObject::operator!=( const TimingObject &other ) const
 
 /* TimingData */
 
-TimingData::TimingData() {
-    AddObject( BpmObject(0, 0, RPARSER_DEFAULT_BPM) );
-    AddObject( ScrollObject(0, 0) );
-    AddObject( MeasureObject(0, 1.0) );
-    AddObject( TickObject(0, 0, 4) );
-}
-
 BpmObject* TimingData::GetNextBpmObject(int iStartRow) { return ToBpm(GetNextObject(TYPE_TIMINGOBJ::TYPE_BPM, iStartRow)); }
 StopObject* TimingData::GetNextStopObject(int iStartRow) { return ToStop(GetNextObject(TYPE_TIMINGOBJ::TYPE_STOP, iStartRow)); }
 WarpObject* TimingData::GetNextWarpObject(int iStartRow) { return ToWarp(GetNextObject(TYPE_TIMINGOBJ::TYPE_WARP, iStartRow)); }
@@ -244,7 +237,7 @@ void TimingData::PrepareLookup()
     BpmObject* curr_bpm_segment= bpms[0];
     WarpObject* curr_warp_segment= nullptr;
 	float pos_warp_end = 0;
-    int idx_warp=0, idx_stop=0, idx_bpm=0;
+    size_t idx_warp=0, idx_stop=0, idx_bpm=0;
     bool is_warping = false;
     while(!finished)
     {
@@ -419,7 +412,7 @@ float TimingData::LookupMSecFromBeat(float beat) const
     {
 		// in case of STOP/DELAY segment (start_beat == end_beat)
         // if delay exists, then we should return SEGMENT_DELAY
-        if(!lobj->end_delay_msec > 0)
+        if(!(lobj->end_delay_msec > 0))
         {
             return lobj->end_msec;
         }
@@ -663,7 +656,7 @@ void TimingData::ClearExternObject()
     // iterate through BPM/STOP for Special object
     auto vObjs_bpm = GetTimingObjects(TYPE_TIMINGOBJ::TYPE_BPM);
     auto vObjs_stop = GetTimingObjects(TYPE_TIMINGOBJ::TYPE_STOP);
-    for (int i = 0; i < vObjs_bpm.size(); i++)
+    for (size_t i = 0; i < vObjs_bpm.size(); i++)
     {
         if (vObjs_bpm[i]->GetIsSpecial())
         {
@@ -671,7 +664,7 @@ void TimingData::ClearExternObject()
             i--;
         }
     }
-    for (int i = 0; i < vObjs_stop.size(); i++)
+    for (size_t i = 0; i < vObjs_stop.size(); i++)
     {
         if (vObjs_stop[i]->GetIsSpecial())
         {
@@ -814,7 +807,7 @@ bool TimingData::HasScrollChange() const
     const std::vector<TimingObject*> &tobjs = GetTimingObjects(TYPE_TIMINGOBJ::TYPE_SCROLL);
     return (tobjs.size()>1 || ToScroll(tobjs[0])->GetValue() != 1);
 }
-bool TimingData::HasBpmChange() const { return !GetTimingObjects(TYPE_TIMINGOBJ::TYPE_STOP).size() > 1; }
+bool TimingData::HasBpmChange() const { return !(GetTimingObjects(TYPE_TIMINGOBJ::TYPE_STOP).size() > 1); }
 bool TimingData::HasStop() const { return !GetTimingObjects(TYPE_TIMINGOBJ::TYPE_STOP).empty(); }
 bool TimingData::HasWarp() const { return !GetTimingObjects(TYPE_TIMINGOBJ::TYPE_WARP).empty(); }
 void TimingData::SetBeat0Offset(float msec) { m_fBeat0MSecOffset = msec; }
@@ -848,6 +841,10 @@ std::string TimingData::toString() const
 TimingData::TimingData()
 {
 	m_iRes = DEFAULT_RESOLUTION_SIZE;
+    AddObject(BpmObject(0, 0, RPARSER_DEFAULT_BPM));
+    AddObject(ScrollObject(0, 0));
+    AddObject(MeasureObject(0, 1.0));
+    AddObject(TickObject(0, 0, 4));
 }
 
 TimingData::~TimingData()

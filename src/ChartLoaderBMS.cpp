@@ -24,8 +24,8 @@ void ParseLine(const std::string& line, std::string& name, std::string& value, c
     } else {
         space = line_trim.find(sep);
     }
-    std::string name = line_trim.substr(0, space); lower(name);
-    std::string value = std::string();
+    name = line_trim.substr(0, space); lower(name);
+    value = std::string();
     if (space != std::string::npos) value = line_trim.substr(space+1);
 }
 void ParseLine(const char** p, std::string& name, std::string& value, char sep=0) {
@@ -544,7 +544,7 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
         while (bn.measure > measure_prev)
         {
             measure_prev++;
-            if (IN(measurelen, measure_prev))
+            if (IN_ARRAY(measurelen, measure_prev))
                 measure_len_sum += measurelen[measure_prev];
             else
                 measure_len_sum += 1.0f;

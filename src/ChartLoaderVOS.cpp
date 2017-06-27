@@ -7,15 +7,13 @@
  * So we have to crawl BPM(Tempo) data from MIDI. That may be a nasty thing. 
  */
 
-#include "NoteLoader.h"
+#include "ChartLoader.h"
 #include "Chart.h"
 #include "util.h"
 #include <stdlib.h>
 #define MAX_READ_SIZE 512000
  
 namespace rparser {
-
-namespace NoteLoaderVOS {
 
 // structure used for parsing data
 class ParseArg {
@@ -92,32 +90,12 @@ MIDISIG GetMidiSignature(const char **_p, int *delta) {
 }
 
 
-bool LoadChart( const std::string& fpath, Chart& chart ) {
-    FILE *fp = fopen_utf8(fpath.c_str(), "rb");
-    if (!fp) {
-        ErrorString = "Failed to open file. (VOS)";
-        return false;
-    }
-    // don't return from now on, as we allocated memory.
-    // we have to clean up.
-    bool success = true;
-    char *data = (char*)malloc(MAX_READ_SIZE);
-    int iLen = fread(data, 1, MAX_READ_SIZE, fp);
-    fclose(fp);
-    if (iLen == MAX_READ_SIZE) {
-        ErrorString = "File is too big, maybe truncated. (VOS)";
-        success = false;
-    }
-
-    // load data
-    success = (success && ParseChart(data, iLen, chart));
-
-    // clean up
-    free(data);
-    return success;
-}
-
-bool ParseChart( const char* p, int iLen, Chart& chart ) {
+bool ParseMetaData(const char* p, int iLen, MetaData&);
+bool ParseNoteData(const char* p, int iLen, NoteData&);
+bool ParseTimingData(const char* p, int iLen, TimingData&);
+bool ChartLoaderVOS::Load( const void* p_, int iLen ) {
+    const char* p = (const char*)p_;
+    Chart& chart = *c;
     MetaData *md;
     NoteData *nd;
     TimingData *td;
@@ -130,11 +108,11 @@ bool ParseChart( const char* p, int iLen, Chart& chart ) {
         return false;
     }
     if (!ParseNoteData(p, iLen, *nd)) {
-        ErrorString = "Failed to parse NoteData during reading vos file.";
+        printf("[VOSLoader] Failed to parse NoteData during reading vos file.\n");
         return false;
     }
     if (!ParseTimingData(p, iLen, *td)) {
-        ErrorString = "Failed to parse TimingData during reading vos file.";
+        printf("[VOSLoader] Failed to parse TimingData during reading vos file.\n");
         return false;
     }
     return true;
@@ -145,14 +123,14 @@ bool ParseMetaDataV2( const char* p, int iLen, MetaData& md );
 bool ParseMetaDataV3( const char* p, int iLen, MetaData& md );
 bool ParseNoteDataV2( const char* p, int iLen, NoteData& nd );
 bool ParseNoteDataV3( const char* p, int iLen, NoteData& nd );
-int DetectVersion( const char *p ) { return *(int*)p; }
+int DetectVersion( const void *p ) { return *(int*)p; }
 
 bool ParseNoteData( const char* p, int iLen, NoteData& nd ) {
     int version = DetectVersion(p);
     if (version == 2) return ParseNoteDataV2(p, iLen, nd);
     else if (version == 3) return ParseNoteDataV3(p, iLen, nd);
     else {
-        ErrorString = "Unknown version";
+        printf("[VOSLoader] Unknown version\n");
         return false;
     }
 }
@@ -173,7 +151,7 @@ bool ParseTimingData( const char* p, int iLen, TimingData& td ) {
     const char* p_end = p+iLen;
     // MUST start from MThd signature
     if (memcmp(p, "MThd", 4) != 0) {
-        ErrorString = "Invalid MIDI start signature";
+        printf("[VOSLoader] Invalid MIDI start signature\n");
         return false;
     }
     p+=4;
@@ -366,7 +344,5 @@ int ReadMSInt( const char **_p ) {
     *_p = p;
     return r;
 }
-
-} /* end NoteLoaderVOS */
 
 } /* end rparser */

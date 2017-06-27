@@ -58,7 +58,7 @@ double MetaData::GetAttribute(const std::string& key) const
 void MetaData::SetAttribute(const std::string& key, int value)
 {
     char s[100];
-    itoa(value, s, 10);
+    _itoa(value, s, 10);
     SetAttribute(key ,s);
 }
 void MetaData::SetAttribute(const std::string& key, const std::string& value)
@@ -69,7 +69,7 @@ void MetaData::SetAttribute(const std::string& key, double value)
 {
     // enough space to assign string
     char s[100];
-    gcvt(value, 10, s);
+    _gcvt(value, 10, s);
     SetAttribute(key, s);
 }
 bool MetaData::IsAttributeExist(const std::string& key)
@@ -105,6 +105,8 @@ bool MetaData::SetEncoding(int from_codepage, int to_codepage)
     {
         AttemptEncoding(pair.second, to_codepage, from_codepage);
     }
+
+    return true;
 }
 void MetaData::FillSummaryData(ChartSummaryData &csd) const
 {
