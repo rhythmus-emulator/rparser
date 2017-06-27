@@ -256,6 +256,8 @@ public:
     float GetBpm() const;
     float GetMaxBpm() const;
     float GetMinBpm() const;
+    void SetBeat0Offset(float msec);
+    float GetBeat0Offset() const;
 
     void FillSummaryData(ChartSummaryData &csd) const;
 	std::string toString() const;
@@ -264,6 +266,14 @@ public:
     void SetResolution(int iRes);
     int GetResolution();
     void UpdateBeatData();
+
+    // utility functions
+    void AddObject(const BpmObject& obj);
+    void AddObject(const StopObject& obj);
+    void AddObject(const WarpObject& obj);
+    void AddObject(const ScrollObject& obj);
+    void AddObject(const MeasureObject& obj);
+    void AddObject(const TickObject& obj);
 
     TimingData();
     ~TimingData();
@@ -284,13 +294,6 @@ private:
     // start timing of the song
     float m_fBeat0MSecOffset;
 
-    // utility functions
-    void AddObject(const BpmObject& obj);
-    void AddObject(const StopObject& obj);
-    void AddObject(const WarpObject& obj);
-    void AddObject(const ScrollObject& obj);
-    void AddObject(const MeasureObject& obj);
-	void AddObject(const TickObject& obj);
     // @description
     // automatically add/modify/sort object.
     void AddObject(TimingObject *obj);

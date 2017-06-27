@@ -3,6 +3,7 @@
 #include <sstream>
 #include <algorithm>
 #include <stack>
+#include <cctype>
 //#include <dirent.h>
 
 #ifdef WIN32
@@ -193,14 +194,31 @@ std::string lower(const std::string& s) {
 	std::transform(sOut.begin(), sOut.end(), sOut.begin(), ::tolower);
 	return sOut;
 }
+std::string trim(const std::string &line)
+{
+    auto wsfront = std::find_if_not(line.begin(), line.end(), [](int c) {return std::isspace(c); });
+    auto wsback = std::find_if_not(line.rbegin(), line.rend(), [](int c) {return std::isspace(c); }).base();
+    std::string line_trim = (wsback <= wsfront ? std::string() : std::string(wsfront, wsback));
+    return line_trim;
+}
 int split(const std::string& str, const char sep, std::vector<std::string>& vsOut)
 {
     std::stringstream ss;
     ss.str(str);
     std::string item;
+    vsOut.clear();
     while (std::getline(ss, item, sep)) {
 		vsOut.push_back(item);
     }
+    return vsOut.size();
+}
+int split(const std::string& str, const char sep, std::string &s1, std::string &s2)
+{
+    auto sSep = std::find(str.begin(), str.end(), [&](char c) { return c == sep; });
+    if (sSep == str.end()) return 0;
+    s1 = std::string(str.begin(), sSep);
+    s2 = std::string(sSep+1, str.end());
+    return 1;
 }
 bool endsWith(const std::string& s1, const std::string& s2, bool casesensitive)
 {

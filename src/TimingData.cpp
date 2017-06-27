@@ -802,6 +802,8 @@ bool TimingData::HasScrollChange() const
 bool TimingData::HasBpmChange() const { return !GetTimingObjects(TYPE_TIMINGOBJ::TYPE_STOP).size() > 1; }
 bool TimingData::HasStop() const { return !GetTimingObjects(TYPE_TIMINGOBJ::TYPE_STOP).empty(); }
 bool TimingData::HasWarp() const { return !GetTimingObjects(TYPE_TIMINGOBJ::TYPE_WARP).empty(); }
+void TimingData::SetBeat0Offset(float msec) { m_fBeat0MSecOffset = msec; }
+float TimingData::GetBeat0Offset() const { return m_fBeat0MSecOffset; }
 
 void TimingData::FillSummaryData(ChartSummaryData &csd) const
 {

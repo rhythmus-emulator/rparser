@@ -32,8 +32,8 @@ private:
     bool procExpansion;         // should process expand command?
     std::vector<Note> notes;    // parsed note objects
 
-    void ReadHeader(const void* p, int iLen);
-    void ReadObjects(const void* p, int iLen);
+    void ReadHeader(const char* p, int iLen);
+    void ReadObjects(const char* p, int iLen);
 public:
     ChartLoaderBMS(Chart* c, bool procExpansion=true): ChartLoader(c) {};
     bool Test( const void* p, int iLen );

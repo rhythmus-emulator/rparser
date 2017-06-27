@@ -15,6 +15,12 @@
 #include <assert.h>
 #define ASSERT assert
 
+
+#define R_CP_932 932	// JAP
+#define R_CP_949 949	// KOR
+#define R_CP_UTF8 1252
+
+
 //
 // in case of linux, then USE_ICONV is automatically defined.
 // if you want to use iconv in windows, then define USE_ICONV.
@@ -60,7 +66,9 @@ int GetSeed();
 // string related
 
 std::string lower(const std::string& s);
+std::string trim(const std::string &s);
 int split(const std::string& str, const char sep, std::vector<std::string>& vsOut);
+int split(const std::string& str, const char sep, std::string &s1, std::string &s2);
 #define IN(v,o) (std::find((v).begin(), (v).end(), (o)) != (v).end())
 bool endsWith(const std::string& s1, const std::string& s2, bool casesensitive=true);
 // @description tidy pathname in case of using irregular separator

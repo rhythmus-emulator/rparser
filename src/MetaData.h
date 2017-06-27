@@ -53,8 +53,8 @@ public:
     // @description supports int, string, float, double types.
     template<typename T>
     T GetAttribute(const std::string& key) const;
-    template<typename T>
-    T GetAttribute(const std::string& key, T fallback) const;
+    int GetAttribute(const std::string & key, int fallback) const;
+    double GetAttribute(const std::string & key, double fallback) const;
 
     void SetAttribute(const std::string& key, int value);
     void SetAttribute(const std::string& key, const std::string& value);

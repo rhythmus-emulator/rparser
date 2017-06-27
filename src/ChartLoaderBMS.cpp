@@ -14,9 +14,7 @@ namespace rparser {
 void ParseLine(const std::string& line, std::string& name, std::string& value, char sep=0)
 {
     // trim
-    auto wsfront=std::find_if_not(line.begin(),line.end(),[](int c){return std::isspace(c);});
-    auto wsback=std::find_if_not(line.rbegin(),line.rend(),[](int c){return std::isspace(c);}).base();
-    std::string line_trim = (wsback<=wsfront ? std::string() : std::string(wsfront,wsback));
+    std::string line_trim = trim(line);
 
     size_t space = std::string::npos;
     if (sep == 0) {
@@ -33,14 +31,16 @@ void ParseLine(const std::string& line, std::string& name, std::string& value, c
 void ParseLine(const char** p, std::string& name, std::string& value, char sep=0) {
     while (**p != '\t' && **p != ' ' && **p) *p++;
     // start point
-    char *s = *p;
+    const char *s = *p;
     while (**p != '\n' && **p) *p++;
-    if (*p == *s) { name.clear(); }
+    if (*p == s) { name.clear(); }  // no new content -> no name
     else {
-        std::string line(*s, *p-*s);
+        std::string line(s, *p-s);
         if (*p) *p++;
         ParseLine(line, name, value);
     }
+    // direct to next character
+    p++;
 }
 
 // @description
@@ -75,6 +75,7 @@ private:
         COND_END = 3
     };
     class Condition {
+    public:
         virtual bool Valid() = 0;
         virtual std::string GesubType() = 0;
         virtual void Parse(const std::string& cmd_lower, const std::string& value) = 0;
@@ -84,9 +85,10 @@ private:
         int activecnt;  // condition is activated?
         int activeidx;  // current condition is active?
         int condidx;    // current condition index
-        IFCondition() : 
-            condidx(0), activecnt(0), activeidx(-1), target(active_value) {}
 
+    public:
+        IFCondition(int active_value) :
+            condidx(0), activecnt(0), activeidx(-1), target(active_value) {}
         static int Test(const std::string& name) {
             if (name == "#endif" || name == "#end") {
                 return COND_END;
@@ -133,9 +135,10 @@ private:
     class SWITCHCondition : public Condition {
         int target;      // active value
         int stat;       // -1: skipped, 0: not activated, 1~: activated
-        SWITCHCondition() : 
-            stat(0), value(active_value) {}
 
+    public:
+        SWITCHCondition(int active_value) :
+            stat(0), target(active_value) {}
         static int Test(const std::string& name) {
             if (name == "#endsw") {
                 return COND_END;
@@ -150,10 +153,10 @@ private:
         void Parse(const std::string& name, const std::string& value) {
             if (name == "#endsw") {
                 // #ENDIF cannot be shown first
-                ASSERT(condidx > 0);
+                ASSERT(stat > 0);
             } else if (name == "#switch" || name == "#setswitch") {
                 // initialize random value
-                value = atoi(value.c_str()) * rand();
+                target = atoi(value.c_str()) * rand();
             } else if (name == "#case") {
                 if (atoi(value.c_str()) == target && stat >= 0)
                     stat++;
@@ -173,11 +176,11 @@ private:
 public:
     int m_iSeed;
     bool m_bAllowExpand;
-    BMSExpandProc(Chart *c, int iSeed=-1, bAllowExpand=true):
+    BMSExpandProc(Chart *c, int iSeed=-1, bool bAllowExpand=true):
         c(c), m_iSeed(iSeed), m_bAllowExpand(bAllowExpand), active_value(0) {}
 
     bool IsCurrentValidStatement() {
-        return (conds.size() == 0 || (m_bAllowExpand && conds.back().Valid()));
+        return (conds.size() == 0 || (m_bAllowExpand && conds.back()->Valid()));
     }
 
 	// process for conditional statement
@@ -191,6 +194,7 @@ public:
         int isCond = 1;
         int cond_test;
         Condition* curr_cond;
+        std::vector<Condition*> cond;
         if (name == "#random" || name == "#rondom") {
             active_value_stack.push_back(active_value);
             active_value = atoi(value.c_str()) * rand();
@@ -201,7 +205,7 @@ public:
         } else if ((cond_test = IFCondition::Test(name)) != COND_UNKNOWN) {
             switch (cond_test) {
             case COND_NEW:
-                curr_cond = new IFCondition()
+                curr_cond = new IFCondition(active_value);
                 curr_cond->Parse(name, value);
                 cond.push_back(curr_cond);
                 break;
@@ -223,7 +227,7 @@ public:
         } else if ((cond_test = SWITCHCondition::Test(name)) != COND_UNKNOWN) {
             switch (cond_test) {
             case COND_NEW:
-                curr_cond = new SWITCHCondition()
+                curr_cond = new SWITCHCondition(active_value);
                 curr_cond->Parse(name, value);
                 cond.push_back(curr_cond);
                 break;
@@ -284,18 +288,18 @@ public:
     }
 
     std::string& GetProcCmd() { return m_sProcCmd; }
-    std::string& GetExpandCmd() { return m_sExpandCmd; }
+    std::string& GetExpandCmd() { return m_sExpand; }
 };
 
 
 // main file
-bool ChartLoaderBMS::Test( const char* p, int iLen )
+bool ChartLoaderBMS::Test( const void* p, int iLen )
 {
     // As bms file has no file signature,
     // just search for "*--" string for first 100 string.
     // TODO: is there any exception?
     for (int i=0; i<iLen-4 && i<100; i++) {
-        if (stricmp(p, "*-----", 6)==0)
+        if (strncmp((const char*)p, "*-----", 6)==0)
             return true;
     }
     return false;
@@ -304,34 +308,33 @@ bool ChartLoaderBMS::Test( const char* p, int iLen )
 bool TestName( const char *fn )
 {
     std::string fn_lower = fn;  lower(fn_lower);
-    return EndsWith(fn_lower, ".bms") ||
-        EndsWith(fn_lower, ".bme") ||
-        EndsWith(fn_lower, ".bml") ||
-        EndsWith(fn_lower, ".pms");
+    return endsWith(fn_lower, ".bms") ||
+        endsWith(fn_lower, ".bme") ||
+        endsWith(fn_lower, ".bml") ||
+        endsWith(fn_lower, ".pms");
 }
 
-bool ChartLoaderBMS::Load( const char* p, int iLen )
+bool ChartLoaderBMS::Load( const void* p, int iLen )
 {
     // parse expand, and process it first
     // (expand parse effects to Metadata / Channels)
     BMSExpandProc bExProc(c, m_iSeed, procExpansion);
-    bExProc.proc(p, iLen);
+    bExProc.proc((const char*)p, iLen);
     std::string& proc_res = bExProc.GetProcCmd();
-    c->GetMetaData()->m_sExpand = bExProc.GetExpandCmd();
+    c->GetMetaData()->sExpand = bExProc.GetExpandCmd();
 
     // parse metadata(include expanded command) first
     ReadHeader(proc_res.c_str(), proc_res.size());
 
     // parse BGA & notedata channel second
-    ReadObjects(proc_res.c_str(), proc_res.size(), notes);
-    ProcObjects(notes);
+    ReadObjects(proc_res.c_str(), proc_res.size());
     notes.clear();
 
     // set encoding from EUC-JP to UTF8
-    c->GetMetaData()->SetEncoding("EUC-JP", "UTF8");
+    c->GetMetaData()->SetEncoding(R_CP_932, R_CP_UTF8);
 
     // fill hash file
-    m_ChartSummaryData.FillHash(p, iLen);
+    c->UpdateHash(p, iLen);
 
     // we don't call EvaluateBeat in here,
     // as fBeat is automatically calculated 
@@ -342,89 +345,109 @@ bool ChartLoaderBMS::Load( const char* p, int iLen )
 
 void ChartLoaderBMS::ReadHeader(const char* p, int iLen)
 {
-    const char **pp = *p;
+    MetaData* md = c->GetMetaData();
+
+    const char *pp = p;
     std::string name, value;
     while (1) {
-        if (**pp == 0) break;
-        const char *pp_save = *pp;
-        ParseLine(*pp, name, value);
+        if (*pp == 0) break;
+        const char *pp_save = pp;
+        ParseLine(&pp, name, value);
+
         if (!name.empty()) {
             if (name == "#title") {
-                c->GetMetaData()->sTitle = value;
+                md->sTitle = value;
             }
             else if (name == "#subtitle") {
-                c->GetMetaData()->sSubTitle = value;
+                md->sSubTitle = value;
             }
             else if (name == "#artist") {
-                c->GetMetaData()->sArtist = value;
+                md->sArtist = value;
             }
             else if (name == "#subartist") {
-                c->GetMetaData()->sSubArtist = value;
+                md->sSubArtist = value;
             }
             else if (name == "#genre") {
-                c->GetMetaData()->sGenre = value;
+                md->sGenre = value;
             }
             else if (name == "#player") {
-                c->GetMetaData()->iPlayer = atoi(value.c_str());
+                md->iPlayer = atoi(value.c_str());
             }
             else if (name == "#playlevel") {
-                c->GetMetaData()->iLevel = atoi(value.c_str());
+                md->iLevel = atoi(value.c_str());
             }
             else if (name == "#difficulty") {
-                c->GetMetaData()->iDifficulty = atoi(value.c_str());
+                md->iDifficulty = atoi(value.c_str());
             }
             else if (name == "#rank") {
                 // convert from 4 to 100.0
-                c->GetMetaData()->fJudge = atof(value.c_str()) / 4.0 * 100;
+                md->fJudge = atof(value.c_str()) / 4.0 * 100;
             }
             else if (name == "#total") {
-                c->GetMetaData()->fTotal = atof(value.c_str());
+                md->fTotal = atof(value.c_str());
             }
             else if (name == "#banner") {
-                c->GetMetaData()->sBannerImage = value;
+                md->sBannerImage = value;
             }
             else if (name == "#backbmp") {
-                c->GetMetaData()->sBackImage = value;
+                md->sBackImage = value;
             }
             else if (name == "#stagefile") {
-                c->GetMetaData()->sStageImage = value;
+                md->sStageImage = value;
             }
             else if (name == "#bpm") {
-                c->GetMetaData()->fBPM = atof(value.c_str());
+                md->fBPM = atof(value.c_str());
             }
             else if (name == "#lntype") {
-                c->GetMetaData()->iLNType = atoi(value.c_str());
+                md->iLNType = atoi(value.c_str());
             }
             else if (name == "#lnobj") {
-                c->GetMetaData()->sLNObj = value;
+                md->iLNObj = atoi_bms(value.c_str());
             }
             else if (name == "#music") {
-                c->GetMetaData()->sMusic = value;
+                md->sMusic = value;
             }
             else if (name == "#preview") {
-                c->GetMetaData()->sPreviewMusic = value;
+                md->sPreviewMusic = value;
             }
             else if (name == "#offset") {
                 // append it to TimingData
-                c->GetTimingData()->fBeat0MSecOffset = atof(value.c_str());
+                c->GetTimingData()->SetBeat0Offset( atof(value.c_str()) );
             }
 
             /*
              * Resource part
              */
-            #define CHKCMD(s, cmd, len) (stricmp(s.c_str(), cmd, len) == 0)
+            #define CHKCMD(s, cmd, len) (strncmp(s.c_str(), cmd, len) == 0)
             else if (CHKCMD(name,"#bmp",4)) {
+                int key = atoi_bms(name.c_str() + 4);
+                md->GetBGAChannel()->bga[key] = { value, 0,0,0,0, 0,0,0,0 };
             }
-            else if (CHKCMD(name,"#wav"),4) {
+            else if (CHKCMD(name,"#wav",4)) {
+                int key = atoi_bms(name.c_str() + 4);
+                md->GetSoundChannel()->fn[key] = value;
             }
             else if (CHKCMD(name,"#exbpm",6) || CHKCMD(name,"#bpm",4)) {
+                int key;
+                if (name.c_str()[1] == 'b')
+                    key = atoi_bms(name.c_str() + 4);
+                else
+                    key = atoi_bms(name.c_str() + 6);
+                md->GetBPMChannel()->bpm[key] = atof( value.c_str() );
             }
             else if (CHKCMD(name,"#stop",5)) {
-                // COMMENT
-                // We don't fill STOP data here,
-                // we call LoadFromMetaData() instead.
+                int key = atoi_bms(name.c_str() + 5);
+                md->GetSTOPChannel()->stop[key] = atoi(value.c_str());  // 1/192nd
             }
-            else if (CHKCMD(name,"#stp",4)) {
+            else if (name == "#stp") {
+                std::string sMeasure, sTime;
+                if (!split(value, ' ', sMeasure, sTime))
+                {
+                    printf("invalid #STP found, ignore. (%s)\n", value.c_str());
+                    continue;
+                }
+                float fMeasure = atof(sMeasure.c_str());
+                md->GetSTOPChannel()->STP[fMeasure] = atoi(sTime.c_str());
             }
             // TODO: WAVCMD, EXWAV
             // TODO: MIDIFILE
@@ -435,30 +458,35 @@ void ChartLoaderBMS::ReadHeader(const char* p, int iLen)
 
 void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
 {
-    // clear objects and set resolution here
-    c->SetResolution(DEFAULT_RESOLUTION_SIZE);
+    TimingData* td = c->GetTimingData();
+    NoteData* nd = c->GetNoteData();
+    MetaData* md = c->GetMetaData();
 
-    // don't accept measure size at first, just record it in array first.
-    // (support up to 10000 internally)
-    float measurelen[10000];
-    for (int i=0;i<10000; i++)
-        measurelen[i] = 1.0f;
+    // clear objects and set resolution here
+    c->ChangeResolution(DEFAULT_RESOLUTION_SIZE);
+
+    // measure length caching array <measure index, measure length>
+    std::map<int, float> measurelen;
+    measurelen[0] = 1.0f;
     std::vector<BmsNote> vNotes;
-    int value_prev[1000];   // previous value of each channel
+    int value_prev[1000];   // previous value of each channel (up to 1000 channel?)
     memset(value_prev,0,sizeof(int)*1000);
 
     // Obtain Bms objects or set measure length
-    *pp = *p;
+    const char *pp = p;
     std::map<int, int> bgm_channel_idx;
+    std::string name, value;
     while (1) {
-        if (**pp == 0) break;
-        ParseLine(*pp, name, value, ':');
+        if (*pp == 0) break;
+        ParseLine(&pp, name, value, ':');
         if (name.empty()) continue;
         int measure = atoi(name.substr(1, 3).c_str());
-        int channel = atoi(name.substr(4, 2).c_str());
+        int channel = atoi_bms16(name.substr(4, 2).c_str());
         if (channel == 2) {
             // record measure size change
+            // but recover original length at next measure
             measurelen[measure] = atof(value.c_str());
+            measurelen[measure + 1] = 1.0f;
         } else {
             // just append bmsnote data
             // in case of bgm data, need to set colidx value
@@ -478,22 +506,23 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
                 n.den = cur_res;
                 n.num = i;
                 n.colidx = colidx;
-                vNotes.append(n);
+                vNotes.push_back(n);
             }
         }
     }
-    std::sort(vNotes);
+    std::sort(vNotes.begin(), vNotes.end());
 
 
     // record measure-length change (after resolution is set)
-    int prev_ml=4, cur_ml=4;
-    for (int i=0; i<10000; i++)
+    float prev_ml=1.0f, cur_ml=1.0f;
+    for (auto &m : measurelen)
     {
-        cur_ml = measurelen[i];
+        int cur_midx = m.first;
+        cur_ml = m.second;
         if (prev_ml != cur_ml)
-            c->GetTimingData()->AddObject(
-                new MeasureObject(measure, int(atof(value.c_str()) + 0.001))
-                );
+        {
+            td->AddObject(MeasureObject(cur_midx, cur_ml));
+        }
         prev_ml = cur_ml;
     }
 
@@ -502,8 +531,6 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
      * this section we place objects,
      * So row resolution MUST be decided before we enter this section.
      */
-    TimingData* td = c->GetTimingData();
-    NoteData* nd = c->GetNoteData();
     // allow note duplication to reduce load time and resolution loss
     nd->SetNoteDuplicatable(1);
 
@@ -511,22 +538,27 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
     int measure_prev = 0;
     double measure_len_sum = 0;
     Note n;
+    // TODO: set vector size before appending?
     for (auto &bn: vNotes)
     {
         while (bn.measure > measure_prev)
         {
             measure_prev++;
-            measure_len_sum += measurelen(measure_prev);
+            if (IN(measurelen, measure_prev))
+                measure_len_sum += measurelen[measure_prev];
+            else
+                measure_len_sum += 1.0f;
         }
         n.iValue = bn.value;
         n.iRow = measure_len_sum * td->GetResolution() + td->GetResolution() * bn.num / bn.den;
         n.fBeat = measure_len_sum + bn.num / (float)bn.den;
         n.nType = NoteType::NOTE_EMPTY;
-        n.iValue = bn.value;
-        n.iEndValue = 0;
-        n.iDuration = n.fDuration = 0;
+        n.iValue = bn.value;        n.iEndValue = 0;
+        n.iDuration = n.fBeatLength = 0;
+        n.fTime = n.fTimeLength = 0;
         n.restart = true;
         int channel = bn.channel;
+        int track = bn.channel % 16;
         if (channel == 1) {
             // BGM
             n.nType = NoteType::NOTE_BGM;
@@ -537,8 +569,8 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
             // BPM change
             // COMMENT: we don't fill timingdata directly in here,
             // we call LoadFromNoteData() instead.
-            n.nType = NoteType::NOTE_BPM;
-            n.subType = NoteTapType::TAPNOTE_EMPTY;
+            n.nType = NoteType::NOTE_BMS;
+            n.subType = NoteBmsType::NOTEBMS_BPM;
         }
         else if (channel == 4) {
             // BGA
@@ -605,8 +637,8 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
                 Note* n_ln = nd->GetLastNoteAtTrack(track);
                 ASSERT(n_ln);   // previous note should be existed
                 n_ln->subType = NoteTapType::TAPNOTE_CHARGE;
-                n_ln->fDuration = n.fBeat - n_ln->fBeat;
-                n_ln->iDuration = n.iBeat - n_ln->iBeat;
+                n_ln->fBeatLength = n.fBeat - n_ln->fBeat;
+                n_ln->iDuration = n.iRow - n_ln->iRow;
             }
             else {
                 n.nType = NoteType::NOTE_TAP;
@@ -640,8 +672,8 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
                     // add length information to previous LN
                     // COMMENT: if end of TAPNOTE not found then?
                     // COMMENT: add option to GetLastNoteAtTrack with subtype?
-                    n_ln->fDuration = n.fBeat - n_ln->fBeat;
-                    n_ln->iDuration = n.iBeat - n_ln->iBeat;
+                    n_ln->fBeatLength = n.fBeat - n_ln->fBeat;
+                    n_ln->iDuration = n.iRow - n_ln->iRow;
                     n_ln->iEndValue = n.iValue;
                 }
             }
@@ -660,8 +692,8 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
                     // add length information to previous LN
                     Note* n_ln = nd->GetLastNoteAtTrack(track);
                     ASSERT(n_ln);
-                    n_ln->fDuration = n.fBeat - n_ln->fBeat;
-                    n_ln->iDuration = n.iBeat - n_ln->iBeat;
+                    n_ln->fBeatLength = n.fBeat - n_ln->fBeat;
+                    n_ln->iDuration = n.iRow- n_ln->iRow;
                     n_ln->iEndValue = n.iValue;
                 }
             }
@@ -675,7 +707,7 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
             n.x = track;
         }
 
-        if (n.ntype != NoteType::NOTE_EMPTY) 
+        if (n.nType != NoteType::NOTE_EMPTY) 
             nd->AddNote(n);
     }
     nd->SetNoteDuplicatable(0);

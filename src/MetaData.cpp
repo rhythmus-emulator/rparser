@@ -25,7 +25,6 @@ bool STOPChannel::GetStop(int channel, float &out) const
 
 // ------ class MetaData ------
 
-template<>
 int MetaData::GetAttribute(const std::string& key, int fallback) const
 {
     auto it = m_sAttributes.find(key);
@@ -36,8 +35,7 @@ int MetaData::GetAttribute(const std::string& key, int fallback) const
     if (*endptr != 0) return fallback;
     else return r;
 }
-template<>
-double MetaData::GetAttribute<double>(const std::string& key, double fallback) const
+double MetaData::GetAttribute(const std::string& key, double fallback) const
 {
     auto it = m_sAttributes.find(key);
     if (it == m_sAttributes.end()) return fallback;
@@ -50,12 +48,12 @@ double MetaData::GetAttribute<double>(const std::string& key, double fallback) c
 template<>
 int MetaData::GetAttribute(const std::string& key) const
 {
-    return GetAttribute<int>(key,0);
+    return GetAttribute(key,0);
 }
 template<>
 double MetaData::GetAttribute(const std::string& key) const
 {
-    return GetAttribute<double>(key,0);
+    return GetAttribute(key,.0);
 }
 void MetaData::SetAttribute(const std::string& key, int value)
 {
