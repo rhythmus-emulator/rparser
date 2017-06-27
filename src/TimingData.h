@@ -228,6 +228,7 @@ public:
     TimingObject* GetNextObject(TYPE_TIMINGOBJ iType, int iStartRow);
     TimingObject* GetObjectAtRow(TYPE_TIMINGOBJ iType, int iRow);
     int GetObjectIndexAtRow( TYPE_TIMINGOBJ iType, int iRow );          // returns -1 if obj not exists
+    float GetBpmAtRow(int iRow);
 
     // search using lookup objects
     void PrepareLookup();

@@ -166,6 +166,12 @@ TimingObject* TimingData::GetObjectAtRow(TYPE_TIMINGOBJ iType, int iRow)
     // iRow is before the first segment of type tst
     return 0;
 }
+float TimingData::GetBpmAtRow(int iRow)
+{
+    TimingObject* tobj = GetObjectAtRow(TYPE_TIMINGOBJ::TYPE_BPM, iRow);
+    ASSERT(tobj);
+    return ToBpm(tobj)->GetValue();
+}
 
 int TimingData::GetObjectIndexAtRow( TYPE_TIMINGOBJ iType, int iRow )
 {
@@ -617,22 +623,31 @@ void TimingData::LoadExternObject(const MetaData &md, const NoteData &nd)
             p->SetIsSpecial(true);
             AddObject(p);
 		}
-		// STOP
-		else if (it->subType == NoteBmsType::NOTEBMS_STOP)
-		{
-			float fStop;
-			if (!md.GetSTOPChannel()->GetStop(it->iValue, fStop))
-			{
-				printf("[StopObject] Value %d is not on channel value(invalid), ignored", it->iValue);
-				continue;
-			}
-            StopObject *p = new StopObject(it->iRow, it->fBeat, fStop);
-            p->SetIsSpecial(true);
-			AddObject(p);
-		}
 	}
+    for (auto it = nd.begin(); it != nd.end(); ++it)
+    {
+        if (it->nType != NoteType::NOTE_BMS)
+            continue;
+        // STOP ( 1/192nd beat )
+        if (it->subType == NoteBmsType::NOTEBMS_STOP)
+        {
+            float fStop;
+            if (!md.GetSTOPChannel()->GetStop(it->iValue, fStop))
+            {
+                printf("[StopObject] Value %d is not on channel value(invalid), ignored", it->iValue);
+                continue;
+            }
+            // convert to msec
+            // (it's bpm-dependent, so process separately)
+            float fBpm = GetBpmAtRow(it->iRow);
+            float fMSec = fStop / 48.0f / fBpm * 60000.0f;
+            StopObject *p = new StopObject(it->iRow, it->fBeat, fMSec);
+            p->SetIsSpecial(true);
+            AddObject(p);
+        }
+    }
 
-    // STOP from metadata #STPXX
+    // #STP ( 1 msec )
 	for (auto it=md.GetSTOPChannel()->STP.begin(); it != md.GetSTOPChannel()->STP.end(); ++it)
 	{
 		float fBeat = GetBeatFromMeasure(it->first);
