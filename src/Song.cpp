@@ -171,7 +171,7 @@ bool rparser::Song::LoadChart(const std::string& path)
 {
     ASSERT(m_pDir);
     ChartLoader* cLoader;
-	Chart *c = 0;
+	Chart *c = new Chart();
 	switch (m_Songtype) {
 	case SONGTYPE::BMS:
         cLoader = new ChartLoaderBMS(c);
@@ -185,6 +185,7 @@ bool rparser::Song::LoadChart(const std::string& path)
 		break;
     */
 	default:
+		delete c;
 		ASSERT(m_Songtype != SONGTYPE::UNKNOWN);
 	}
 
@@ -232,6 +233,20 @@ int rparser::Song::GetError()
 const char * rparser::Song::GetErrorStr()
 {
 	return SongErrorCode[m_iErrorcode];
+}
+
+std::string rparser::Song::toString()
+{
+	std::stringstream ss;
+	ss << "Song path: " << m_sPath << std::endl;
+	ss << "Is Archive?: " << m_bIsArchive << std::endl;
+	ss << "Song type: " << GetSongTypeExtension(m_Songtype) << std::endl;
+	ss << "Chart count: " << m_vCharts.size() << std::endl << std::endl;
+	for (auto c : m_vCharts)
+	{
+		ss << c->toString() << std::endl << std::endl;
+	}
+	return ss.str();
 }
 
 void rparser::Song::Close()

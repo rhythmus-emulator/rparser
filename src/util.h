@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <string>
 #include <vector>
+
+#define ZIP_STATIC
 #include <zip.h>
 
 #include <assert.h>
@@ -78,6 +80,7 @@ std::string GetDirectory(const std::string& path);
 std::string GetParentDirectory(const std::string& path);
 std::string GetFilename(const std::string& path);
 std::string GetExtension(const std::string& path, std::string *sOutName=0);
+std::string GetPathJoin(const std::string& s1, const std::string s2);
 
 
 

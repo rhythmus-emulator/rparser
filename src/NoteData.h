@@ -113,7 +113,8 @@ struct Note {
         fTime(0), fTimeLength(0), fBeat(0), fBeatLength(0) {}
 
     std::string toString();
-    bool operator<( const Note &other ) const;
+	bool operator<(const Note &other) const;
+	bool operator==(const Note &other) const;
     bool IsTappableNote();
     int GetPlayerSide();
     int GetTrack();
@@ -225,7 +226,7 @@ private:
     std::vector<Note*> m_vNotes;
     friend class NoteData;      // only notedata class can directly access to this object
 public:
-    void SelectNote(const Note* n);
+    void SelectNote(Note* n);
     void UnSelectNote(const Note* n);
     std::vector<Note*>& GetSelection();
     std::vector<Note*>::iterator begin();

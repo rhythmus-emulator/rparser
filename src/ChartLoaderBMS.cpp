@@ -10,6 +10,14 @@
 
 namespace rparser {
 
+bool ChartLoaderBMS::TestName(const char *fn)
+{
+	return endsWith(fn, ".bms", false) ||
+		endsWith(fn, ".bme", false) ||
+		endsWith(fn, ".bml", false);
+}
+
+
 /* common */
 void ParseLine(const std::string& line, std::string& name, std::string& value, char sep=0)
 {

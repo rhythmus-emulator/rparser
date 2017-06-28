@@ -109,6 +109,9 @@ public:
     const char* GetErrorStr();
 
 
+	std::string toString();
+
+
     // @description clear all current song metadata & resource, close directory.
     void Close();
     Song();

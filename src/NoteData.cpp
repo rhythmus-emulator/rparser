@@ -86,6 +86,15 @@ bool Note::operator<( const Note &other ) const
 	// first compare beat, next track(x).
 	return (fBeat == other.fBeat) ? x < other.x : fBeat < other.fBeat;
 }
+bool Note::operator==(const Note &other) const
+{
+	return
+		nType == other.nType &&
+		subType == other.subType &&
+		iRow == other.iRow &&
+		x == other.x &&
+		y == other.y;
+}
 
 bool Note::IsTappableNote()
 {
@@ -102,10 +111,26 @@ int Note::GetTrack()
 
 struct n_less_row : std::binary_function <Note, Note, bool>
 {
-    bool operator() (const Note& x, const Note& y) const
-    {
-        return x.iRow < y.iRow;
-    }
+	bool operator() (const Note& x, const Note& y) const
+	{
+		return x.iRow < y.iRow;
+	}
+};
+
+struct nptr_less : std::binary_function <Note*, Note*, bool>
+{
+	bool operator() (const Note* x, const Note* y) const
+	{
+		return x->fBeat < y->fBeat;
+	}
+};
+
+struct nptr_less_row : std::binary_function <Note*, Note*, bool>
+{
+	bool operator() (const Note* x, const Note* y) const
+	{
+		return x->iRow < y->iRow;
+	}
 };
 
 
@@ -588,6 +613,44 @@ NoteData::NoteData()
 NoteData::~NoteData()
 {
 
+}
+
+
+
+
+// ------ class NoteSelection ------
+
+void NoteSelection::SelectNote(Note* n)
+{
+	auto it = std::lower_bound(m_vNotes.begin(), m_vNotes.end(), n, nptr_less_row());
+	m_vNotes.insert(it, n);
+}
+void NoteSelection::UnSelectNote(const Note* n)
+{
+	for (int i = 0; i < m_vNotes.size(); i++)
+	{
+		if (*m_vNotes[i] == *n)
+		{
+			m_vNotes.erase(i + m_vNotes.begin());
+			break;
+		}
+	}
+}
+std::vector<Note*>& NoteSelection::GetSelection()
+{
+	return m_vNotes;
+}
+std::vector<Note*>::iterator NoteSelection::begin()
+{
+	return m_vNotes.begin();
+}
+std::vector<Note*>::iterator NoteSelection::end()
+{
+	return m_vNotes.end();
+}
+void NoteSelection::Clear()
+{
+	m_vNotes.clear();
 }
 
 } /* namespace rparser */

@@ -285,6 +285,14 @@ std::string GetExtension(const std::string& path, std::string *sOutName)
 	}
 	return std::string(path.c_str() + pos + 1);
 }
+std::string GetPathJoin(const std::string& s1, const std::string s2)
+{
+	if (s1.empty()) return s1;
+	if (s1.back() == '/' || s1.back() == '\\')
+		return s1 + s2;
+	else
+		return s1 + '/' + s2;
+}
 
 #ifdef WIN32
 bool IsDirectory(const std::string & path)
