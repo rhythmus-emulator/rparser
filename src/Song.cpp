@@ -6,6 +6,21 @@
 
 // ------ class Song ------
 
+namespace rparser
+{
+
+char *SongErrorCode[] = {
+    "No Error", // 0
+    "No Save file format (or unsupported file format) specified",   // 1
+    "The archive file isn't valid or supported one.",
+    "Corrupted archive file (or might have password)",
+    "This song archive file has no chart.",
+    "Unsupported song file format.",    // 5
+};
+const char* GetSongErrorCode(int i) { return SongErrorCode[i]; }
+
+}
+
 void rparser::Song::RegisterChart(Chart * c)
 {
 	m_vCharts.push_back(c);
@@ -179,7 +194,7 @@ bool rparser::Song::LoadChart(const std::string& path)
         m_vCharts.push_back(c);
     delete cLoader;
     DeleteFileData(fDat);
-	return c;
+	return c == 0;
 }
 
 bool rparser::Song::ReadCharts(const std::string &path, std::vector<Chart*>& charts)

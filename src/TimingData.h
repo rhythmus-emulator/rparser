@@ -54,9 +54,9 @@ public:
     virtual TYPE_TIMINGOBJ GetType() const { return TYPE_TIMINGOBJ::TYPE_INVALID; }
     virtual std::string toString() const;
     int GetRow() const { return m_iRow; }
-    int SetRow(int iRow) { m_iRow = iRow; }
+    void SetRow(int iRow) { m_iRow = iRow; }
     int GetBeat() const { return m_fBeat; }
-    int SetBeat(int fBeat) { m_fBeat = fBeat; }
+    void SetBeat(int fBeat) { m_fBeat = fBeat; }
     bool GetIsSpecial() const { return m_bSpecial; }
     void SetIsSpecial(bool bSpecial) { m_bSpecial = bSpecial; }
     virtual bool IsPositionSame(const TimingObject &other) const

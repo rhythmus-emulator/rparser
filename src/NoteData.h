@@ -139,8 +139,8 @@ public:
 	trackiter end() { return m_Track.end(); };
 	const_trackiter begin() const { return m_Track.begin(); };
 	const_trackiter end() const { return m_Track.end(); };
-//    trackiter lower_bound(int row) { return std::lower_bound(m_Track.begin(), m_Track.end(), row); };
-//    trackiter upper_bound(int row) { return std::upper_bound(m_Track.begin(), m_Track.end(), row); };
+    trackiter lower_bound(int row);
+    trackiter upper_bound(int row);
     trackiter lower_bound(Note &n) { return std::lower_bound(m_Track.begin(), m_Track.end(), n); };
     trackiter upper_bound(Note &n) { return std::upper_bound(m_Track.begin(), m_Track.end(), n); };
     Note* GetLastNoteAtTrack(int iTrackNum=-1, int iType=-1, int iSubType=-1);

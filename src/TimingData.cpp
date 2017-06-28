@@ -128,9 +128,29 @@ MeasureObject* TimingData::GetNextMeasureObject(int iStartRow) { return ToMeasur
 TimingObject* TimingData::GetNextObject(TYPE_TIMINGOBJ iType, int iStartRow)
 {
     std::vector<TimingObject*>& vObjs = GetTimingObjects(iType);
-	auto it = std::lower_bound(vObjs.begin(), vObjs.end(), iStartRow, ts_less_row());
-	if (it == vObjs.end()) return 0;
-	else return *it;
+
+    if (vObjs.size() == 0) return 0;
+
+    int min = 0, max = vObjs.size() - 1;
+    int l = min, r = max;
+    while (l <= r)
+    {
+        int m = (l + r) / 2;
+        if ((m == min || vObjs[m - 1]->GetRow() < iStartRow) && (m == max || iStartRow <= vObjs[m]->GetRow()))
+        {
+            return vObjs[m];
+        }
+        else if (vObjs[m]->GetRow() >= iStartRow)
+        {
+            r = m - 1;
+        }
+        else
+        {
+            l = m + 1;
+        }
+    }
+
+    return 0;
 }
 TimingObject* TimingData::GetObjectAtRow(TYPE_TIMINGOBJ iType, int iRow)
 {

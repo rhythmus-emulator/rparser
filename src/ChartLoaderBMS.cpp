@@ -544,7 +544,7 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
         while (bn.measure > measure_prev)
         {
             measure_prev++;
-            if (IN_ARRAY(measurelen, measure_prev))
+            if (IN_MAP(measurelen, measure_prev))
                 measure_len_sum += measurelen[measure_prev];
             else
                 measure_len_sum += 1.0f;

@@ -20,14 +20,7 @@
 
 namespace rparser {
 
-char *SongErrorCode[] = {
-    "No Error", // 0
-    "No Save file format (or unsupported file format) specified",   // 1
-    "The archive file isn't valid or supported one.",
-    "Corrupted archive file (or might have password)",
-    "This song archive file has no chart.",
-    "Unsupported song file format.",    // 5
-};
+const char* GetSongErrorCode(int i);
 
 enum SONGTYPE {
 	UNKNOWN,

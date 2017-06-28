@@ -100,6 +100,13 @@ int Note::GetTrack()
     return y;
 }
 
+struct n_less_row : std::binary_function <Note, Note, bool>
+{
+    bool operator() (const Note& x, const Note& y) const
+    {
+        return x.iRow < y.iRow;
+    }
+};
 
 
 
@@ -281,6 +288,18 @@ int NoteData::GetNoteIndexAtRow(int iRow, int track)
     }
     // no track found
     return -1;
+}
+
+NoteData::trackiter NoteData::lower_bound(int row)
+{
+    Note n; n.iRow = row;
+    return std::lower_bound(m_Track.begin(), m_Track.end(), n, n_less_row());
+}
+
+NoteData::trackiter NoteData::upper_bound(int row)
+{
+    Note n; n.iRow = row;
+    return std::upper_bound(m_Track.begin(), m_Track.end(), n, n_less_row());
 }
 
 bool NoteData::IsRangeEmpty(int iStartRow, int iEndRow)

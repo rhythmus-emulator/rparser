@@ -70,6 +70,7 @@ std::string trim(const std::string &s);
 int split(const std::string& str, const char sep, std::vector<std::string>& vsOut);
 int split(const std::string& str, const char sep, std::string &s1, std::string &s2);
 #define IN_ARRAY(v,o) (std::find((v).begin(), (v).end(), (o)) != (v).end())
+#define IN_MAP(v,o) ((v).find(o) != (v).end())
 bool endsWith(const std::string& s1, const std::string& s2, bool casesensitive=true);
 // @description tidy pathname in case of using irregular separator
 std::string CleanPath(const std::string& path);

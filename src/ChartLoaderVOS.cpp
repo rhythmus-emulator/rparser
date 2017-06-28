@@ -57,7 +57,7 @@ struct VOSNoteDataV3 {
     unsigned char dummy2;
 };
 
-char MIDISIG_BYTE[3][2] = {
+unsigned char MIDISIG_BYTE[3][2] = {
 	{0xFF, 0x21},
 	{0xFF, 0x03},
 	{0xFF, 0x2F}
