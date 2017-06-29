@@ -724,11 +724,18 @@ const std::vector<TimingObject *>& TimingData::GetTimingObjects(TYPE_TIMINGOBJ t
 
 void TimingData::AddObject(TimingObject *obj)
 {
-    std::vector<TimingObject*> vObjs = GetTimingObjects(obj->GetType());
-    std::vector<TimingObject*>::iterator it;
+    std::vector<TimingObject*>& vObjs = GetTimingObjects(obj->GetType());
+	// first segment -> just insert
+	if (vObjs.empty())
+	{
+		vObjs.push_back(obj);
+		return;
+	}
+
     // get object and check its position is same
     // if same or duplicated, then remove previous one.
     int idx = GetObjectIndexAtRow(obj->GetType(), obj->GetRow());
+	ASSERT(idx >= 0);
     if (vObjs[idx]->GetRow() == obj->GetRow()) {
         if (*vObjs[idx] == *obj) {
             // don't need to replace same object
@@ -740,8 +747,8 @@ void TimingData::AddObject(TimingObject *obj)
     // if position not same, then insert
     else {
         // in case of warp object, we have to check length.
-        if (vObjs[idx]->GetType() == TYPE_TIMINGOBJ::TYPE_WARP) {
-            WarpObject* wObj = ToWarp(*it);
+        if (obj->GetType() == TYPE_TIMINGOBJ::TYPE_WARP) {
+            WarpObject* wObj = ToWarp(vObjs[idx]);
             if (wObj->GetBeat()+wObj->GetLength() >= obj->GetBeat())
             {
                 delete wObj;
@@ -758,7 +765,7 @@ void TimingData::AddObject(TimingObject *obj)
     {
         int curr_measure = ToMeasure(obj)->GetMeasure();
         double curr_beat = obj->GetBeat();
-        for (it = std::upper_bound(vObjs.begin(), vObjs.end(), obj); it != vObjs.end(); ++it)
+        for (auto it = std::upper_bound(vObjs.begin(), vObjs.end(), obj); it != vObjs.end(); ++it)
         {
             // first measure section always at zero position,
             // so we won't need to care about default value.

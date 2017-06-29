@@ -194,10 +194,11 @@ std::string lower(const std::string& s) {
 	std::transform(sOut.begin(), sOut.end(), sOut.begin(), ::tolower);
 	return sOut;
 }
+bool isspace(char c) { return (c == ' ' || c == '\t' || c == '\r' || c == '\n'); }
 std::string trim(const std::string &line)
 {
-    auto wsfront = std::find_if_not(line.begin(), line.end(), [](int c) {return std::isspace(c); });
-    auto wsback = std::find_if_not(line.rbegin(), line.rend(), [](int c) {return std::isspace(c); }).base();
+    auto wsfront = std::find_if_not(line.begin(), line.end(), [](int c) {return isspace(c); });
+    auto wsback = std::find_if_not(line.rbegin(), line.rend(), [](int c) {return isspace(c); }).base();
     std::string line_trim = (wsback <= wsfront ? std::string() : std::string(wsfront, wsback));
     return line_trim;
 }
@@ -520,6 +521,7 @@ std::vector<std::string> IDirectory::GetFolderEntries()
 int rparser::BasicDirectory::Open(const std::string &path)
 {
 	if (!IsDirectory(path)) return -1;
+	m_sPath = path;
     DirFileList vFiles;
 	GetDirectoryFiles(path, vFiles, m_iRecursiveDepth);
 	for (auto& entry: vFiles)
@@ -538,7 +540,7 @@ int rparser::BasicDirectory::Open(const std::string &path)
 
 int rparser::BasicDirectory::Write(const FileData &fd)
 {
-	std::string sFullpath = m_sPath + "/" + fd.fn;
+	std::string sFullpath = GetPathJoin(m_sPath, fd.fn);
 	FILE *fp = fopen_utf8(sFullpath.c_str(), "wb");
 	if (!fp) return 0;
 	int r = fwrite(fd.p, 1, fd.iLen, fp);
@@ -548,14 +550,14 @@ int rparser::BasicDirectory::Write(const FileData &fd)
 
 int rparser::BasicDirectory::Read(FileData &fd)
 {
-	std::string sFullpath = m_sPath + "/" + fd.fn;
+	std::string sFullpath = GetPathJoin(m_sPath, fd.fn);
 	FILE *fp = fopen_utf8(sFullpath.c_str(), "rb");
 	if (!fp) return 0;
 	fseek(fp, 0, SEEK_END);
 	fd.iLen = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
-	ASSERT(fd.p == 0);
 	fd.p = (unsigned char*)malloc(fd.iLen);
+	ASSERT(fd.p != 0);
 	fd.iLen = fread(fd.p, 1, fd.iLen, fp);
 	return fd.iLen;
 }

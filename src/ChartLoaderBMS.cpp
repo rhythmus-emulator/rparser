@@ -32,23 +32,25 @@ void ParseLine(const std::string& line, std::string& name, std::string& value, c
     } else {
         space = line_trim.find(sep);
     }
-    name = line_trim.substr(0, space); lower(name);
-    value = std::string();
-    if (space != std::string::npos) value = line_trim.substr(space+1);
+	if (space == std::string::npos)
+	{
+		name.clear();
+		value.clear();
+		return;
+	}
+    name = line_trim.substr(0, space);
+    value = line_trim.substr(space+1);
 }
-void ParseLine(const char** p, std::string& name, std::string& value, char sep=0) {
-    while (**p != '\t' && **p != ' ' && **p) *p++;
-    // start point
-    const char *s = *p;
-    while (**p != '\n' && **p) *p++;
-    if (*p == s) { name.clear(); }  // no new content -> no name
+void ParseLine(const char** p_, std::string& name, std::string& value, char sep=0) {
+	const char* p = *p_;
+    while (*p != '\n' && *p) p++;
+    if (p == *p_) { name.clear(); }  // no new content -> no name
     else {
-        std::string line(s, *p-s);
-        if (*p) *p++;
-        ParseLine(line, name, value);
+        std::string line(*p_, p-*p_);
+        if (*p) p++;
+        ParseLine(line, name, value, sep);
     }
-    // direct to next character
-    p++;
+	*p_ = p;
 }
 
 // @description
@@ -282,11 +284,11 @@ public:
         while (in < p_end) {
             // split current line
             const char* p = in;
-            while (p < p_end && *p == '\n') p++;
+            while (p < p_end && *p != '\n') p++;
             // make trimmed string
             const char *s=in, *e=p;
-            while (*s == ' ' || *s == '\t') s++;
-            while (e > s && (*e == ' ' || *e == '\t')) e--;
+            while (*s == ' ' || *s == '\t' || *s == '\r') s++;
+            while (e > s && (*e == ' ' || *e == '\t' || *e == '\r')) e--;
             std::string line(s, e-s);
             // prepare for next line
             in = p+1;
@@ -327,7 +329,7 @@ bool ChartLoaderBMS::Load( const void* p, int iLen )
     // parse expand, and process it first
     // (expand parse effects to Metadata / Channels)
     BMSExpandProc bExProc(c, m_iSeed, procExpansion);
-    bExProc.proc((const char*)p, iLen);
+	std::string _debug((const char*)p);
     std::string& proc_res = bExProc.GetProcCmd();
     c->GetMetaData()->sExpand = bExProc.GetExpandCmd();
 
@@ -360,7 +362,11 @@ void ChartLoaderBMS::ReadHeader(const char* p, int iLen)
     while (1) {
         if (*pp == 0) break;
         const char *pp_save = pp;
+#ifdef _DEBUG
+		std::string _debug(pp, pp + 100);
+#endif
         ParseLine(&pp, name, value);
+		name = lower(name);
 
         if (!name.empty()) {
             if (name == "#title") {
@@ -490,6 +496,11 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
         if (name.empty()) continue;
         int measure = atoi(name.substr(1, 3).c_str());
         int channel = atoi_bms16(name.substr(4, 2).c_str());
+		if (channel == 0)
+		{
+			// invalid channel; case like 'title: ~~~'
+			continue;
+		}
         if (channel == 2) {
             // record measure size change
             // but recover original length at next measure
@@ -557,7 +568,6 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
             else
                 measure_len_sum += 1.0f;
         }
-        n.iValue = bn.value;
         n.iRow = measure_len_sum * td->GetResolution() + td->GetResolution() * bn.num / bn.den;
         n.fBeat = measure_len_sum + bn.num / (float)bn.den;
         n.nType = NoteType::NOTE_EMPTY;
