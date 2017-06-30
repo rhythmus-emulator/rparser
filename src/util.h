@@ -153,7 +153,7 @@ public:
     int Create(const std::string& path);
     int Close();
     static int Test(const std::string &path);
-    ArchiveDirectory() : m_Archive(0) {}
+    ArchiveDirectory() : m_Archive(0), m_iCodepage(0) {}
     ~ArchiveDirectory() { Close(); }
     void SetCodepage(int iCodepage);
 };
@@ -163,7 +163,7 @@ public:
 // BMS-util related
 
 // @description only change 2 character; 00-ZZ to integer
-int atoi_bms(const char* p);
+int atoi_bms(const char* p, int length=0xF);
 // 00-FF
 int atoi_bms16(const char* p, int length=2);
 

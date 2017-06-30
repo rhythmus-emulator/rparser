@@ -44,12 +44,12 @@ void ParseLine(const std::string& line, std::string& name, std::string& value, c
 void ParseLine(const char** p_, std::string& name, std::string& value, char sep=0) {
 	const char* p = *p_;
     while (*p != '\n' && *p) p++;
-    if (p == *p_) { name.clear(); }  // no new content -> no name
+	if (p == *p_) { name.clear(); }  // no new content -> no name
     else {
         std::string line(*p_, p-*p_);
-        if (*p) p++;
         ParseLine(line, name, value, sep);
     }
+	if (*p) p++;
 	*p_ = p;
 }
 
@@ -329,7 +329,7 @@ bool ChartLoaderBMS::Load( const void* p, int iLen )
     // parse expand, and process it first
     // (expand parse effects to Metadata / Channels)
     BMSExpandProc bExProc(c, m_iSeed, procExpansion);
-	std::string _debug((const char*)p);
+	bExProc.ProcessStatement((const char*)p);
     std::string& proc_res = bExProc.GetProcCmd();
     c->GetMetaData()->sExpand = bExProc.GetExpandCmd();
 
@@ -361,10 +361,6 @@ void ChartLoaderBMS::ReadHeader(const char* p, int iLen)
     std::string name, value;
     while (1) {
         if (*pp == 0) break;
-        const char *pp_save = pp;
-#ifdef _DEBUG
-		std::string _debug(pp, pp + 100);
-#endif
         ParseLine(&pp, name, value);
 		name = lower(name);
 
@@ -483,11 +479,10 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
     std::map<int, float> measurelen;
     measurelen[0] = 1.0f;
     std::vector<BmsNote> vNotes;
-    int value_prev[1000];   // previous value of each channel (up to 1000 channel?)
-    memset(value_prev,0,sizeof(int)*1000);
 
     // Obtain Bms objects or set measure length
     const char *pp = p;
+	std::map<int, int> vPrevVal;   // previous value of each channel
     std::map<int, int> bgm_channel_idx;
     std::string name, value;
     while (1) {
@@ -516,9 +511,9 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
             }
             int cur_res = value.size()/2;
             for (int i=0; i<cur_res; i++) {
-                n.value = atoi_bms(value.c_str() + i*2);
-                n.value_prev = value_prev[channel];
-                value_prev[channel]=n.value;
+                n.value = atoi_bms(value.c_str() + i*2, 2);
+                n.value_prev = vPrevVal[channel];
+				vPrevVal[channel]=n.value;
                 if (n.value == 0) { continue; }
                 n.measure = measure;
                 n.channel = channel;
@@ -529,6 +524,8 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
             }
         }
     }
+	bgm_channel_idx.clear();
+	vPrevVal.clear();
     std::sort(vNotes.begin(), vNotes.end());
 
 

@@ -368,7 +368,7 @@ void NoteData::AddNote(const Note& n_)
 {
     // little trick: if fBeat == 0, then update fBeat value.
     Note n = n_;
-    if (n.fBeat == 0)
+    if (n.fBeat == 0 && n.iRow != 0)
     {
         n.fBeat = n.iRow / (float)m_iRes;
     }
@@ -379,8 +379,8 @@ void NoteData::AddNote(const Note& n_)
     // - if TapNote/BGM, then check iRow/x/y.
 
     // search is same type of note exists in same row
-    int idx = m_Track.begin() - lower_bound(n);
-    if (m_bNoteDuplicatable)
+    int idx = lower_bound(n) - m_Track.begin();
+    if (!m_bNoteDuplicatable && !m_Track.empty())
     {
         // only check for object in same row
         while (idx < m_Track.size() && m_Track[idx].iRow == n.iRow)

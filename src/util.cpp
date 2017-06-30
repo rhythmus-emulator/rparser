@@ -225,7 +225,7 @@ bool endsWith(const std::string& s1, const std::string& s2, bool casesensitive)
 {
 	if (casesensitive)
 	{
-		int l = (s1.size() > s2.size())?s1.size():s2.size();
+		int l = (s1.size() < s2.size())?s1.size():s2.size();
 		const char* p1 = &s1.back();
 		const char* p2 = &s2.back();
 		while (l)
@@ -491,6 +491,7 @@ bool IDirectory::ReadSmart(FileData &fd)
 
 int IDirectory::Read(const std::string fpath, FileData &fd)
 {
+	fd.p = 0;
     fd.fn = fpath;
     return Read(fd);
 }
@@ -635,7 +636,6 @@ int rparser::ArchiveDirectory::Open(const std::string& path)
 		}
         m_vFilename.push_back(fn);
     }
-    // read 
     return 0;
 }
 
@@ -654,7 +654,7 @@ int rparser::ArchiveDirectory::Read(FileData &fd)
     fd.p = (unsigned char*)malloc(fd.iLen);
     zip_fread(zfp, (void*)fd.p, fd.iLen);
     zip_fclose(zfp);
-    return 0;
+    return fd.iLen;
 }
 
 int rparser::ArchiveDirectory::ReadFiles(std::vector<FileData>& fd)
@@ -678,7 +678,7 @@ int rparser::ArchiveDirectory::Write(const FileData &fd)
     {
         printf("Zip file appending failed! (code %d)\n", error);
     }
-    return 0;
+    return fd.iLen;
 }
 
 int rparser::ArchiveDirectory::Flush()
@@ -716,7 +716,7 @@ int rparser::ArchiveDirectory::Close()
 
 int rparser::ArchiveDirectory::Test(const std::string& path)
 {
-    return endsWith(path, ".zip") || endsWith(path, ".osz");
+    return endsWith(path, ".zip", false) || endsWith(path, ".osz", false);
 }
 
 void rparser::ArchiveDirectory::SetCodepage(int iCodepage)
@@ -727,10 +727,10 @@ void rparser::ArchiveDirectory::SetCodepage(int iCodepage)
 
 
 // BMS-related utils
-int atoi_bms(const char* p)
+int atoi_bms(const char* p, int length)
 {
 	int r = 0;
-	while (p)
+	while (p && length)
 	{
 		r *= 26+10;
 		if (*p >= 'a' && *p <= 'z')
@@ -740,7 +740,7 @@ int atoi_bms(const char* p)
 		else if (*p >= '0' && *p <= '9')
 			r += (*p-'0');
 		else break;
-		++p;
+		++p; --length;
 	}
 	return r;
 }
