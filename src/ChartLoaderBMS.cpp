@@ -511,7 +511,11 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
             }
             int cur_res = value.size()/2;
             for (int i=0; i<cur_res; i++) {
-                n.value = atoi_bms(value.c_str() + i*2, 2);
+				// less than note channel(0x10), then use atoi_bms16
+				if (channel < 0x10)
+					n.value = atoi_bms16(value.c_str() + i * 2, 2);
+				else
+					n.value = atoi_bms(value.c_str() + i*2, 2);
                 n.value_prev = vPrevVal[channel];
 				vPrevVal[channel]=n.value;
                 if (n.value == 0) { continue; }
@@ -582,10 +586,9 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
         }
         else if (channel == 3) {
             // BPM change
-            // COMMENT: we don't fill timingdata directly in here,
-            // we call LoadFromNoteData() instead.
-            n.nType = NoteType::NOTE_BMS;
-            n.subType = NoteBmsType::NOTEBMS_BPM;
+			// fill TimingData directly.
+			td->AddObject(BpmObject(n.iRow, n.fBeat, n.iValue));
+            n.nType = NoteType::NOTE_EMPTY;
         }
         else if (channel == 4) {
             // BGA
@@ -728,6 +731,7 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
     nd->SetNoteDuplicatable(0);
 
     // now fill timingdata from metadata/notedata.
+	c->LoadExternObject();
     c->UpdateTimingData();
 }
 

@@ -67,6 +67,7 @@ public:
     TimingData* GetTimingData();
     const ChartSummaryData* GetChartSummary() const;  // cannot modify, read-only
     std::string GetFilePath() const;
+	void SetFilePath(const std::string& sPath);
     std::string GetHash() const;
     void UpdateChartSummary();
     void UpdateHash(const void* p, int iLen);
@@ -82,6 +83,9 @@ public:
     // @description call this function when calculate fBeat from iRow
     // (cf: playing after editing)
     void UpdateBeatData();
+	// @description Load timing object from NoteData
+	// (used for BMS type file)
+	void LoadExternObject();
 
     std::string toString();
 

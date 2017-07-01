@@ -190,6 +190,7 @@ bool rparser::Song::LoadChart(const std::string& path)
 	}
 
     FileData fDat;
+	c->SetFilePath(path);
     if (m_pDir->Read(path, fDat) && cLoader->Load(fDat.p, fDat.iLen))
         m_vCharts.push_back(c);
     delete cLoader;

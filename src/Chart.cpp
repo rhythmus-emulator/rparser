@@ -64,6 +64,10 @@ std::string Chart::GetFilePath() const
 {
     return m_ChartSummaryData.sFilePath;
 }
+void Chart::SetFilePath(const std::string& sPath)
+{
+	m_ChartSummaryData.sFilePath = sPath;
+}
 std::string Chart::GetHash() const
 {
     return m_ChartSummaryData.sHash;
@@ -90,6 +94,7 @@ std::string Chart::toString()
     //ss << m_Notedata.toString() << std::endl;
     //ss << m_Timingdata.toString() << std::endl;
     //return ss.str();
+	UpdateChartSummary();
     return m_ChartSummaryData.toString();
 }
 
@@ -124,6 +129,12 @@ void Chart::UpdateBeatData()
 {
     m_Timingdata.UpdateBeatData();
     m_Notedata.UpdateBeatData();
+}
+
+void Chart::LoadExternObject()
+{
+	m_Timingdata.ClearExternObject();
+	m_Timingdata.LoadExternObject(m_Metadata, m_Notedata);
 }
 
 

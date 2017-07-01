@@ -629,7 +629,7 @@ void TimingData::LoadExternObject(const MetaData &md, const NoteData &nd)
 			float fBpm;
 			if (!md.GetBPMChannel()->GetBpm(it->iValue, fBpm))
 			{
-				printf("[BpmObject] Value %d is not on channel value(invalid), ignored", it->iValue);
+				printf("[BpmObject] Value %d is not on channel value(invalid), ignored.\n", it->iValue);
 				continue;
 			}
             BpmObject *p = new BpmObject(it->iRow, it->fBeat, fBpm);
@@ -647,7 +647,7 @@ void TimingData::LoadExternObject(const MetaData &md, const NoteData &nd)
             float fStop;
             if (!md.GetSTOPChannel()->GetStop(it->iValue, fStop))
             {
-                printf("[StopObject] Value %d is not on channel value(invalid), ignored", it->iValue);
+                printf("[StopObject] Value %d is not on channel value(invalid), ignored.\n", it->iValue);
                 continue;
             }
             // convert to msec
