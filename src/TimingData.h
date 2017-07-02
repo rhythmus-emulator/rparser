@@ -55,8 +55,8 @@ public:
     virtual std::string toString() const;
     int GetRow() const { return m_iRow; }
     void SetRow(int iRow) { m_iRow = iRow; }
-    int GetBeat() const { return m_fBeat; }
-    void SetBeat(int fBeat) { m_fBeat = fBeat; }
+    float GetBeat() const { return m_fBeat; }
+    void SetBeat(float fBeat) { m_fBeat = fBeat; }
     bool GetIsSpecial() const { return m_bSpecial; }
     void SetIsSpecial(bool bSpecial) { m_bSpecial = bSpecial; }
     virtual bool IsPositionSame(const TimingObject &other) const
@@ -72,7 +72,7 @@ public:
     // should only compare contents, and this compares position.
     virtual bool operator==( const TimingObject &other ) const
     {
-        return GetRow() == other.GetRow();
+        return GetRow() == other.GetRow() && GetType() == other.GetType();
     }
 
     virtual bool operator!=( const TimingObject &other ) const
@@ -80,7 +80,7 @@ public:
         return !this->operator==(other);
     }
 
-    TimingObject(int iRow, float fBeat) : m_iRow(iRow), m_fBeat(fBeat) {}
+    TimingObject(int iRow, float fBeat) : m_iRow(iRow), m_fBeat(fBeat), m_bSpecial(false) {}
 };
 
 class BpmObject: public TimingObject {
@@ -94,6 +94,7 @@ public:
 
     BpmObject(int iRow, float fBeat, float dBpm)
         : TimingObject(iRow, fBeat), m_dBpm(dBpm) {}
+	bool operator==(const TimingObject &other) const;
 private:
     float m_dBpm;
 };
@@ -110,6 +111,7 @@ public:
 
     StopObject(int iRow, float fBeat, float dStopMSec)
         : TimingObject(iRow, fBeat), m_dStopMSec(dStopMSec), m_bDelay(false) {}
+	bool operator==(const TimingObject &other) const;
 private:
     float m_dStopMSec;
     // @description check is current style is delay.
@@ -133,6 +135,7 @@ public:
 
     WarpObject(int iRow, float fBeat, int iLength, bool fLength)
         : TimingObject(iRow, fBeat), m_iLength(iLength), m_fLength(fLength) {}
+	bool operator==(const TimingObject &other) const;
 private:
     int m_iLength;      // warp length in row
     float m_fLength;    // warp length in beat
@@ -147,6 +150,7 @@ public:
 	void SetValue(float v);
     ScrollObject(int iRow, float fBeat)
         : TimingObject(iRow, fBeat), m_Scroll(1) {}
+	bool operator==(const TimingObject &other) const;
 private:
 	float m_Scroll;
 };
@@ -169,7 +173,7 @@ public:
     bool operator!=( const TimingObject &other ) const;
 
     MeasureObject(int iMeasure, float fLength=1.0)
-        : TimingObject(0, 0), m_fLength(fLength) {}
+        : TimingObject(0, 0), m_fLength(fLength), m_iMeasure(iMeasure) {}
 private:
     int m_iMeasure;         // measure number
     float m_fLength;        // measure length (in beat)
@@ -186,7 +190,7 @@ public:
 
     TickObject(int iRow, float fBeat, unsigned long iTick=4)
         : TimingObject(iRow, fBeat), m_iTick(iTick) {}
-    
+	bool operator==(const TimingObject &other) const;
 private:
     // @description tick per beat
     unsigned long m_iTick;
@@ -298,6 +302,7 @@ private:
     // @description
     // automatically add/modify/sort object.
     void AddObject(TimingObject *obj);
+	void AddMeasure(MeasureObject *obj);
     BpmObject* ToBpm(TimingObject* obj);
     StopObject* ToStop(TimingObject* obj);
     WarpObject* ToWarp(TimingObject* obj);

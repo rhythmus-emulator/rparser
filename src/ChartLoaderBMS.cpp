@@ -475,6 +475,9 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
     // clear objects and set resolution here
     c->ChangeResolution(DEFAULT_RESOLUTION_SIZE);
 
+	// before start to read objects, obtain BPM from metadata
+	td->AddObject(BpmObject(0, 0, md->fBPM));
+
     // measure length caching array <measure index, measure length>
     std::map<int, float> measurelen;
     measurelen[0] = 1.0f;
@@ -575,6 +578,7 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
         n.iValue = bn.value;        n.iEndValue = 0;
         n.iDuration = n.fBeatLength = 0;
         n.fTime = n.fTimeLength = 0;
+		n.x = n.y = 0;
         n.restart = true;
         int channel = bn.channel;
         int track = bn.channel % 16;
@@ -647,7 +651,7 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
         else if (channel >= 0x11 && channel <= 0x19 ||
                 channel >= 0x21 && channel <= 0x29) {
             // 1P/2P visible note
-            int track = channel % 10 + channel / 0xE1;
+            int track = channel % 16 + channel / 0xE0 * 10;
             if (n.iValue == md->iLNObj)
             {
                 // LNOBJ process
@@ -667,7 +671,7 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
         else if (channel >= 0x31 && channel <= 0x39 ||
                 channel >= 0x41 && channel <= 0x49) {
             // 1P/2P invisible note
-            int track = channel % 10 + channel / 0xE1;
+            int track = channel % 16 + channel / 0xE0 * 10;
             n.nType = NoteType::NOTE_BMS;
             n.subType = NoteBmsType::NOTEBMS_INVISIBLE;
             n.x = track;

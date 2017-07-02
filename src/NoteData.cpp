@@ -98,15 +98,15 @@ bool Note::operator==(const Note &other) const
 
 bool Note::IsTappableNote()
 {
-    return true;
+    return nType == NoteType::NOTE_TAP;
 }
 int Note::GetPlayerSide()
 {
-    return y / 10;
+    return x / 10;
 }
 int Note::GetTrack()
 {
-    return y;
+    return x;
 }
 
 struct n_less_row : std::binary_function <Note, Note, bool>
@@ -213,12 +213,13 @@ void NoteData::FillSummaryData(ChartSummaryData& cmd)
             cmd.iNoteCount++;
             if (cmd.fLastNoteTime < it->fTime + it->fTimeLength)
                 cmd.fLastNoteTime = it->fTime + it->fTimeLength;
+			if (cmd.iTrackCount < it->GetTrack()) cmd.iTrackCount = it->GetTrack();
+
+			cmd.isBomb |= it->subType == NoteTapType::TAPNOTE_MINE;
+			cmd.isCharge |= it->subType == NoteTapType::TAPNOTE_CHARGE;
+			if (it->GetTrack() % 10 == 0)
+				cmd.isBSS |= it->subType == NoteTapType::TAPNOTE_CHARGE;
         }
-        cmd.isBomb |= it->nType == NoteTapType::TAPNOTE_MINE;
-        cmd.isCharge |= it->nType == NoteTapType::TAPNOTE_CHARGE;
-        if (it->GetTrack() % 10 == 0)
-            cmd.isBSS |= it->nType == NoteTapType::TAPNOTE_CHARGE;
-        if (cmd.iTrackCount < it->GetTrack()) cmd.iTrackCount = it->GetTrack();
     }
 }
 

@@ -10,10 +10,10 @@
 namespace rparser {
 
 float scale_f(float v, float s1, float e1, float s2, float e2) {
-    return v * (e2-s2) / (e1-s1);
+    return (v-s1) * (e2-s2) / (e1-s1) + s2;
 }
 double scale_d(double v, double s1, double e1, double s2, double e2) {
-    return v * (e2-s2) / (e1-s1);
+    return (v-s1) * (e2-s2) / (e1-s1) + s2;
 }
 
 struct ts_less : std::binary_function <TimingObject*, TimingObject*, bool>
@@ -34,10 +34,18 @@ struct ts_less_beat : std::binary_function <TimingObject*, TimingObject*, bool>
 
 struct ts_less_row : std::binary_function <TimingObject*, TimingObject*, bool>
 {
-    bool operator() (const TimingObject *x, const TimingObject *y) const
-    {
-        return x->GetRow() < y->GetRow();
-    }
+	bool operator() (const TimingObject *x, const TimingObject *y) const
+	{
+		return x->GetRow() < y->GetRow();
+	}
+};
+
+struct ts_less_measure : std::binary_function <TimingObject*, TimingObject*, bool>
+{
+	bool operator() (const TimingObject *x, const TimingObject *y) const
+	{
+		return static_cast<const MeasureObject*>(x)->GetMeasure() < static_cast<const MeasureObject*>(y)->GetMeasure();
+	}
 };
 
 /* Objects */
@@ -48,19 +56,19 @@ std::string TimingObject::toString() const {
     return ss.str();
 }
 
-std::string ScrollObject::toString() const {
-    std::stringstream ss;
-    ss << "ScrollObject Row: " << GetRow() << ", (Unusable)";
-    return ss.str();
-}
 
 void BpmObject::SetValue(float dBpm) { m_dBpm = dBpm; }
 float BpmObject::GetValue() const { return m_dBpm; }
-float BpmObject::GetBPS() const { return m_dBpm / 60.0f; }
+float BpmObject::GetBPS() const { return m_dBpm / 60.0f / 4; }
 std::string BpmObject::toString() const {
     std::stringstream ss;
     ss << "BpmObject Row: " << GetRow() << ", Value: " << m_dBpm;
     return ss.str();
+}
+bool BpmObject::operator==(const TimingObject &other) const
+{
+	return m_dBpm == static_cast<const BpmObject&>(other).m_dBpm
+		&& TimingObject::operator==(other);
 }
 
 void StopObject::SetValue(float dStopMSec) { m_dStopMSec = dStopMSec; }
@@ -71,6 +79,12 @@ std::string StopObject::toString() const {
     std::stringstream ss;
     ss << "StopObject Row: " << GetRow() << ", Stop(Before): " << m_bDelay << "/Stop(After):" << m_dStopMSec;
     return ss.str();
+}
+bool StopObject::operator==(const TimingObject &other) const
+{
+	return m_dStopMSec == static_cast<const StopObject&>(other).m_dStopMSec
+		&& m_bDelay == static_cast<const StopObject&>(other).m_bDelay
+		&& TimingObject::operator==(other);
 }
 
 void WarpObject::SetValue(int iWarpRows) { m_iLength = iWarpRows; }
@@ -84,6 +98,11 @@ std::string WarpObject::toString() const {
     ss << "WarpObject Row: " << GetRow() << ", Length: " << m_iLength;
     return ss.str();
 }
+bool WarpObject::operator==(const TimingObject &other) const
+{
+	return m_fLength == static_cast<const WarpObject&>(other).m_fLength
+		&& TimingObject::operator==(other);
+}
 
 unsigned long TickObject::GetValue() const { return m_iTick; }
 void TickObject::SetValue(unsigned long iTick) { m_iTick = iTick; }
@@ -92,9 +111,24 @@ std::string TickObject::toString() {
     ss << "TickObject Row: " << GetRow() << ", Value(Tick): " << m_iTick;
     return ss.str();
 }
+bool TickObject::operator==(const TimingObject &other) const
+{
+	return m_iTick == static_cast<const TickObject&>(other).m_iTick
+		&& TimingObject::operator==(other);
+}
 
 float ScrollObject::GetValue() const { return m_Scroll; };
 void ScrollObject::SetValue(float v) { m_Scroll = v; };
+std::string ScrollObject::toString() const {
+	std::stringstream ss;
+	ss << "ScrollObject Row: " << GetRow() << ", (Unusable)";
+	return ss.str();
+}
+bool ScrollObject::operator==(const TimingObject &other) const
+{
+	return m_Scroll == static_cast<const ScrollObject&>(other).m_Scroll
+		&& TimingObject::operator==(other);
+}
 
 void MeasureObject::SetLength(float fLength) { m_fLength = fLength; }
 float MeasureObject::GetLength() const { return m_fLength; }
@@ -241,8 +275,10 @@ void TimingData::PrepareLookup()
     // Place an initial bpm segment (dummy object)
     float first_bps= ToBpm(bpms[0])->GetBPS();
     LookupObject next_line = {
-        -first_bps, -m_fBeat0MSecOffset-1.f,
+        //-first_bps, -m_fBeat0MSecOffset-1.f,
+		0, -m_fBeat0MSecOffset,
         0.f, -m_fBeat0MSecOffset,
+		0, 0,
         first_bps};
     
     // second per beat / beat per second
@@ -301,7 +337,7 @@ void TimingData::PrepareLookup()
         if(!curr_obj)
         {
             next_line.end_beat= next_line.start_beat + 1.f;
-            float seconds_change= next_line.start_msec + spb;
+            float seconds_change= next_line.start_msec + spb * 1000;
             next_line.end_msec= seconds_change;
             
             m_LookupObjs.push_back(next_line);
@@ -345,7 +381,7 @@ void TimingData::PrepareLookup()
             // if it is, add previous one to LookupObjs
             if (next_line.start_beat != curr_beat) {
                 next_line.end_beat = curr_beat;
-                next_line.end_msec+= spb*(next_line.start_beat - next_line.end_beat);
+                next_line.end_msec += spb*(next_line.end_beat - next_line.start_beat) * 1000;
                 m_LookupObjs.push_back(next_line);
                 next_line.start_beat = curr_beat;
                 next_line.start_msec = next_line.end_msec;
@@ -395,6 +431,7 @@ void TimingData::PrepareLookup()
 void TimingData::ClearLookup()
 {
 	// TODO: add lookup request counter
+	m_LookupObjs.clear();
 	m_lobjs_time_sorted.clear();
 	m_lobjs_beat_sorted.clear();
 }
@@ -725,6 +762,11 @@ const std::vector<TimingObject *>& TimingData::GetTimingObjects(TYPE_TIMINGOBJ t
 void TimingData::AddObject(TimingObject *obj)
 {
     std::vector<TimingObject*>& vObjs = GetTimingObjects(obj->GetType());
+
+	// Fill proper data to object
+	if (obj->GetBeat() == 0)
+		obj->SetBeat(obj->GetRow() / (float)m_iRes);
+
 	// first segment -> just insert
 	if (vObjs.empty())
 	{
@@ -734,9 +776,13 @@ void TimingData::AddObject(TimingObject *obj)
 
     // get object and check its position is same
     // if same or duplicated, then remove previous one.
-    int idx = GetObjectIndexAtRow(obj->GetType(), obj->GetRow());
-	ASSERT(idx >= 0);
-    if (vObjs[idx]->GetRow() == obj->GetRow()) {
+	std::vector<TimingObject*>::iterator it;
+	if (obj->GetType() == TYPE_TIMINGOBJ::TYPE_MEASURE)
+		it = std::lower_bound(vObjs.begin(), vObjs.end(), obj, ts_less_measure());
+	else
+		it = std::lower_bound(vObjs.begin(), vObjs.end(), obj, ts_less_beat());
+	int idx = it - vObjs.begin();
+    if (idx < vObjs.size() && vObjs[idx]->GetRow() == obj->GetRow()) {
         if (*vObjs[idx] == *obj) {
             // don't need to replace same object
             return;
@@ -758,24 +804,54 @@ void TimingData::AddObject(TimingObject *obj)
     }
     vObjs.insert(vObjs.begin()+idx, obj);
 
+	// in case of measure, recalculate all measure length afterwards. ...
+	if (obj->GetType() == TYPE_TIMINGOBJ::TYPE_MEASURE)
+	{
+		int s = vObjs.size();
+		int curr_measure = 0;
+		double curr_beat = 0;
+		if (idx > 0)
+		{
+			curr_measure = ToMeasure(vObjs[idx-1])->GetMeasure();
+			curr_beat = vObjs[idx - 1]->GetBeat();
+		}
+		while (idx < s)
+		{
+			// first measure section always at zero position,
+			// so we won't need to care about default value.
+			MeasureObject* mObj = ToMeasure(vObjs[idx]);
+			curr_beat += mObj->GetLength() * (mObj->GetMeasure() - curr_measure);
+			mObj->SetBeat(curr_beat);
+			mObj->SetRow(curr_beat * m_iRes);
+			curr_measure = mObj->GetMeasure();
 
-    // if type is MEASURE, then row position should be fully calculated again
-    // to be always validated.
-    if (obj->GetType() == TYPE_TIMINGOBJ::TYPE_MEASURE)
-    {
-        int curr_measure = ToMeasure(obj)->GetMeasure();
-        double curr_beat = obj->GetBeat();
-        for (auto it = std::upper_bound(vObjs.begin(), vObjs.end(), obj); it != vObjs.end(); ++it)
-        {
-            // first measure section always at zero position,
-            // so we won't need to care about default value.
-            MeasureObject* mObj = ToMeasure(*it);
-            curr_beat += mObj->GetLength() * (mObj->GetMeasure() - curr_measure);
-            mObj->SetBeat(curr_beat);
-            mObj->SetRow(curr_beat * m_iRes);
-            curr_measure = mObj->GetMeasure();
-        }
-    }
+			++idx;
+		}
+	}
+}
+
+// measure object should be treated differently ...
+void TimingData::AddMeasure(MeasureObject *obj)
+{
+	std::vector<TimingObject*>& vObjs = GetTimingObjects(obj->GetType());
+
+	// scan correct position
+	auto it = std::upper_bound(vObjs.begin(), vObjs.end(), obj);
+
+	// if type is MEASURE, then row position should be fully calculated again
+	// to be always validated.
+	int curr_measure = obj->GetMeasure();
+	double curr_beat = obj->GetBeat();
+	for (auto it = std::upper_bound(vObjs.begin(), vObjs.end(), obj); it != vObjs.end(); ++it)
+	{
+		// first measure section always at zero position,
+		// so we won't need to care about default value.
+		MeasureObject* mObj = ToMeasure(*it);
+		curr_beat += mObj->GetLength() * (mObj->GetMeasure() - curr_measure);
+		mObj->SetBeat(curr_beat);
+		mObj->SetRow(curr_beat * m_iRes);
+		curr_measure = mObj->GetMeasure();
+	}
 }
 
 // TODO: debug this code - is default copy constructor is enough?
@@ -868,6 +944,7 @@ std::string TimingData::toString() const
 TimingData::TimingData()
 {
 	m_iRes = DEFAULT_RESOLUTION_SIZE;
+	m_fBeat0MSecOffset = 0;
     AddObject(BpmObject(0, 0, RPARSER_DEFAULT_BPM));
     AddObject(ScrollObject(0, 0));
     AddObject(MeasureObject(0, 1.0));

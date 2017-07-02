@@ -121,8 +121,7 @@ void Chart::ChangeResolution(int newRes)
 void Chart::UpdateTimingData()
 {
     // invalidate timingdata from meta/notedata
-    m_Timingdata.ClearExternObject();
-    m_Timingdata.LoadExternObject(m_Metadata, m_Notedata);
+	m_Notedata.FillTimingData(m_Timingdata);
 }
 
 void Chart::UpdateBeatData()
@@ -153,6 +152,7 @@ std::string ChartSummaryData::toString()
     ss << "MaxBPM: " << iMaxBPM << std::endl;
     ss << "MinBPM: " << iMinBPM << std::endl;
     ss << "isBPMChanges: " << isBPMChanges << std::endl;
+	ss << "isCharge: " << isCharge << std::endl;
     ss << "isBomb: " << isBomb << std::endl;
     ss << "isWarp: " << isWarp << std::endl;
     ss << "isStop: " << isStop << std::endl;
