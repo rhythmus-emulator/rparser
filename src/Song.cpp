@@ -129,7 +129,8 @@ bool rparser::Song::Open(const std::string & path, SONGTYPE songtype)
 		if (m_Songtype == SONGTYPE::UNKNOWN)
 		{
 			m_Songtype = rparser::TestSongTypeExtension(fn);
-			m_vChartPaths.push_back(fn);
+            if (m_Songtype != SONGTYPE::UNKNOWN)
+			    m_vChartPaths.push_back(fn);
 		}
 		else if (m_Songtype == rparser::TestSongTypeExtension(fn))
 		{

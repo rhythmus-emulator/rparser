@@ -18,9 +18,13 @@ protected:
     Chart* c;
     int error;
     int m_iSeed;
+    std::string m_sFilename;
 public:
     ChartLoader(Chart* c): c(c), error(0), m_iSeed(-1) {};
+    // @description used for random clause
     void SetSeed(int seed);
+    // @description sometimes chart loading process is dependent with filename ...
+    void SetFilename(const std::string& filename);
     virtual bool Test( const void* p, int iLen ) = 0;
     virtual bool TestName( const char *fn ) = 0;
     virtual bool Load( const void* p, int iLen ) = 0;

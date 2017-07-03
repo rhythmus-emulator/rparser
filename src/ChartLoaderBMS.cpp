@@ -356,6 +356,8 @@ bool ChartLoaderBMS::Load( const void* p, int iLen )
 void ChartLoaderBMS::ReadHeader(const char* p, int iLen)
 {
     MetaData* md = c->GetMetaData();
+    md->iLNType = 1;    // default LN type
+    md->iLNObj = 0;
 
     const char *pp = p;
     std::string name, value;
@@ -718,6 +720,10 @@ void ChartLoaderBMS::ReadObjects(const char* p, int iLen)
                     n_ln->iDuration = n.iRow- n_ln->iRow;
                     n_ln->iEndValue = n.iValue;
                 }
+            }
+            else
+            {
+                printf("[Warning] Invalid LNType %d, but found LN note.\n", md->iLNType);
             }
         }
         else if (channel >= 0xD1 && channel <= 0xD9 ||
