@@ -1,0 +1,3 @@
+[submodule "rhythmus-lib"]
+	path = rhythmus-lib
+	url = https://github.com/rhythmus-emulator/rhythmus-lib
