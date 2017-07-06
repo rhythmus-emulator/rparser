@@ -7,14 +7,14 @@ int main()
 {
 	printf("Hello world!\nDestination folder for test: %s\n", DEST_FOLDER);
 	
-	rparser::DirFileList dList;
-	rparser::GetDirectoryFiles(DEST_FOLDER, dList, 0);
+	rutil::DirFileList dList;
+	rutil::GetDirectoryFiles(DEST_FOLDER, dList, 0);
 
 	printf("Found target files: %d\n", dList.size());
 	for (auto d : dList)
 	{
 		printf("- %s\n", d.first.c_str());
-		std::string songpath = rparser::GetPathJoin(DEST_FOLDER, d.first);
+		std::string songpath = rutil::GetPathJoin(DEST_FOLDER, d.first);
 		rparser::Song song;
 		song.Open(songpath);
 		printf(song.toString().c_str());

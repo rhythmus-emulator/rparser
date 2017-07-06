@@ -7,8 +7,7 @@ set (RPARSER_SOURCES
     "ChartLoaderVOS.cpp"
     "ChartWriter.cpp"
     "Song.cpp"
-    "TimingData.cpp"
-    "util.cpp")
+    "TimingData.cpp")
 
 set (RPARSER_HEADERS
     "Chart.h"
@@ -17,9 +16,9 @@ set (RPARSER_HEADERS
     "ChartLoader.h"
     "ChartWriter.h"
     "Song.h"
-    "TimingData.h"
-    "util.h")
+    "TimingData.h")
 
+set (RPARSER_INCLUDE_DIR "${CMAKE_CURRENT_LIST_DIR}" PARENT_SCOPE)
 
 if (NOT MSVC)
 find_package(iconv)
@@ -32,7 +31,7 @@ find_package(zlib)
 find_package(openssl)
 
 
-include_directories(${ZIP_INCLUDE_DIR} ${ZLIB_INCLUDE_DIR} ${OPENSSL_INCLUDE_DIR} ${ICONV_DIR} ${RUTIL_DIR})
+include_directories(${ZIP_INCLUDE_DIR} ${ZLIB_INCLUDE_DIR} ${OPENSSL_INCLUDE_DIR} ${ICONV_INCLUDE_DIR} ${RUTIL_INCLUDE_DIR})
 link_directories(${ZIP_LIB} ${ZLIB_LIB} ${OPENSSL_LIB} ${ICONV_LIB})
 
 

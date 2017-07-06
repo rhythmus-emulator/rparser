@@ -2,8 +2,20 @@
  * by @lazykuna, MIT License.
  */
 
-#ifndef RPARSER_UTIL_H
-#define RPARSER_UTIL_H
+#ifndef RUTIL_BASIC_H
+#define RUTIL_BASIC_H
+
+
+#ifndef WIN32
+ //
+ // in case of linux, then USE_ICONV is automatically defined.
+ // if you want to use iconv in windows, then define USE_ICONV.
+ //
+#define USE_ICONV
+ // to manage binaries easier
+#define ZIP_STATIC
+#endif
+
 
 #define DEFAULT_RESOLUTION_SIZE 192
 
@@ -11,7 +23,7 @@
 #include <string>
 #include <vector>
 
-#define ZIP_STATIC
+#define ZIP_STATIC 1
 #include <zip.h>
 
 #include <assert.h>
@@ -22,16 +34,7 @@
 #define R_CP_949 949	// KOR
 #define R_CP_UTF8 1252
 
-
-//
-// in case of linux, then USE_ICONV is automatically defined.
-// if you want to use iconv in windows, then define USE_ICONV.
-//
-#ifndef WIN32
-#define USE_ICONV
-#endif
-
-namespace rparser {
+namespace rutil {
 
 // encoding related
 

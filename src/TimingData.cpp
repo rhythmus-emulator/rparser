@@ -1,11 +1,13 @@
 #include "TimingData.h"
-#include "util.h"
+#include "rutil.h"
 #include <sstream>
 #include <algorithm>
 // use NoteData.h module for importing Bpm/Stop
 #include "NoteData.h"
 #include "MetaData.h"
 #include "Chart.h"
+
+using namespace rutil;
 
 namespace rparser {
 

@@ -1,7 +1,9 @@
 #include "MetaData.h"
 #include "Chart.h"  // chartsummarydata
-#include "util.h"
+#include "rutil.h"
 #include <stdlib.h>
+
+using namespace rutil;
 
 namespace rparser {
 

@@ -9,10 +9,11 @@
 
 #include "ChartLoader.h"
 #include "Chart.h"
-#include "util.h"
 #include <stdlib.h>
 #define MAX_READ_SIZE 512000
- 
+
+using namespace rutil;
+
 namespace rparser {
 
 // structure used for parsing data

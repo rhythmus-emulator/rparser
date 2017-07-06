@@ -7,16 +7,9 @@
 
 #include "MetaData.h"
 
-// you may want to support archive library.
-// (requires: zlip, libzip)
-#define RPARSER_USE_LIBZIP
-#ifdef RPARSER_USE_LIBZIP
-#include <zip.h>
-#endif
-
-#include "util.h"
 #include "Chart.h"
 #include <algorithm>
+#include "rutil.h"
 
 namespace rparser {
 
@@ -40,7 +33,6 @@ enum SONGTYPE {
 * In that case, we use songmetadata to keep track of such format.
 * This metadata will be ignored in case of unsupported format (like bms)
 */
-#include "MetaData.h"
 class SongMetaData : public MetaData {
     // @description should only show at extra stage
     bool bExtraStage;
@@ -52,6 +44,7 @@ class SongMetaData : public MetaData {
  * Song contains all charts using same(or similar) resources.
  * So all charts must be in same folder.
  */
+
 class Song {
 private:
     // @description Song object responsive for removing all chart datas when destroyed.
@@ -66,7 +59,7 @@ private:
     bool m_bIsArchive;                // Is current song file loaded/saved in archive?
     int m_iErrorcode;               // @description error code
 
-    IDirectory *m_pDir;             // @description Song IO
+    rutil::IDirectory *m_pDir;             // @description Song IO
 public:
     // @description
     // register chart to Song array.

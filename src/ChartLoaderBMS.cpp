@@ -2,11 +2,13 @@
 
 #include "ChartLoader.h"
 #include "Chart.h"
-#include "util.h"
+#include "rutil.h"
 #include <vector>
 #include <string>
 #include <sstream>
 #include <cstdlib>
+
+using namespace rutil;
 
 namespace rparser {
 

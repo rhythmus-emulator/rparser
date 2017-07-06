@@ -1,4 +1,4 @@
-﻿#include "util.h"
+﻿#include "rutil.h"
 #include <string>
 #include <sstream>
 #include <algorithm>
@@ -18,7 +18,7 @@
 #define CP_UTF8 1252
 #endif
 
-namespace rparser {
+namespace rutil {
 
 // encoding part
 #ifdef USE_ICONV
@@ -519,7 +519,7 @@ std::vector<std::string> IDirectory::GetFolderEntries()
 
 // ------ class BasicDirectory ------
 
-int rparser::BasicDirectory::Open(const std::string &path)
+int BasicDirectory::Open(const std::string &path)
 {
 	if (!IsDirectory(path)) return -1;
 	m_sPath = path;
@@ -539,7 +539,7 @@ int rparser::BasicDirectory::Open(const std::string &path)
     return 0;
 }
 
-int rparser::BasicDirectory::Write(const FileData &fd)
+int BasicDirectory::Write(const FileData &fd)
 {
 	std::string sFullpath = GetPathJoin(m_sPath, fd.fn);
 	FILE *fp = fopen_utf8(sFullpath.c_str(), "wb");
@@ -549,7 +549,7 @@ int rparser::BasicDirectory::Write(const FileData &fd)
 	return r;
 }
 
-int rparser::BasicDirectory::Read(FileData &fd)
+int BasicDirectory::Read(FileData &fd)
 {
 	std::string sFullpath = GetPathJoin(m_sPath, fd.fn);
 	FILE *fp = fopen_utf8(sFullpath.c_str(), "rb");
@@ -563,7 +563,7 @@ int rparser::BasicDirectory::Read(FileData &fd)
 	return fd.iLen;
 }
 
-int rparser::BasicDirectory::ReadFiles(std::vector<FileData>& fd)
+int BasicDirectory::ReadFiles(std::vector<FileData>& fd)
 {
 	FileData fdat;
 	int r = m_vFilename.size();
@@ -581,36 +581,36 @@ int rparser::BasicDirectory::ReadFiles(std::vector<FileData>& fd)
 	return r;
 }
 
-int rparser::BasicDirectory::Flush()
+int BasicDirectory::Flush()
 {
 	// do nothing
 	return 0;
 }
 
-int rparser::BasicDirectory::Create(const std::string& path)
+int BasicDirectory::Create(const std::string& path)
 {
 	return CreateDirectory_RPARSER(path);
 }
 
-int rparser::BasicDirectory::Close()
+int BasicDirectory::Close()
 {
 	// do nothing
 	return 0;
 }
 
-void rparser::BasicDirectory::SetRecursiveDepth(int iRecursiveDepth)
+void BasicDirectory::SetRecursiveDepth(int iRecursiveDepth)
 {
     m_iRecursiveDepth = iRecursiveDepth;
 }
 
-int rparser::BasicDirectory::Test(const std::string &path)
+int BasicDirectory::Test(const std::string &path)
 {
 	return IsDirectory(path);
 }
 
 // ------ class ArchiveDirectory ------
 
-int rparser::ArchiveDirectory::Open(const std::string& path)
+int ArchiveDirectory::Open(const std::string& path)
 {
     Close();
 	m_sPath = path;
@@ -639,7 +639,7 @@ int rparser::ArchiveDirectory::Open(const std::string& path)
     return 0;
 }
 
-int rparser::ArchiveDirectory::Read(FileData &fd)
+int ArchiveDirectory::Read(FileData &fd)
 {
     ASSERT(fd.p == 0 && m_Archive);
     zip_file_t *zfp = zip_fopen(m_Archive, fd.fn.c_str(), ZIP_FL_UNCHANGED);
@@ -657,12 +657,12 @@ int rparser::ArchiveDirectory::Read(FileData &fd)
     return fd.iLen;
 }
 
-int rparser::ArchiveDirectory::ReadFiles(std::vector<FileData>& fd)
+int ArchiveDirectory::ReadFiles(std::vector<FileData>& fd)
 {
     return 0;
 }
 
-int rparser::ArchiveDirectory::Write(const FileData &fd)
+int ArchiveDirectory::Write(const FileData &fd)
 {
     ASSERT(m_Archive);
     zip_source_t *s;
@@ -681,7 +681,7 @@ int rparser::ArchiveDirectory::Write(const FileData &fd)
     return fd.iLen;
 }
 
-int rparser::ArchiveDirectory::Flush()
+int ArchiveDirectory::Flush()
 {
     // COMMENT is there more effcient way?
 	zip_close(m_Archive);
@@ -690,7 +690,7 @@ int rparser::ArchiveDirectory::Flush()
 	//return 0;
 }
 
-int rparser::ArchiveDirectory::Create(const std::string& path)
+int ArchiveDirectory::Create(const std::string& path)
 {
     Close();
     m_Archive = zip_open(path.c_str(), ZIP_CREATE | ZIP_EXCL, &error);
@@ -705,7 +705,7 @@ int rparser::ArchiveDirectory::Create(const std::string& path)
     return 0;
 }
 
-int rparser::ArchiveDirectory::Close()
+int ArchiveDirectory::Close()
 {
     if (m_Archive)
     {
@@ -714,12 +714,12 @@ int rparser::ArchiveDirectory::Close()
     return 0;
 }
 
-int rparser::ArchiveDirectory::Test(const std::string& path)
+int ArchiveDirectory::Test(const std::string& path)
 {
     return endsWith(path, ".zip", false) || endsWith(path, ".osz", false);
 }
 
-void rparser::ArchiveDirectory::SetCodepage(int iCodepage)
+void ArchiveDirectory::SetCodepage(int iCodepage)
 {
 	m_iCodepage = iCodepage;
 }

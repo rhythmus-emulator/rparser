@@ -5,9 +5,12 @@ project(rparser)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin/lib")
 
-# rutil & common libraries
+# common libraries
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/rhythmus-lib")
 add_subdirectory("${PROJECT_SOURCE_DIR}/rhythmus-lib")
+
+# add rutil
+add_subdirectory("${PROJECT_SOURCE_DIR}/rutil")
 
 # add subdirectories
 add_subdirectory("${PROJECT_SOURCE_DIR}/src")

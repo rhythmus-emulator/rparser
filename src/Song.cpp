@@ -3,8 +3,9 @@
 #include "ChartLoader.h"
 #include "ChartWriter.h"
 
+using namespace rutil;
 
-// ------ class Song ------
+
 
 namespace rparser
 {
@@ -19,14 +20,15 @@ char *SongErrorCode[] = {
 };
 const char* GetSongErrorCode(int i) { return SongErrorCode[i]; }
 
-}
 
-void rparser::Song::RegisterChart(Chart * c)
+// ------ class Song ------
+
+void Song::RegisterChart(Chart * c)
 {
 	m_vCharts.push_back(c);
 }
 
-void rparser::Song::DeleteChart(const Chart * c_)
+void Song::DeleteChart(const Chart * c_)
 {
 	for (auto p = m_vCharts.begin(); p != m_vCharts.end(); ++p) {
 		if (*p == c_) {
@@ -36,7 +38,7 @@ void rparser::Song::DeleteChart(const Chart * c_)
 	}
 }
 
-bool rparser::Song::SaveSong()
+bool Song::SaveSong()
 {
 	m_iErrorcode = 0;
 	bool r = true;
@@ -48,13 +50,13 @@ bool rparser::Song::SaveSong()
 	return r;
 }
 
-bool rparser::Song::SaveMetadata()
+bool Song::SaveMetadata()
 {
     // TODO
     return false;
 }
 
-bool rparser::Song::SaveChart(const Chart* c)
+bool Song::SaveChart(const Chart* c)
 {
     ChartWriter *cWriter;
     switch (m_Songtype) {
@@ -77,7 +79,7 @@ bool rparser::Song::SaveChart(const Chart* c)
     return true;
 }
 
-bool rparser::Song::OpenDirectory()
+bool Song::OpenDirectory()
 {
 	if (BasicDirectory::Test(m_sPath))
 		m_pDir = new BasicDirectory();
@@ -88,7 +90,7 @@ bool rparser::Song::OpenDirectory()
 	int r = m_pDir->Open(m_sPath);
 	return r==0;
 }
-bool rparser::Song::Open(const std::string & path, SONGTYPE songtype)
+bool Song::Open(const std::string & path, SONGTYPE songtype)
 {
 	// initialize
 	Close();
@@ -111,8 +113,8 @@ bool rparser::Song::Open(const std::string & path, SONGTYPE songtype)
 		}
 		std::string m_sChartPath = GetFilename(path);
 		if (m_Songtype == SONGTYPE::UNKNOWN)
-			m_Songtype = rparser::TestSongTypeExtension(m_sChartPath);
-		else if (m_Songtype != rparser::TestSongTypeExtension(m_sChartPath))
+			m_Songtype = TestSongTypeExtension(m_sChartPath);
+		else if (m_Songtype != TestSongTypeExtension(m_sChartPath))
 		{
 			Close();
 			printf("Cannot detect valid song file.\n");
@@ -128,11 +130,11 @@ bool rparser::Song::Open(const std::string & path, SONGTYPE songtype)
 	{
 		if (m_Songtype == SONGTYPE::UNKNOWN)
 		{
-			m_Songtype = rparser::TestSongTypeExtension(fn);
+			m_Songtype = TestSongTypeExtension(fn);
             if (m_Songtype != SONGTYPE::UNKNOWN)
 			    m_vChartPaths.push_back(fn);
 		}
-		else if (m_Songtype == rparser::TestSongTypeExtension(fn))
+		else if (m_Songtype == TestSongTypeExtension(fn))
 		{
 			m_vChartPaths.push_back(fn);
 		}
@@ -156,7 +158,7 @@ bool rparser::Song::Open(const std::string & path, SONGTYPE songtype)
 	return true;
 }
 
-bool rparser::Song::LoadSongMetadata()
+bool Song::LoadSongMetadata()
 {
     ASSERT(m_Songtype != SONGTYPE::UNKNOWN);
 
@@ -168,7 +170,7 @@ bool rparser::Song::LoadSongMetadata()
     return true;
 }
 
-bool rparser::Song::LoadChart(const std::string& path)
+bool Song::LoadChart(const std::string& path)
 {
     ASSERT(m_pDir);
     ChartLoader* cLoader;
@@ -199,7 +201,7 @@ bool rparser::Song::LoadChart(const std::string& path)
 	return c == 0;
 }
 
-bool rparser::Song::ReadCharts(const std::string &path, std::vector<Chart*>& charts)
+bool Song::ReadCharts(const std::string &path, std::vector<Chart*>& charts)
 {
 	Song* s = new Song();
 	if (!s->Open(path))
@@ -216,27 +218,27 @@ bool rparser::Song::ReadCharts(const std::string &path, std::vector<Chart*>& cha
 	return true;
 }
 
-void rparser::Song::GetCharts(std::vector<Chart*>& charts)
+void Song::GetCharts(std::vector<Chart*>& charts)
 {
 	charts = m_vCharts;
 }
 
-int rparser::Song::GetChartCount()
+int Song::GetChartCount()
 {
 	return m_vCharts.size();
 }
 
-int rparser::Song::GetError()
+int Song::GetError()
 {
 	return m_iErrorcode;
 }
 
-const char * rparser::Song::GetErrorStr()
+const char * Song::GetErrorStr()
 {
 	return SongErrorCode[m_iErrorcode];
 }
 
-std::string rparser::Song::toString()
+std::string Song::toString()
 {
 	std::stringstream ss;
 	ss << "Song path: " << m_sPath << std::endl;
@@ -250,7 +252,7 @@ std::string rparser::Song::toString()
 	return ss.str();
 }
 
-void rparser::Song::Close()
+void Song::Close()
 {
     m_Songtype = SONGTYPE::UNKNOWN;
 	if (m_pDir)
@@ -266,17 +268,17 @@ void rparser::Song::Close()
     m_iErrorcode = 0;
 }
 
-rparser::Song::Song()
+Song::Song()
     : m_Songtype(SONGTYPE::UNKNOWN), m_pDir(0), m_iErrorcode(0)
 {
 }
 
-rparser::Song::~Song()
+Song::~Song()
 {
 	Close();
 }
 
-rparser::SONGTYPE rparser::TestSongTypeExtension(const std::string & fname)
+SONGTYPE TestSongTypeExtension(const std::string & fname)
 {
 	std::string ext = GetExtension(fname);
 	lower(ext);
@@ -298,7 +300,7 @@ rparser::SONGTYPE rparser::TestSongTypeExtension(const std::string & fname)
 	return SONGTYPE::UNKNOWN;
 }
 
-std::string rparser::GetSongTypeExtension(SONGTYPE iType)
+std::string GetSongTypeExtension(SONGTYPE iType)
 {
     switch (iType)
     {
@@ -319,3 +321,5 @@ std::string rparser::GetSongTypeExtension(SONGTYPE iType)
     }
 }
 
+
+}
