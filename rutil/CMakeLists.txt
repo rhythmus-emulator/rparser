@@ -1,12 +1,12 @@
 project(rutil)
 
-if ($ENV{RUTIL_ALL} OR $ENV{RUTIL_SOUND})
+if (DEFINED ENV{RUTIL_ALL} OR DEFINED ENV{RUTIL_SOUND})
     set (RUTIL_SOUND_SOURCE "rutil.Sound.cpp")
     set (RUTIL_SOUND_HEADER "rutil.Sound.h")
     find_package(libogg)
 endif ()
 
-if ($ENV{RUTIL_ALL} OR $ENV{RUTIL_IMAGE})
+if (DEFINED ENV{RUTIL_ALL} OR DEFINED ENV{RUTIL_IMAGE})
     set (RUTIL_IMAGE_SOURCE "rutil.Image.cpp")
     set (RUTIL_IMAGE_HEADER "rutil.Image.h")
     find_package(ffmpeg)
