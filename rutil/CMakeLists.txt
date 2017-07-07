@@ -1,30 +1,29 @@
 project(rutil)
 
-if ($ENV{RUTIL_ALL})
-
-    set (RUTIL_SOURCES
-        "rutil.Image.cpp"
-        "rutil.Sound.cpp"
-        "rutil.cpp")
-
-    set (RUTIL_HEADERS
-        "rutil.Image.h"
-        "rutil.Sound.h"
-        "rutil.h")
-
-    find_package(libpng)
-    find_package(ffmpeg)
+if ($ENV{RUTIL_ALL} OR $ENV{RUTIL_SOUND})
+    set (RUTIL_SOUND_SOURCE "rutil.Sound.cpp")
+    set (RUTIL_SOUND_HEADER "rutil.Sound.h")
     find_package(libogg)
+endif ()
 
-else()
+if ($ENV{RUTIL_ALL} OR $ENV{RUTIL_IMAGE})
+    set (RUTIL_IMAGE_SOURCE "rutil.Image.cpp")
+    set (RUTIL_IMAGE_HEADER "rutil.Image.h")
+    find_package(ffmpeg)
+    find_package(libpng)
+endif ()
 
-    set (RUTIL_SOURCES
-        "rutil.cpp")
+set (RUTIL_SOURCES
+    ${RUTIL_SOUND_SOURCE}
+    ${RUTIL_IMAGE_SOURCE}
+    "rutil.cpp")
 
-    set (RUTIL_HEADERS
-        "rutil.h")
+set (RUTIL_HEADERS
+    ${RUTIL_SOUND_HEADER}
+    ${RUTIL_IMAGE_HEADER}
+    "rutil.h")
 
-endif()
+
 
 set (RUTIL_INCLUDE_DIR "${CMAKE_CURRENT_LIST_DIR}" PARENT_SCOPE)
 

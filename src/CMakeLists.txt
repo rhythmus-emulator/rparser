@@ -32,7 +32,7 @@ find_package(openssl)
 
 
 include_directories(${ZIP_INCLUDE_DIR} ${ZLIB_INCLUDE_DIR} ${OPENSSL_INCLUDE_DIR} ${ICONV_INCLUDE_DIR} ${RUTIL_INCLUDE_DIR})
-link_directories(${ZIP_LIB} ${ZLIB_LIB} ${OPENSSL_LIB} ${ICONV_LIB})
+#link_directories(${ZIP_LIB} ${ZLIB_LIB} ${OPENSSL_LIB} ${ICONV_LIB})
 
 
 # desired output is library
