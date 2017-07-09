@@ -223,22 +223,27 @@ void Song::GetCharts(std::vector<Chart*>& charts)
 	charts = m_vCharts;
 }
 
-int Song::GetChartCount()
+int Song::GetChartCount() const
 {
 	return m_vCharts.size();
 }
 
-int Song::GetError()
+int Song::GetError() const
 {
 	return m_iErrorcode;
 }
 
-const char * Song::GetErrorStr()
+const char * Song::GetErrorStr() const
 {
 	return SongErrorCode[m_iErrorcode];
 }
 
-std::string Song::toString()
+const rutil::IDirectory* Song::GetDirectory() const
+{
+	return m_pDir;
+}
+
+std::string Song::toString() const
 {
 	std::stringstream ss;
 	ss << "Song path: " << m_sPath << std::endl;

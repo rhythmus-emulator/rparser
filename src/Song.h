@@ -97,12 +97,12 @@ public:
     // utilities
     static bool ReadCharts(const std::string &path, std::vector<Chart*>& charts);
     void GetCharts(std::vector<Chart*>& charts);
-    int GetChartCount();
-    int GetError();
-    const char* GetErrorStr();
+    int GetChartCount() const;
+    int GetError() const;
+    const char* GetErrorStr() const;
+	const rutil::IDirectory* GetDirectory() const;
 
-
-	std::string toString();
+	std::string toString() const;
 
 
     // @description clear all current song metadata & resource, close directory.

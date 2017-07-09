@@ -47,7 +47,7 @@ int AttemptEncoding(std::string &s, int from_codepage=0);
 int DecodeTo(std::string &s, int to_codepage);
 #ifdef WIN32
 int DecodeToWStr(const std::string& s, std::wstring& sOut, int from_codepage);
-int EncodeFromWStr(const std::wstring& sOut, std::string& s, int to_codepage);
+int EncodeFromWStr(const std::wstring& s, std::string& sOut, int to_codepage);
 FILE* fopen_utf8(const char* fname, const char* mode);
 int printf_utf8(const char* fmt, ...);
 #else
@@ -100,6 +100,9 @@ struct FileData {
     std::string fn;
     unsigned char *p;
     long long iLen;
+	FileData();
+	~FileData();
+	FileData(const std::string& fn);
 };
 void DeleteFileData(FileData& fd);
 
@@ -113,15 +116,15 @@ public:
     IDirectory(): error(0) {};
     virtual int Open(const std::string &path) = 0;
     virtual int Write(const FileData &fd) = 0;
-    virtual int Read(FileData &fd) = 0;
-    virtual int Read(const std::string fpath, FileData &fd);
+    virtual int Read(FileData &fd) const = 0;
+    virtual int Read(const std::string fpath, FileData &fd) const;
     virtual int Flush() = 0;
-    virtual int ReadFiles(std::vector<FileData>& fd) = 0;
+    virtual int ReadFiles(std::vector<FileData>& fd) const = 0;
     virtual int Close() = 0;
     virtual int Create(const std::string &path) = 0;
 
     // @description read file with smart-file-finding routine
-    bool ReadSmart(FileData &fd);
+    bool ReadSmart(FileData &fd) const;
 
     std::vector<std::string> GetFileEntries(const char* ext_filter=0);   // sep with semicolon
     std::vector<std::string> GetFolderEntries();
@@ -132,8 +135,8 @@ class BasicDirectory : public IDirectory {
 public:
     int Open(const std::string &path);
     int Write(const FileData &fd);
-    int Read(FileData &fd);
-    int ReadFiles(std::vector<FileData>& fd);
+    int Read(FileData &fd) const;
+    int ReadFiles(std::vector<FileData>& fd) const;
     int Flush();
     int Create(const std::string& path);
     int Close();
@@ -150,8 +153,8 @@ private:
 public:
     int Open(const std::string &path);
     int Write(const FileData &fd);
-    int Read(FileData &fd);
-    int ReadFiles(std::vector<FileData>& fd);
+    int Read(FileData &fd) const;
+    int ReadFiles(std::vector<FileData>& fd) const;
     int Flush();
     int Create(const std::string& path);
     int Close();

@@ -110,13 +110,13 @@ int DecodeToWStr(const std::string& s, std::wstring& sOut, int from_codepage)
 	return iSize;
 	ASSERT( iSize != 0 );
 }
-int EncodeFromWStr(const std::wstring& sOut, std::string& s, int to_codepage)
+int EncodeFromWStr(const std::wstring& s, std::string& sOut, int to_codepage)
 {
-	int utf8size = WideCharToMultiByte(to_codepage, 0, sOut.data(), sOut.size(), 0, 0, 0, 0);
+	int utf8size = WideCharToMultiByte(to_codepage, 0, s.data(), s.size(), 0, 0, 0, 0);
 	ASSERT(utf8size);
-	s.clear();
-	s.append( utf8size, ' ' );
-	utf8size = WideCharToMultiByte(to_codepage, 0, sOut.data(), sOut.size(), (char*)s.data(), utf8size, 0, 0);
+	sOut.clear();
+	sOut.append( utf8size, ' ' );
+	utf8size = WideCharToMultiByte(to_codepage, 0, s.data(), s.size(), (char*)sOut.data(), utf8size, 0, 0);
 	return utf8size;
 }
 int AttemptEncoding(std::string &s, int to_codepage, int from_codepage)
@@ -432,9 +432,26 @@ void DeleteFileData(FileData& fd)
     fd.p = 0;
 }
 
+FileData::FileData()
+{
+	p = 0;
+	iLen = 0;
+}
+
+FileData::FileData(const std::string& fn)
+{
+	FileData();
+	this->fn = fn;
+}
+
+FileData::~FileData()
+{
+	if (p) free(p);
+}
+
 // ------ class IDirectory ------
 
-bool IDirectory::ReadSmart(FileData &fd)
+bool IDirectory::ReadSmart(FileData &fd) const
 {
 	// first do search with specified name
 	if (IN_ARRAY(m_vFilename, fd.fn))
@@ -489,7 +506,7 @@ bool IDirectory::ReadSmart(FileData &fd)
 	return false;
 }
 
-int IDirectory::Read(const std::string fpath, FileData &fd)
+int IDirectory::Read(const std::string fpath, FileData &fd) const
 {
 	fd.p = 0;
     fd.fn = fpath;
@@ -549,7 +566,7 @@ int BasicDirectory::Write(const FileData &fd)
 	return r;
 }
 
-int BasicDirectory::Read(FileData &fd)
+int BasicDirectory::Read(FileData &fd) const
 {
 	std::string sFullpath = GetPathJoin(m_sPath, fd.fn);
 	FILE *fp = fopen_utf8(sFullpath.c_str(), "rb");
@@ -563,7 +580,7 @@ int BasicDirectory::Read(FileData &fd)
 	return fd.iLen;
 }
 
-int BasicDirectory::ReadFiles(std::vector<FileData>& fd)
+int BasicDirectory::ReadFiles(std::vector<FileData>& fd) const
 {
 	FileData fdat;
 	int r = m_vFilename.size();
@@ -639,7 +656,7 @@ int ArchiveDirectory::Open(const std::string& path)
     return 0;
 }
 
-int ArchiveDirectory::Read(FileData &fd)
+int ArchiveDirectory::Read(FileData &fd) const
 {
     ASSERT(fd.p == 0 && m_Archive);
     zip_file_t *zfp = zip_fopen(m_Archive, fd.fn.c_str(), ZIP_FL_UNCHANGED);
@@ -657,8 +674,10 @@ int ArchiveDirectory::Read(FileData &fd)
     return fd.iLen;
 }
 
-int ArchiveDirectory::ReadFiles(std::vector<FileData>& fd)
+int ArchiveDirectory::ReadFiles(std::vector<FileData>& fd) const
 {
+	// not implemented
+	ASSERT(0);
     return 0;
 }
 
