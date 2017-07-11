@@ -87,6 +87,11 @@ std::string GetPathJoin(const std::string& s1, const std::string s2);
 
 
 
+// 
+uint32_t ReadLE32(const unsigned char* p);
+
+
+
 // Directory / Archive related
 
 bool IsDirectory(const std::string& path);
@@ -96,15 +101,34 @@ bool CreateDirectory(const std::string& path);
 typedef std::vector<std::pair<std::string, int>> DirFileList;
 bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecursive=100);
 
-struct FileData {
+class FileData {
+public:
     std::string fn;
-    unsigned char *p;
-    long long iLen;
-	FileData();
+    uint8_t *p;
+    uint32_t m_iLen;
+    uint32_t m_iPos;
+
+public:
+    FileData();
+    FileData(uint8_t *p, uint32_t iLen);
 	~FileData();
 	FileData(const std::string& fn);
+
+    std::string GetFilename();
+    uint32_t GetFileSize();
+    uint32_t GetPos();
+    void SetPos(uint32_t iPos);
+    uint8_t* GetPtr();
+
+    // reading
+    int Seek(uint32_t p, int mode);
+    int SeekSet(uint32_t p = 0);
+    int SeekCur(uint32_t p);
+    int SeekEnd(uint32_t p = 0);
+    uint32_t ReadLE32();
+    uint32_t Read(uint8_t *out, uint32_t len);
+    bool IsEOF();
 };
-void DeleteFileData(FileData& fd);
 
 class IDirectory {
 protected:

@@ -295,6 +295,11 @@ std::string GetPathJoin(const std::string& s1, const std::string s2)
 		return s1 + '/' + s2;
 }
 
+uint32_t ReadLE32(const unsigned char* p)
+{
+    return p[0] | (p[1] << 8) | (p[2] << 16) | (p[3] << 24);
+}
+
 #ifdef WIN32
 bool IsDirectory(const std::string & path)
 {
@@ -426,16 +431,11 @@ bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecu
 }
 #endif
 
-void DeleteFileData(FileData& fd)
-{
-    if (fd.p) free(fd.p);
-    fd.p = 0;
-}
-
 FileData::FileData()
 {
 	p = 0;
-	iLen = 0;
+	m_iLen = 0;
+    m_iPos = 0;
 }
 
 FileData::FileData(const std::string& fn)
@@ -444,10 +444,80 @@ FileData::FileData(const std::string& fn)
 	this->fn = fn;
 }
 
+// only for seeking purpose
+FileData::FileData(uint8_t *p, uint32_t iLen)
+{
+    this->p = p;
+    m_iLen = iLen;
+    m_iPos = 0;
+}
+
 FileData::~FileData()
 {
 	if (p) free(p);
+    p = 0;
 }
+
+std::string FileData::GetFilename() { return fn; }
+uint32_t FileData::GetFileSize() { return m_iLen; }
+uint32_t FileData::GetPos() { return m_iPos; }
+void FileData::SetPos(uint32_t iPos) { m_iPos = iPos; }
+uint8_t* FileData::GetPtr() { return p; }
+
+int FileData::SeekSet(uint32_t p)
+{
+    return Seek(p, SEEK_SET);
+}
+int FileData::SeekCur(uint32_t p)
+{
+    return Seek(p, SEEK_CUR);
+}
+int FileData::SeekEnd(uint32_t p = 0)
+{
+    return Seek(p, SEEK_END);
+}
+
+int FileData::Seek(uint32_t p, int mode)
+{
+    uint32_t iNewPos;
+    switch (mode)
+    {
+    case SEEK_CUR:
+        iNewPos = m_iPos + p;
+        break;
+    case SEEK_END:
+        iNewPos = m_iLen - p;
+        break;
+    case SEEK_SET:
+        iNewPos = p;
+        break;
+    }
+    //if (m_iPos < 0) m_iPos = 0;
+    if (iNewPos > m_iLen) return -1;
+    else m_iPos = iNewPos;
+    return 0;
+}
+
+uint32_t FileData::ReadLE32()
+{
+    uint32_t v = rutil::ReadLE32(p + m_iPos);
+    SeekCur(4);
+    if (m_iPos > m_iLen) m_iPos = m_iLen;
+    return v;
+}
+
+uint32_t FileData::Read(uint8_t *out, uint32_t len)
+{
+    uint32_t copysize = len;
+    if (m_iPos + len > m_iLen)
+    {
+        copysize = m_iLen - m_iPos;
+    }
+    memcpy(out, p + m_iPos, copysize);
+    return copysize;
+}
+
+bool FileData::IsEOF() { return m_iPos == m_iLen; };
 
 // ------ class IDirectory ------
 
@@ -561,7 +631,7 @@ int BasicDirectory::Write(const FileData &fd)
 	std::string sFullpath = GetPathJoin(m_sPath, fd.fn);
 	FILE *fp = fopen_utf8(sFullpath.c_str(), "wb");
 	if (!fp) return 0;
-	int r = fwrite(fd.p, 1, fd.iLen, fp);
+	int r = fwrite(fd.p, 1, fd.m_iLen, fp);
 	fclose(fp);
 	return r;
 }
@@ -572,12 +642,12 @@ int BasicDirectory::Read(FileData &fd) const
 	FILE *fp = fopen_utf8(sFullpath.c_str(), "rb");
 	if (!fp) return 0;
 	fseek(fp, 0, SEEK_END);
-	fd.iLen = ftell(fp);
+	fd.m_iLen = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
-	fd.p = (unsigned char*)malloc(fd.iLen);
+	fd.p = (unsigned char*)malloc(fd.m_iLen);
 	ASSERT(fd.p != 0);
-	fd.iLen = fread(fd.p, 1, fd.iLen, fp);
-	return fd.iLen;
+	fd.m_iLen = fread(fd.p, 1, fd.m_iLen, fp);
+	return fd.m_iLen;
 }
 
 int BasicDirectory::ReadFiles(std::vector<FileData>& fd) const
@@ -667,11 +737,11 @@ int ArchiveDirectory::Read(FileData &fd) const
     }
     struct zip_stat zStat;
     zip_stat(m_Archive, fd.fn.c_str(), 0, &zStat);
-    fd.iLen = zStat.size;
-    fd.p = (unsigned char*)malloc(fd.iLen);
-    zip_fread(zfp, (void*)fd.p, fd.iLen);
+    fd.m_iLen = zStat.size;
+    fd.p = (unsigned char*)malloc(fd.m_iLen);
+    zip_fread(zfp, (void*)fd.p, fd.m_iLen);
     zip_fclose(zfp);
-    return fd.iLen;
+    return fd.m_iLen;
 }
 
 int ArchiveDirectory::ReadFiles(std::vector<FileData>& fd) const
@@ -685,7 +755,7 @@ int ArchiveDirectory::Write(const FileData &fd)
 {
     ASSERT(m_Archive);
     zip_source_t *s;
-    s = zip_source_buffer(m_Archive, fd.p, fd.iLen, 0);
+    s = zip_source_buffer(m_Archive, fd.p, fd.m_iLen, 0);
     if (!s)
     {
         printf("Zip source buffer creation failed!\n");
@@ -697,7 +767,7 @@ int ArchiveDirectory::Write(const FileData &fd)
     {
         printf("Zip file appending failed! (code %d)\n", error);
     }
-    return fd.iLen;
+    return fd.m_iLen;
 }
 
 int ArchiveDirectory::Flush()

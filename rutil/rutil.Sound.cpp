@@ -1,7 +1,9 @@
 #include "rutil.Sound.h"
 #include "rutil.h"
+#include <stdint.h>
 
 // ogg
+#include <ogg/ogg.h>
 #include <vorbis/vorbisfile.h>
 // mp3
 //#include <lame.h>
@@ -10,15 +12,66 @@
 // midi
 // TODO
 
+
+/**
+*  \name Audio format flags
+*
+*  Defaults to LSB byte order.
+*/
+/* @{ */
+#define AUDIO_U8        0x0008  /**< Unsigned 8-bit samples */
+#define AUDIO_S8        0x8008  /**< Signed 8-bit samples */
+#define AUDIO_U16LSB    0x0010  /**< Unsigned 16-bit samples */
+#define AUDIO_S16LSB    0x8010  /**< Signed 16-bit samples */
+#define AUDIO_U16MSB    0x1010  /**< As above, but big-endian byte order */
+#define AUDIO_S16MSB    0x9010  /**< As above, but big-endian byte order */
+#define AUDIO_U16       AUDIO_U16LSB
+#define AUDIO_S16       AUDIO_S16LSB
+/* @} */
+
+// CUSTOMIZED FORMAT
+#define AUDIO_U4    0x0004  /**< Unsigned 4-bit samples */
+#define AUDIO_S4    0x8004  /**< Unsigned 4-bit samples */
+#define AUDIO_U24    0x0018  /**< Unsigned 24-bit samples */
+#define AUDIO_S24    0x8018  /**< Signed 24-bit samples */
+
+/**
+*  \name int32 support
+*/
+/* @{ */
+#define AUDIO_S32LSB    0x8020  /**< 32-bit integer samples */
+#define AUDIO_S32MSB    0x9020  /**< As above, but big-endian byte order */
+#define AUDIO_S32       AUDIO_S32LSB
+/* @} */
+
+/**
+*  \name float32 support
+*/
+/* @{ */
+#define AUDIO_F32LSB    0x8120  /**< 32-bit floating point samples */
+#define AUDIO_F32MSB    0x9120  /**< As above, but big-endian byte order */
+#define AUDIO_F32       AUDIO_F32LSB
+/* @} */
+
+
+#define SDL_AUDIO_MASK_BITSIZE       (0xFF)
+#define SDL_AUDIO_MASK_DATATYPE      (1<<8)
+#define SDL_AUDIO_MASK_ENDIAN        (1<<12)
+#define SDL_AUDIO_MASK_SIGNED        (1<<15)
+#define SDL_AUDIO_BITSIZE(x)         (x & SDL_AUDIO_MASK_BITSIZE)
+
+
+
 namespace rutil
 {
 
 SoundData::SoundData()
 {
 	bit = 32;
-	rate = 44100;
-	size = 0;
+	freq = 44100;
+	samplesize = 0;
 	channels = 2;
+    format = AUDIO_S32;
 	p = 0;
 }
 
@@ -29,10 +82,6 @@ SoundData::~SoundData()
 
 // ------ LoadSound utilities ------
 
-uint32_t ReadLE32(const unsigned char* p)
-{
-	return p[0] | (p[1] << 8) | (p[2] << 16) | (p[3] << 24);
-}
 
 void safe_free(void *p)
 {
@@ -41,6 +90,7 @@ void safe_free(void *p)
 		free(p);
 	}
 }
+
 
 
 // ------ LoadSound ------
@@ -116,6 +166,8 @@ int LoadSound(const unsigned char* p, long long iLen, SoundData& dat)
 #define MP3_CODE        0x0055
 #define WAVE_MONO       1
 #define WAVE_STEREO     2
+
+
 
 /* Normally, these three chunks come consecutively in a WAVE file */
 typedef struct WaveFMT
@@ -456,6 +508,7 @@ Fill_IMA_ADPCM_block(Uint8 * decoded, Uint8 * encoded,
 }
 
 #define SDL_arraysize(array) (sizeof(array)/sizeof(array[0]))
+#define 	SDL_zerop(x)   memset((x), 0, sizeof(*(x)))
 static int
 IMA_ADPCM_decode(Uint8 ** audio_buf, Uint32 * audio_len)
 {
@@ -525,8 +578,30 @@ IMA_ADPCM_decode(Uint8 ** audio_buf, Uint32 * audio_len)
 	return (0);
 }
 
-int LoadSound_WAV(const unsigned char* p, long long iLen, SoundData& dat)
+static int
+ReadChunk(FileData &src, Chunk * chunk)
 {
+    chunk->magic = src.ReadLE32();
+    chunk->length = src.ReadLE32();
+    chunk->data = (Uint8 *)malloc(chunk->length);
+    if (chunk->data == NULL) {
+        // malloc failed?
+        return -1;
+    }
+    if (!src.Read(chunk->data, chunk->length)) {
+        SDL_free(chunk->data);
+        chunk->data = NULL;
+        printf("ERROR copying chunk data\n");
+    }
+    return (chunk->length);
+}
+
+
+int LoadSound_WAV(const uint8_t* p, size_t iLen, SoundData& dat)
+{
+    // Should only use Read method
+    FileData src(const_cast<uint8_t*>(p), iLen);
+
 	int was_error;
 	Chunk chunk;
 	int lenread;
@@ -538,8 +613,8 @@ int LoadSound_WAV(const unsigned char* p, long long iLen, SoundData& dat)
 	WaveFMT *format = NULL;
 
 	uint32_t WAVEmagic = 0;
-	uint32_t RIFFchunk = ReadLE32(p);
-	uint32_t wavelen = ReadLE32(p + 4);
+    uint32_t RIFFchunk = src.ReadLE32();
+	uint32_t wavelen = src.ReadLE32();
 	uint32_t headerDiff = 0;
 	if (wavelen == WAVE) {
 		WAVEmagic = wavelen;
@@ -547,12 +622,12 @@ int LoadSound_WAV(const unsigned char* p, long long iLen, SoundData& dat)
 		RIFFchunk = RIFF;
 	}
 	else {
-		WAVEmagic = ReadLE32(p + 8);
+		WAVEmagic = src.ReadLE32();
 	}
 	if ((RIFFchunk != RIFF) || (WAVEmagic != WAVE)) {
 		SDL_SetError("Unrecognized file type (not WAVE)");
 		was_error = 1;
-		goto done;
+		goto done_WAV;
 	}
 	headerDiff += sizeof(Uint32);       /* for WAVE */
 
@@ -564,7 +639,7 @@ int LoadSound_WAV(const unsigned char* p, long long iLen, SoundData& dat)
 		lenread = ReadChunk(src, &chunk);
 		if (lenread < 0) {
 			was_error = 1;
-			goto done;
+			goto done_WAV;
 		}
 		/* 2 Uint32's for chunk header+len, plus the lenread */
 		headerDiff += lenread + 2 * sizeof(Uint32);
@@ -575,7 +650,7 @@ int LoadSound_WAV(const unsigned char* p, long long iLen, SoundData& dat)
 	if (chunk.magic != FMT) {
 		SDL_SetError("Complex WAVE files not supported");
 		was_error = 1;
-		goto done;
+		goto done_WAV;
 	}
 	IEEE_float_encoded = MS_ADPCM_encoded = IMA_ADPCM_encoded = 0;
 	switch (SDL_SwapLE16(format->encoding)) {
@@ -590,7 +665,7 @@ int LoadSound_WAV(const unsigned char* p, long long iLen, SoundData& dat)
 		/* Try to understand this */
 		if (InitMS_ADPCM(format) < 0) {
 			was_error = 1;
-			goto done;
+			goto done_WAV;
 		}
 		MS_ADPCM_encoded = 1;
 		break;
@@ -598,49 +673,59 @@ int LoadSound_WAV(const unsigned char* p, long long iLen, SoundData& dat)
 		/* Try to understand this */
 		if (InitIMA_ADPCM(format) < 0) {
 			was_error = 1;
-			goto done;
+			goto done_WAV;
 		}
 		IMA_ADPCM_encoded = 1;
 		break;
 	case MP3_CODE:
 		SDL_SetError("MPEG Layer 3 data not supported");
 		was_error = 1;
-		goto done;
+		goto done_WAV;
 	default:
 		SDL_SetError("Unknown WAVE data format: 0x%.4x",
 			SDL_SwapLE16(format->encoding));
 		was_error = 1;
-		goto done;
+		goto done_WAV;
 	}
-	SDL_zerop(spec);
-	spec->freq = SDL_SwapLE32(format->frequency);
+
+    // fill audio format
+	SDL_zerop(&dat);
+	dat.freq = SDL_SwapLE32(format->frequency);
 
 	if (IEEE_float_encoded) {
 		if ((SDL_SwapLE16(format->bitspersample)) != 32) {
 			was_error = 1;
 		}
 		else {
-			spec->format = AUDIO_F32;
+			dat.format = AUDIO_F32;
 		}
 	}
 	else {
 		switch (SDL_SwapLE16(format->bitspersample)) {
 		case 4:
 			if (MS_ADPCM_encoded || IMA_ADPCM_encoded) {
-				spec->format = AUDIO_S16;
+				dat.format = AUDIO_S16;
 			}
 			else {
-				was_error = 1;
+                // 8 bit (or lower) WAV files are always unsigned.
+                // higher -> signed.
+                printf("WARNING: 4bit WAV audio file found.\n");
+                dat.format = AUDIO_U4;
+				//was_error = 1;
 			}
 			break;
 		case 8:
-			spec->format = AUDIO_U8;
+			dat.format = AUDIO_U8;
 			break;
 		case 16:
-			spec->format = AUDIO_S16;
+		    dat.format = AUDIO_S16;
 			break;
+        case 24:
+            dat.format = AUDIO_S24;
+            printf("WARNING: 4bit WAV audio file found.\n");
+            break;
 		case 32:
-			spec->format = AUDIO_S32;
+			dat.format = AUDIO_S32;
 			break;
 		default:
 			was_error = 1;
@@ -653,67 +738,243 @@ int LoadSound_WAV(const unsigned char* p, long long iLen, SoundData& dat)
 	if (was_error) {
 		SDL_SetError("Unknown %d-bit PCM data format",
 			SDL_SwapLE16(format->bitspersample));
-		goto done;
+		goto done_WAV;
 	}
-	spec->channels = (Uint8)SDL_SwapLE16(format->channels);
-	spec->samples = 4096;       /* Good default buffer size */
-
+	dat.channels = (Uint8)SDL_SwapLE16(format->channels);
+	//dat.samples = 4096;       /* Good default buffer size */
 								/* Read the audio data chunk */
-	*audio_buf = NULL;
+	uint8_t *audio_buf = NULL;
+    uint32_t audio_len = 0;
 	do {
-		SDL_free(*audio_buf);
-		*audio_buf = NULL;
+		SDL_free(audio_buf);
+		audio_buf = NULL;
 		lenread = ReadChunk(src, &chunk);
 		if (lenread < 0) {
 			was_error = 1;
-			goto done;
+			goto done_WAV;
 		}
-		*audio_len = lenread;
-		*audio_buf = chunk.data;
+		audio_len = lenread;
+		audio_buf = chunk.data;
 		if (chunk.magic != DATA)
 			headerDiff += lenread + 2 * sizeof(Uint32);
 	} while (chunk.magic != DATA);
 	headerDiff += 2 * sizeof(Uint32);   /* for the data chunk and len */
 
 	if (MS_ADPCM_encoded) {
-		if (MS_ADPCM_decode(audio_buf, audio_len) < 0) {
+		if (MS_ADPCM_decode(&audio_buf, &audio_len) < 0) {
 			was_error = 1;
-			goto done;
+			goto done_WAV;
 		}
 	}
 	if (IMA_ADPCM_encoded) {
-		if (IMA_ADPCM_decode(audio_buf, audio_len) < 0) {
+		if (IMA_ADPCM_decode(&audio_buf, &audio_len) < 0) {
 			was_error = 1;
-			goto done;
+			goto done_WAV;
 		}
 	}
 
 	/* Don't return a buffer that isn't a multiple of samplesize */
-	samplesize = ((SDL_AUDIO_BITSIZE(spec->format)) / 8) * spec->channels;
-	*audio_len &= ~(samplesize - 1);
+	samplesize = ((SDL_AUDIO_BITSIZE(dat.format)) / 8) * dat.channels;
+	audio_len &= ~(samplesize - 1);
 
-done:
+    dat.p = audio_buf;
+    dat.samplesize = audio_len / (SDL_AUDIO_BITSIZE(dat.format));
+
+    // TODO: requires convert to S16?
+    
+done_WAV:
 	SDL_free(format);
-	if (src) {
-		if (freesrc) {
-			SDL_RWclose(src);
-		}
-		else {
-			/* seek to the end of the file (given by the RIFF chunk) */
-			SDL_RWseek(src, wavelen - chunk.length - headerDiff, RW_SEEK_CUR);
-		}
-	}
 	if (was_error) {
-		spec = NULL;
+        // nothing to do?
+        return was_error;
 	}
-	return (spec);
+
+    return 0;
 }
 
 
 
 // ------ OGG ------
 
-int LoadSound_OGG(const unsigned char* p, long long iLen, SoundData &sd)
+typedef struct {
+    int loaded;
+    void *handle;
+    int(*ov_clear)(OggVorbis_File *vf);
+    vorbis_info *(*ov_info)(OggVorbis_File *vf, int link);
+    int(*ov_open_callbacks)(void *datasource, OggVorbis_File *vf, const char *initial, long ibytes, ov_callbacks callbacks);
+    ogg_int64_t(*ov_pcm_total)(OggVorbis_File *vf, int i);
+#ifdef OGG_USE_TREMOR
+    long(*ov_read)(OggVorbis_File *vf, char *buffer, int length, int *bitstream);
+#else
+    long(*ov_read)(OggVorbis_File *vf, char *buffer, int length, int bigendianp, int word, int sgned, int *bitstream);
+#endif
+#ifdef OGG_USE_TREMOR
+    int(*ov_time_seek)(OggVorbis_File *vf, ogg_int64_t pos);
+#else
+    int(*ov_time_seek)(OggVorbis_File *vf, double pos);
+#endif
+} vorbis_loader;
+
+vorbis_loader vorbis = {
+    0, NULL
+};
+
+#ifdef OGG_DYNAMIC
+int Mix_InitOgg()
+{
+    if (vorbis.loaded == 0) {
+        vorbis.handle = SDL_LoadObject(OGG_DYNAMIC);
+        if (vorbis.handle == NULL) {
+            return -1;
+        }
+        vorbis.ov_clear =
+            (int(*)(OggVorbis_File *))
+            SDL_LoadFunction(vorbis.handle, "ov_clear");
+        if (vorbis.ov_clear == NULL) {
+            SDL_UnloadObject(vorbis.handle);
+            return -1;
+        }
+        vorbis.ov_info =
+            (vorbis_info *(*)(OggVorbis_File *, int))
+            SDL_LoadFunction(vorbis.handle, "ov_info");
+        if (vorbis.ov_info == NULL) {
+            SDL_UnloadObject(vorbis.handle);
+            return -1;
+        }
+        vorbis.ov_open_callbacks =
+            (int(*)(void *, OggVorbis_File *, const char *, long, ov_callbacks))
+            SDL_LoadFunction(vorbis.handle, "ov_open_callbacks");
+        if (vorbis.ov_open_callbacks == NULL) {
+            SDL_UnloadObject(vorbis.handle);
+            return -1;
+        }
+        vorbis.ov_pcm_total =
+            (ogg_int64_t(*)(OggVorbis_File *, int))
+            SDL_LoadFunction(vorbis.handle, "ov_pcm_total");
+        if (vorbis.ov_pcm_total == NULL) {
+            SDL_UnloadObject(vorbis.handle);
+            return -1;
+        }
+        vorbis.ov_read =
+#ifdef OGG_USE_TREMOR
+        (long(*)(OggVorbis_File *, char *, int, int *))
+#else
+            (long(*)(OggVorbis_File *, char *, int, int, int, int, int *))
+#endif
+            SDL_LoadFunction(vorbis.handle, "ov_read");
+        if (vorbis.ov_read == NULL) {
+            SDL_UnloadObject(vorbis.handle);
+            return -1;
+        }
+        vorbis.ov_time_seek =
+#ifdef OGG_USE_TREMOR
+        (long(*)(OggVorbis_File *, ogg_int64_t))
+#else
+            (int(*)(OggVorbis_File *, double))
+#endif
+            SDL_LoadFunction(vorbis.handle, "ov_time_seek");
+        if (vorbis.ov_time_seek == NULL) {
+            SDL_UnloadObject(vorbis.handle);
+            return -1;
+        }
+    }
+    ++vorbis.loaded;
+
+    return 0;
+}
+void Mix_QuitOgg()
+{
+    if (vorbis.loaded == 0) {
+        return;
+    }
+    if (vorbis.loaded == 1) {
+        SDL_UnloadObject(vorbis.handle);
+    }
+    --vorbis.loaded;
+}
+#else
+int Mix_InitOgg()
+{
+    if (vorbis.loaded == 0) {
+#ifdef __MACOSX__
+        extern int ov_open_callbacks(void*, OggVorbis_File*, const char*, long, ov_callbacks) __attribute__((weak_import));
+        if (ov_open_callbacks == NULL)
+        {
+            /* Missing weakly linked framework */
+            Mix_SetError("Missing Vorbis.framework");
+            return -1;
+        }
+#endif // __MACOSX__
+
+        vorbis.ov_clear = ov_clear;
+        vorbis.ov_info = ov_info;
+        vorbis.ov_open_callbacks = ov_open_callbacks;
+        vorbis.ov_pcm_total = ov_pcm_total;
+        vorbis.ov_read = ov_read;
+        vorbis.ov_time_seek = ov_time_seek;
+    }
+    ++vorbis.loaded;
+
+    return 0;
+}
+void Mix_QuitOgg()
+{
+    if (vorbis.loaded == 0) {
+        return;
+    }
+    if (vorbis.loaded == 1) {
+        SDL_UnloadObject(vorbis.handle);
+    }
+    --vorbis.loaded;
+}
+#endif /* OGG_DYNAMIC */
+
+/*
+ * OGG Init helper object
+ */
+class OGG_Init_helper
+{
+    OGG_Init_helper()
+    {
+        ASSERT(Mix_InitOgg() == 0);
+    }
+
+    ~OGG_Init_helper()
+    {
+        Mix_QuitOgg();
+    }
+};
+OGG_Init_helper _ogg_init_helper;
+
+static size_t sdl_read_func(void *ptr, size_t size, size_t nmemb, void *datasource)
+{
+    return ((FileData*)datasource)->Read((uint8_t*)ptr, size * nmemb);
+}
+
+static int sdl_seek_func(void *datasource, ogg_int64_t offset, int whence)
+{
+    return (int)((FileData*)datasource)->Seek(offset, whence);
+}
+
+static int sdl_close_func_freesrc(void *datasource)
+{
+    // nothing to do
+    return 0;
+    //return SDL_RWclose((SDL_RWops*)datasource);
+}
+
+static int sdl_close_func_nofreesrc(void *datasource)
+{
+    ((FileData*)datasource)->SeekSet();
+    return 0;
+}
+
+static long sdl_tell_func(void *datasource)
+{
+    return (long)((FileData*)datasource)->GetPos();
+}
+
+int LoadSound_OGG(const uint8_t* p, size_t iLen, SoundData &spec)
 {
 	OggVorbis_File vf;
 	ov_callbacks callbacks;
@@ -726,46 +987,42 @@ int LoadSound_OGG(const unsigned char* p, long long iLen, SoundData &sd)
 	int must_close = 1;
 	int was_error = 1;
 
-	if ((!src) || (!audio_buf) || (!audio_len))   /* sanity checks. */
-		goto done;
-
-	if (!Mix_Init(MIX_INIT_OGG))
-		goto done;
+	if ((!p) || (!iLen))   /* sanity checks. */
+		goto done_OGG;
 
 	callbacks.read_func = sdl_read_func;
 	callbacks.seek_func = sdl_seek_func;
 	callbacks.tell_func = sdl_tell_func;
-	callbacks.close_func = freesrc ?
-		sdl_close_func_freesrc : sdl_close_func_nofreesrc;
+	callbacks.close_func = sdl_close_func_nofreesrc;    // reset pos when finished
 
-	if (vorbis.ov_open_callbacks(src, &vf, NULL, 0, callbacks) != 0)
+	if (vorbis.ov_open_callbacks((void*)p, &vf, NULL, 0, callbacks) != 0)
 	{
 		SDL_SetError("OGG bitstream is not valid Vorbis stream!");
-		goto done;
+		goto done_OGG;
 	}
 
 	must_close = 0;
 
 	info = vorbis.ov_info(&vf, -1);
 
-	*audio_buf = NULL;
-	*audio_len = 0;
-	memset(spec, '\0', sizeof(SDL_AudioSpec));
+	uint8_t* audio_buf = NULL;
+	uint32_t audio_len = 0;
+    SDL_zerop(&spec);
 
-	spec->format = AUDIO_S16;
-	spec->channels = info->channels;
-	spec->freq = info->rate;
-	spec->samples = 4096; /* buffer size */
+	spec.format = AUDIO_S16;
+	spec.channels = info->channels;
+	spec.freq = info->rate;
+	//spec.samples = 4096; /* buffer size */
 
 	samples = (long)vorbis.ov_pcm_total(&vf, -1);
 
-	*audio_len = spec->size = samples * spec->channels * 2;
-	*audio_buf = (Uint8 *)SDL_malloc(*audio_len);
-	if (*audio_buf == NULL)
-		goto done;
+	audio_len = spec.samplesize = samples * spec.channels * 2;
+	audio_buf = (Uint8 *)malloc(audio_len);
+	if (audio_buf == NULL)
+		goto done_OGG;
 
-	buf = *audio_buf;
-	to_read = *audio_len;
+	buf = audio_buf;
+	to_read = audio_len;
 #ifdef OGG_USE_TREMOR
 	for (read = vorbis.ov_read(&vf, (char *)buf, to_read, &bitstream);
 		read > 0;
@@ -787,19 +1044,18 @@ int LoadSound_OGG(const unsigned char* p, long long iLen, SoundData &sd)
 	was_error = 0;
 
 	/* Don't return a buffer that isn't a multiple of samplesize */
-	samplesize = ((spec->format & 0xFF) / 8)*spec->channels;
-	*audio_len &= ~(samplesize - 1);
+	samplesize = ((spec.format & 0xFF) / 8)*spec.channels;
+	audio_len &= ~(samplesize - 1);
+    spec.p = audio_buf;
 
-done:
-	if (freesrc && src && must_close) {
-		SDL_RWclose(src);
-	}
+done_OGG:
 
 	if (was_error) {
-		spec = NULL;
+        // what to do on error?
+        return was_error;
 	}
 
-	return(spec);
+    return 0;
 }
 
 
@@ -809,8 +1065,209 @@ done:
 // ------ FLAC ------
 
 typedef struct {
-	SDL_RWops* sdl_src;
-	SDL_AudioSpec* sdl_spec;
+    int loaded;
+    void *handle;
+    FLAC__StreamDecoder *(*FLAC__stream_decoder_new)();
+    void(*FLAC__stream_decoder_delete)(FLAC__StreamDecoder *decoder);
+    FLAC__StreamDecoderInitStatus(*FLAC__stream_decoder_init_stream)(
+        FLAC__StreamDecoder *decoder,
+        FLAC__StreamDecoderReadCallback read_callback,
+        FLAC__StreamDecoderSeekCallback seek_callback,
+        FLAC__StreamDecoderTellCallback tell_callback,
+        FLAC__StreamDecoderLengthCallback length_callback,
+        FLAC__StreamDecoderEofCallback eof_callback,
+        FLAC__StreamDecoderWriteCallback write_callback,
+        FLAC__StreamDecoderMetadataCallback metadata_callback,
+        FLAC__StreamDecoderErrorCallback error_callback,
+        void *client_data);
+    FLAC__bool(*FLAC__stream_decoder_finish)(FLAC__StreamDecoder *decoder);
+    FLAC__bool(*FLAC__stream_decoder_flush)(FLAC__StreamDecoder *decoder);
+    FLAC__bool(*FLAC__stream_decoder_process_single)(
+        FLAC__StreamDecoder *decoder);
+    FLAC__bool(*FLAC__stream_decoder_process_until_end_of_metadata)(
+        FLAC__StreamDecoder *decoder);
+    FLAC__bool(*FLAC__stream_decoder_process_until_end_of_stream)(
+        FLAC__StreamDecoder *decoder);
+    FLAC__bool(*FLAC__stream_decoder_seek_absolute)(
+        FLAC__StreamDecoder *decoder,
+        FLAC__uint64 sample);
+    FLAC__StreamDecoderState(*FLAC__stream_decoder_get_state)(
+        const FLAC__StreamDecoder *decoder);
+} flac_loader;
+
+flac_loader flac = {
+    0, NULL
+};
+
+#ifdef FLAC_DYNAMIC
+int Mix_InitFLAC()
+{
+    if (flac.loaded == 0) {
+        flac.handle = SDL_LoadObject(FLAC_DYNAMIC);
+        if (flac.handle == NULL) {
+            return -1;
+        }
+        flac.FLAC__stream_decoder_new =
+            (FLAC__StreamDecoder *(*)())
+            SDL_LoadFunction(flac.handle, "FLAC__stream_decoder_new");
+        if (flac.FLAC__stream_decoder_new == NULL) {
+            SDL_UnloadObject(flac.handle);
+            return -1;
+        }
+        flac.FLAC__stream_decoder_delete =
+            (void(*)(FLAC__StreamDecoder *))
+            SDL_LoadFunction(flac.handle, "FLAC__stream_decoder_delete");
+        if (flac.FLAC__stream_decoder_delete == NULL) {
+            SDL_UnloadObject(flac.handle);
+            return -1;
+        }
+        flac.FLAC__stream_decoder_init_stream =
+            (FLAC__StreamDecoderInitStatus(*)(
+                FLAC__StreamDecoder *,
+                FLAC__StreamDecoderReadCallback,
+                FLAC__StreamDecoderSeekCallback,
+                FLAC__StreamDecoderTellCallback,
+                FLAC__StreamDecoderLengthCallback,
+                FLAC__StreamDecoderEofCallback,
+                FLAC__StreamDecoderWriteCallback,
+                FLAC__StreamDecoderMetadataCallback,
+                FLAC__StreamDecoderErrorCallback,
+                void *))
+            SDL_LoadFunction(flac.handle, "FLAC__stream_decoder_init_stream");
+        if (flac.FLAC__stream_decoder_init_stream == NULL) {
+            SDL_UnloadObject(flac.handle);
+            return -1;
+        }
+        flac.FLAC__stream_decoder_finish =
+            (FLAC__bool(*)(FLAC__StreamDecoder *))
+            SDL_LoadFunction(flac.handle, "FLAC__stream_decoder_finish");
+        if (flac.FLAC__stream_decoder_finish == NULL) {
+            SDL_UnloadObject(flac.handle);
+            return -1;
+        }
+        flac.FLAC__stream_decoder_flush =
+            (FLAC__bool(*)(FLAC__StreamDecoder *))
+            SDL_LoadFunction(flac.handle, "FLAC__stream_decoder_flush");
+        if (flac.FLAC__stream_decoder_flush == NULL) {
+            SDL_UnloadObject(flac.handle);
+            return -1;
+        }
+        flac.FLAC__stream_decoder_process_single =
+            (FLAC__bool(*)(FLAC__StreamDecoder *))
+            SDL_LoadFunction(flac.handle,
+                "FLAC__stream_decoder_process_single");
+        if (flac.FLAC__stream_decoder_process_single == NULL) {
+            SDL_UnloadObject(flac.handle);
+            return -1;
+        }
+        flac.FLAC__stream_decoder_process_until_end_of_metadata =
+            (FLAC__bool(*)(FLAC__StreamDecoder *))
+            SDL_LoadFunction(flac.handle,
+                "FLAC__stream_decoder_process_until_end_of_metadata");
+        if (flac.FLAC__stream_decoder_process_until_end_of_metadata == NULL) {
+            SDL_UnloadObject(flac.handle);
+            return -1;
+        }
+        flac.FLAC__stream_decoder_process_until_end_of_stream =
+            (FLAC__bool(*)(FLAC__StreamDecoder *))
+            SDL_LoadFunction(flac.handle,
+                "FLAC__stream_decoder_process_until_end_of_stream");
+        if (flac.FLAC__stream_decoder_process_until_end_of_stream == NULL) {
+            SDL_UnloadObject(flac.handle);
+            return -1;
+        }
+        flac.FLAC__stream_decoder_seek_absolute =
+            (FLAC__bool(*)(FLAC__StreamDecoder *, FLAC__uint64))
+            SDL_LoadFunction(flac.handle, "FLAC__stream_decoder_seek_absolute");
+        if (flac.FLAC__stream_decoder_seek_absolute == NULL) {
+            SDL_UnloadObject(flac.handle);
+            return -1;
+        }
+        flac.FLAC__stream_decoder_get_state =
+            (FLAC__StreamDecoderState(*)(const FLAC__StreamDecoder *decoder))
+            SDL_LoadFunction(flac.handle, "FLAC__stream_decoder_get_state");
+        if (flac.FLAC__stream_decoder_get_state == NULL) {
+            SDL_UnloadObject(flac.handle);
+            return -1;
+        }
+    }
+    ++flac.loaded;
+
+    return 0;
+}
+void Mix_QuitFLAC()
+{
+    if (flac.loaded == 0) {
+        return;
+    }
+    if (flac.loaded == 1) {
+        SDL_UnloadObject(flac.handle);
+    }
+    --flac.loaded;
+}
+#else
+int Mix_InitFLAC()
+{
+    if (flac.loaded == 0) {
+#ifdef __MACOSX__
+        extern FLAC__StreamDecoder *FLAC__stream_decoder_new(void) __attribute__((weak_import));
+        if (FLAC__stream_decoder_new == NULL)
+        {
+            /* Missing weakly linked framework */
+            Mix_SetError("Missing FLAC.framework");
+            return -1;
+        }
+#endif // __MACOSX__
+
+        flac.FLAC__stream_decoder_new = FLAC__stream_decoder_new;
+        flac.FLAC__stream_decoder_delete = FLAC__stream_decoder_delete;
+        flac.FLAC__stream_decoder_init_stream =
+            FLAC__stream_decoder_init_stream;
+        flac.FLAC__stream_decoder_finish = FLAC__stream_decoder_finish;
+        flac.FLAC__stream_decoder_flush = FLAC__stream_decoder_flush;
+        flac.FLAC__stream_decoder_process_single =
+            FLAC__stream_decoder_process_single;
+        flac.FLAC__stream_decoder_process_until_end_of_metadata =
+            FLAC__stream_decoder_process_until_end_of_metadata;
+        flac.FLAC__stream_decoder_process_until_end_of_stream =
+            FLAC__stream_decoder_process_until_end_of_stream;
+        flac.FLAC__stream_decoder_seek_absolute =
+            FLAC__stream_decoder_seek_absolute;
+        flac.FLAC__stream_decoder_get_state =
+            FLAC__stream_decoder_get_state;
+    }
+    ++flac.loaded;
+
+    return 0;
+}
+void Mix_QuitFLAC()
+{
+    if (flac.loaded == 0) {
+        return;
+    }
+    if (flac.loaded == 1) {
+    }
+    --flac.loaded;
+}
+#endif /* FLAC_DYNAMIC */
+
+class FLAC_init_helper
+{
+    FLAC_init_helper()
+    {
+        Mix_InitFLAC();
+    }
+    ~FLAC_init_helper()
+    {
+        Mix_QuitFLAC();
+    }
+};
+FLAC_init_helper _flac_init_helper;
+
+
+typedef struct {
+    FileData* src;
+    SoundData* spec;
 	Uint8** sdl_audio_buf;
 	Uint32* sdl_audio_len;
 	int sdl_audio_read;
@@ -828,8 +1285,7 @@ static FLAC__StreamDecoderReadStatus flac_read_load_cb(
 	if (*bytes > 0) {
 		FLAC_SDL_Data *data = (FLAC_SDL_Data *)client_data;
 
-		*bytes = SDL_RWread(data->sdl_src, buffer, sizeof(FLAC__byte),
-			*bytes);
+		*bytes = data->src->Read(buffer, sizeof(FLAC__byte) * (*bytes));
 
 		if (*bytes == 0) { // error or no data was read (EOF)
 			return FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM;
@@ -850,7 +1306,7 @@ static FLAC__StreamDecoderSeekStatus flac_seek_load_cb(
 {
 	FLAC_SDL_Data *data = (FLAC_SDL_Data *)client_data;
 
-	if (SDL_RWseek(data->sdl_src, absolute_byte_offset, RW_SEEK_SET) < 0) {
+	if (data->src->Seek(absolute_byte_offset, SEEK_SET) < 0) {
 		return FLAC__STREAM_DECODER_SEEK_STATUS_ERROR;
 	}
 	else {
@@ -865,7 +1321,7 @@ static FLAC__StreamDecoderTellStatus flac_tell_load_cb(
 {
 	FLAC_SDL_Data *data = (FLAC_SDL_Data *)client_data;
 
-	Sint64 pos = SDL_RWtell(data->sdl_src);
+    int64_t pos = data->src->GetPos();
 
 	if (pos < 0) {
 		return FLAC__STREAM_DECODER_TELL_STATUS_ERROR;
@@ -883,10 +1339,10 @@ static FLAC__StreamDecoderLengthStatus flac_length_load_cb(
 {
 	FLAC_SDL_Data *data = (FLAC_SDL_Data *)client_data;
 
-	Sint64 pos = SDL_RWtell(data->sdl_src);
-	Sint64 length = SDL_RWseek(data->sdl_src, 0, RW_SEEK_END);
+	int64_t pos = data->src->GetPos();
+    int64_t length = data->src->Seek(0, SEEK_END);
 
-	if (SDL_RWseek(data->sdl_src, pos, RW_SEEK_SET) != pos || length < 0) {
+	if (data->src->Seek(pos, SEEK_SET) != 0 || length < 0) {
 		/* there was an error attempting to return the stream to the original
 		* position, or the length was invalid. */
 		return FLAC__STREAM_DECODER_LENGTH_STATUS_ERROR;
@@ -902,17 +1358,19 @@ static FLAC__bool flac_eof_load_cb(const FLAC__StreamDecoder *decoder,
 {
 	FLAC_SDL_Data *data = (FLAC_SDL_Data *)client_data;
 
-	Sint64 pos = SDL_RWtell(data->sdl_src);
-	Sint64 end = SDL_RWseek(data->sdl_src, 0, RW_SEEK_END);
+    //int64_t pos = data->src->GetPos();
+    //int64_t end = data->src->Seek(0, SEEK_END);
+    //bool isEOF = pos == end;
+    bool isEOF = data->src->IsEOF();
 
 	// was the original position equal to the end (a.k.a. the seek didn't move)?
-	if (pos == end) {
+	if (isEOF) {
 		// must be EOF
 		return true;
 	}
 	else {
 		// not EOF, return to the original position
-		SDL_RWseek(data->sdl_src, pos, RW_SEEK_SET);
+        //data->src->Seek(pos, SEEK_SET);
 		return false;
 	}
 }
@@ -932,7 +1390,7 @@ static FLAC__StreamDecoderWriteStatus flac_write_load_cb(
 		return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 	}
 
-	if (data->sdl_spec->channels != 2 || data->flac_bps != 16) {
+	if (data->spec->channels != 2 || data->flac_bps != 16) {
 		SDL_SetError("Current FLAC support is only for 16 bit Stereo files.");
 		return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 	}
@@ -940,9 +1398,9 @@ static FLAC__StreamDecoderWriteStatus flac_write_load_cb(
 	// check if it is the first audio frame so we can initialize the output
 	// buffer
 	if (frame->header.number.sample_number == 0) {
-		*(data->sdl_audio_len) = data->sdl_spec->size;
+		*(data->sdl_audio_len) = data->spec->size;
 		data->sdl_audio_read = 0;
-		*(data->sdl_audio_buf) = SDL_malloc(*(data->sdl_audio_len));
+		*(data->sdl_audio_buf) = (uint8_t*)malloc(*(data->sdl_audio_len));
 
 		if (*(data->sdl_audio_buf) == NULL) {
 			SDL_SetError
@@ -986,17 +1444,17 @@ static void flac_metadata_load_cb(
 		// save the metadata right now for use later on
 		*(data->sdl_audio_buf) = NULL;
 		*(data->sdl_audio_len) = 0;
-		memset(data->sdl_spec, '\0', sizeof(SDL_AudioSpec));
+		memset(data->spec, '\0', sizeof(SoundData));
 
-		data->sdl_spec->format = AUDIO_S16;
-		data->sdl_spec->freq = (int)(metadata->data.stream_info.sample_rate);
-		data->sdl_spec->channels = (Uint8)(metadata->data.stream_info.channels);
-		data->sdl_spec->samples = 8192; /* buffer size */
+		data->spec->format = AUDIO_S16;
+		data->spec->freq = (int)(metadata->data.stream_info.sample_rate);
+		data->spec->channels = (Uint8)(metadata->data.stream_info.channels);
+		//data->spec->samples = 8192; /* buffer size */
 
 		total_samples = metadata->data.stream_info.total_samples;
 		bps = metadata->data.stream_info.bits_per_sample;
 
-		data->sdl_spec->size = (Uint32)(total_samples * data->sdl_spec->channels * (bps / 8));
+		data->spec->size = (Uint32)(total_samples * data->spec->channels * (bps / 8));
 		data->flac_total_samples = total_samples;
 		data->flac_bps = bps;
 	}
@@ -1028,7 +1486,7 @@ static void flac_error_load_cb(
 }
 
 /* don't call this directly; use Mix_LoadWAV_RW() for now. */
-int LoadSound_FLAC(const unsigned char* p, long long iLen, SoundData& dat)
+int LoadSound_FLAC(const uint8_t* p, size_t iLen, SoundData& spec)
 {
 	FLAC__StreamDecoder *decoder = 0;
 	FLAC__StreamDecoderInitStatus init_status;
@@ -1038,9 +1496,9 @@ int LoadSound_FLAC(const unsigned char* p, long long iLen, SoundData& dat)
 
 	// create the client data passing information
 	FLAC_SDL_Data* client_data;
-	client_data = (FLAC_SDL_Data *)SDL_malloc(sizeof(FLAC_SDL_Data));
+	client_data = (FLAC_SDL_Data *)malloc(sizeof(FLAC_SDL_Data));
 
-	if ((!src) || (!audio_buf) || (!audio_len))   /* sanity checks. */
+	if ((!p) || (!iLen))   /* sanity checks. */
 		goto done;
 
 	if (!Mix_Init(MIX_INIT_FLAC))
@@ -1065,10 +1523,13 @@ int LoadSound_FLAC(const unsigned char* p, long long iLen, SoundData& dat)
 
 	was_init = 1;
 
-	client_data->sdl_src = src;
-	client_data->sdl_spec = spec;
-	client_data->sdl_audio_buf = audio_buf;
-	client_data->sdl_audio_len = audio_len;
+    uint8_t *audio_buf = 0;
+    uint32_t audio_len = 0;
+
+	client_data->src = new FileData((uint8_t*)p, iLen);
+	client_data->spec = &spec;
+	client_data->sdl_audio_buf = &audio_buf;
+	client_data->sdl_audio_len = &audio_len;
 
 	if (!flac.FLAC__stream_decoder_process_until_end_of_stream(decoder)) {
 		SDL_SetError("Unable to process FLAC file.");
@@ -1078,8 +1539,10 @@ int LoadSound_FLAC(const unsigned char* p, long long iLen, SoundData& dat)
 	was_error = 0;
 
 	/* Don't return a buffer that isn't a multiple of samplesize */
-	samplesize = ((spec->format & 0xFF) / 8) * spec->channels;
-	*audio_len &= ~(samplesize - 1);
+	samplesize = ((spec.format & 0xFF) / 8) * spec.channels;
+	audio_len &= ~(samplesize - 1);
+    spec.size = audio_len;
+    spec.p = audio_buf;
 
 done:
 	if (was_init && decoder) {
@@ -1090,15 +1553,11 @@ done:
 		flac.FLAC__stream_decoder_delete(decoder);
 	}
 
-	if (freesrc && src) {
-		SDL_RWclose(src);
-	}
-
 	if (was_error) {
-		spec = NULL;
+        return was_error;
 	}
 
-	return spec;
+	return 0;
 }
 
 
@@ -1107,7 +1566,7 @@ done:
 
 // ------ MP3 ------
 
-int LoadSound_MP3(const unsigned char* p, long long iLen, SoundData& dat)
+int LoadSound_MP3(const uint8_t* p, size_t iLen, SoundData& dat)
 {
 	// TODO
 	ASSERT(0);

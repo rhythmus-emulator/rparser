@@ -14,12 +14,18 @@ class SoundData
 {
 public:
 	int bit;
-	int size;
-	int rate;
+    // TODO: replace samplesize -> size.
+    // TODO: create GetSampleCount() method.
+	// total sample size: channels * freq * duration(in sec)
+	int samplesize;
+	int freq;
 	int channels;
-	// @description
-	// memory occupied size: bit * size * rate
+	// @description memory data
+    // size: samplesize * formatsize
 	void* p;
+    // @description
+    // just detail info during parsing...
+    int format;
 
 	SoundData();
 	~SoundData();
@@ -34,10 +40,10 @@ int LoadSound(const unsigned char* p, long long iLen, SoundData& dat);
 
 
 // you don't need to call these functions directly.
-int LoadSound_MP3(const unsigned char* p, long long iLen, SoundData& dat);
-int LoadSound_FLAC(const unsigned char* p, long long iLen, SoundData& dat);
-int LoadSound_OGG(const unsigned char* p, long long iLen, SoundData& dat);
-int LoadSound_WAV(const unsigned char* p, long long iLen, SoundData& dat);
+int LoadSound_MP3(const uint8_t* p, size_t iLen, SoundData& dat);
+int LoadSound_FLAC(const uint8_t* p, size_t iLen, SoundData& dat);
+int LoadSound_OGG(const uint8_t* p, size_t iLen, SoundData& dat);
+int LoadSound_WAV(const uint8_t* p, size_t iLen, SoundData& dat);
 
 // ------ midi support part ------
 // uses PortAudio here

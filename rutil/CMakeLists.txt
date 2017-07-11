@@ -36,7 +36,7 @@ find_package(zlib)
 
 include_directories(
     ${ZLIB_INCLUDE_DIR} ${ZIP_INCLUDE_DIR} ${ICONV_INCLUDE_DIR}
-	${VORBIS_INCLUDE_DIR}
+	${VORBIS_INCLUDE_DIR} ${OGG_INCLUDE_DIR}
 	${FLAC_INCLUDE_DIR}
 	${LAME_INCLUDE_DIR}
     )
