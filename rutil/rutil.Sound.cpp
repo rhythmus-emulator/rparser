@@ -1,5 +1,6 @@
 #include "rutil.Sound.h"
 #include "rutil.h"
+#include <math.h>
 #include <stdint.h>
 
 // ogg
@@ -1585,5 +1586,161 @@ int LoadSound_MP3(const uint8_t* p, size_t iLen, SoundData& dat)
 	ASSERT(0);
 	return -1;
 }
+
+
+
+
+
+int32_t InterpolateSound(int32_t s, int32_t e, float ratio)
+{
+#if FASTINTERPOLATE
+    return s;
+#else
+    return s * (1.0f - ratio) + e * ratio;
+#endif
+}
+
+int ConvertSound(SoundData &dat, int iFormatDesire, float iSizeRatio)
+{
+    ASSERT(dat.p);
+
+    // only supports conversion to 16S or 32S
+    if (iFormatDesire != 0 || iFormatDesire != AUDIO_S16 || iFormatDesire != AUDIO_S32)
+    {
+        return -1;
+    }
+
+    // first, convert format to proper one
+    uint8_t* pNew = 0;
+    int iNewSize = 0;
+    if (iFormatDesire == 0 || iFormatDesire == dat.format)
+    {
+        // do not convert, stay there.
+    }
+    else
+    {
+        int iOldSamplesize = dat.GetSampleSize();
+        int iSampleCount = dat.GetSampleCount();
+        int iNewSamplesize = (iFormatDesire & 0xFF);
+        float fSizeRatio = iNewSamplesize / (float)iOldSamplesize;
+        iNewSize  = dat.size * fSizeRatio;
+        pNew = (uint8_t*)malloc(dat.size);
+        // convert all PCM data into new format
+        uint8_t* pSrc = (uint8_t*)dat.p;
+        uint8_t* pDst = pNew;
+        switch (iFormatDesire)
+        {
+        case AUDIO_S16:
+            for (int i = 0; i < iSampleCount; i++)
+            {
+                switch (dat.format)
+                {
+                case AUDIO_U4:
+                    // convert two samples at once
+                    pSrc++;
+                    *((int16_t*)pDst) = (int16_t)(*pSrc - 0x8) << 12;
+                    break;
+                case AUDIO_U8:
+                    pSrc++;
+                    *((int16_t*)pDst) = (int16_t)(*pSrc - 0x80) << 8;
+                    break;
+                case AUDIO_S16:
+                    *((int16_t*)pDst) = *((int16_t*)pSrc);
+                    pSrc += 2;
+                    break;
+                case AUDIO_S24:
+                    //*((int16_t*)pDst) = ((int16_t)(*pSrc) << 8 | (int8_t)(*pSrc + 2)) >> 8;
+                    *((int16_t*)pDst) = *((int16_t*)pSrc+1);
+                    pSrc += 3;
+                    break;
+                case AUDIO_S32:
+                    *((int16_t*)pDst) = *((int16_t*)pSrc+2);
+                    //*((int16_t*)pDst) = *((int32_t*)pSrc) >> 16;
+                    pSrc += 4;
+                    break;
+                }
+                pDst += iNewSamplesize / 0x08;
+            }
+            break;
+        case AUDIO_S32:
+            for (int i = 0; i < iSampleCount; i++)
+            {
+                switch (dat.format)
+                {
+                case AUDIO_U4:
+                    // convert two samples at once
+                    pSrc++;
+                    *((int16_t*)pDst) = (int16_t)(*pSrc - 0x8) << 28;
+                    break;
+                case AUDIO_U8:
+                    pSrc++;
+                    *((int16_t*)pDst) = (int16_t)(*pSrc - 0x80) << 24;
+                    break;
+                case AUDIO_S16:
+                    *((int16_t*)pDst) = *((int16_t*)pSrc) << 16;
+                    pSrc += 2;
+                    break;
+                case AUDIO_S24:
+                    *((int16_t*)pDst) = (*((int16_t*)pSrc) << 16) | (*((int8_t*)pSrc+2) << 8);
+                    pSrc += 3;
+                    break;
+                case AUDIO_S32:
+                    *((int16_t*)pDst) = *((int32_t*)pSrc);
+                    pSrc += 4;
+                    break;
+                }
+                pDst += iNewSamplesize / 0x08;
+            }
+            break;
+        }
+        // apply new variables
+        free(dat.p);
+        dat.p = pNew;
+        dat.size = iNewSize;
+        dat.format = iFormatDesire;
+    }
+
+    // next, size ratio.
+    if (iSizeRatio == 1.0f)
+    {
+        // no need to modify data
+    }
+    else
+    {
+        // new size must be multiplication of (channels * samplesize)
+        int iNewSize = dat.size * iSizeRatio;
+        iNewSize &= ~(dat.channels * dat.GetSampleSize() - 1);
+        pNew = (uint8_t*)malloc(iNewSize);
+        // calculate new buffer, bound to iNewSize ...
+        uint8_t* pSrc = (uint8_t*)dat.p;
+        uint8_t* pDst = pNew;
+        int iSamplesize = dat.GetSampleSize();
+        int32_t datamargin = dat.GetSampleSize() / 8;
+        for (int i = 0; i < iNewSize; i++)
+        {
+            float OrgSamplePos = i / ((float)iNewSize - 1) * (dat.size - 1);
+            float _;
+            if (iSamplesize == 16)
+            {
+                int16_t a = *((int16_t*)pSrc);
+                int16_t b = *((int16_t*)(pSrc + 2));
+                *((int16_t*)pDst) = InterpolateSound(a, b, modf(OrgSamplePos, &_));
+                pDst += 2;
+            }
+            else if (iSamplesize == 32)
+            {
+                int32_t a = *((int32_t*)pSrc);
+                int32_t b = *((int32_t*)(pSrc + 4));
+                *((int32_t*)pDst) = InterpolateSound(a, b, modf(OrgSamplePos, &_));
+                pDst += 4;
+            }
+        }
+        // apply
+        free(dat.p);
+        dat.p = pNew;
+        dat.size = iNewSize;
+    }
+}
+
 
 }

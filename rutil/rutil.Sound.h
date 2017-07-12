@@ -49,6 +49,8 @@ int LoadSound_FLAC(const uint8_t* p, size_t iLen, SoundData& dat);
 int LoadSound_OGG(const uint8_t* p, size_t iLen, SoundData& dat);
 int LoadSound_WAV(const uint8_t* p, size_t iLen, SoundData& dat);
 
+int ConvertSound(SoundData &dat, int iFormatDesire=0, float iSizeRatio=1.0f);
+
 // ------ midi support part ------
 // uses Timidity here
 
