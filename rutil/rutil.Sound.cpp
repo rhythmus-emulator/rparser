@@ -67,17 +67,31 @@ namespace rutil
 
 SoundData::SoundData()
 {
-	bit = 32;
 	freq = 44100;
-	samplesize = 0;
+	size = 0;
 	channels = 2;
-    format = AUDIO_S32;
+    format = AUDIO_S16;
 	p = 0;
 }
 
 SoundData::~SoundData()
 {
 	if (p) free(p);
+}
+
+uint32_t SoundData::GetSampleCount()
+{
+    return size / GetSampleSize();
+}
+
+uint32_t SoundData::GetSampleSize()
+{
+    return 0xFF & format;
+}
+
+float SoundData::GetDuration()
+{
+    return GetSampleCount() * 1000.0f / channels / freq;
 }
 
 // ------ LoadSound utilities ------
@@ -778,7 +792,7 @@ int LoadSound_WAV(const uint8_t* p, size_t iLen, SoundData& dat)
 	audio_len &= ~(samplesize - 1);
 
     dat.p = audio_buf;
-    dat.samplesize = audio_len / (SDL_AUDIO_BITSIZE(dat.format));
+    dat.size = audio_len;
 
     // TODO: requires convert to S16?
     
@@ -923,7 +937,9 @@ void Mix_QuitOgg()
         return;
     }
     if (vorbis.loaded == 1) {
+#if OGG_DYNAMIC
         SDL_UnloadObject(vorbis.handle);
+#endif
     }
     --vorbis.loaded;
 }
@@ -1016,7 +1032,7 @@ int LoadSound_OGG(const uint8_t* p, size_t iLen, SoundData &spec)
 
 	samples = (long)vorbis.ov_pcm_total(&vf, -1);
 
-	audio_len = spec.samplesize = samples * spec.channels * 2;
+	audio_len = spec.size = samples * spec.channels * 2;
 	audio_buf = (Uint8 *)malloc(audio_len);
 	if (audio_buf == NULL)
 		goto done_OGG;
@@ -1499,9 +1515,6 @@ int LoadSound_FLAC(const uint8_t* p, size_t iLen, SoundData& spec)
 	client_data = (FLAC_SDL_Data *)malloc(sizeof(FLAC_SDL_Data));
 
 	if ((!p) || (!iLen))   /* sanity checks. */
-		goto done;
-
-	if (!Mix_Init(MIX_INIT_FLAC))
 		goto done;
 
 	if ((decoder = flac.FLAC__stream_decoder_new()) == NULL) {

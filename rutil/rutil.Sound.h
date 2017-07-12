@@ -13,11 +13,8 @@ namespace rutil
 class SoundData
 {
 public:
-	int bit;
-    // TODO: replace samplesize -> size.
-    // TODO: create GetSampleCount() method.
-	// total sample size: channels * freq * duration(in sec)
-	int samplesize;
+    // @description size of allocated memory
+	int size;
 	int freq;
 	int channels;
 	// @description memory data
@@ -29,6 +26,13 @@ public:
 
 	SoundData();
 	~SoundData();
+
+    // @description total sample count: channels * freq * duration(in sec)
+    uint32_t GetSampleCount();
+    // @description get one sample(datatype) size
+    uint32_t GetSampleSize();
+    // @description get sound duration in ms
+    float GetDuration();
 };
 
 // @description
@@ -46,7 +50,7 @@ int LoadSound_OGG(const uint8_t* p, size_t iLen, SoundData& dat);
 int LoadSound_WAV(const uint8_t* p, size_t iLen, SoundData& dat);
 
 // ------ midi support part ------
-// uses PortAudio here
+// uses Timidity here
 
 // ------ mixer part ------
 
