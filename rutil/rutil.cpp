@@ -472,7 +472,7 @@ int FileData::SeekCur(uint32_t p)
 {
     return Seek(p, SEEK_CUR);
 }
-int FileData::SeekEnd(uint32_t p = 0)
+int FileData::SeekEnd(uint32_t p)
 {
     return Seek(p, SEEK_END);
 }

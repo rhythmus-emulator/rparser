@@ -159,12 +159,12 @@ int LoadSound(const unsigned char* p, long long iLen, SoundData& dat)
 
 // *** WAVE ***
 // code borrowed from SDL_Audio
-#define Uint8 uint8_t
-#define Uint16 uint16_t
-#define Uint32 uint32_t
-#define Sint8 int8_t
-#define Sint16 int16_t
-#define Sint32 int32_t
+typedef uint8_t Uint8;
+typedef uint16_t Uint16;
+typedef uint32_t Uint32;
+typedef int8_t Sint8;
+typedef int16_t Sint16;
+typedef int32_t Sint32;
 
 #define RIFF            0x46464952      /* "RIFF" */
 #define WAVE            0x45564157      /* "WAVE" */
@@ -951,6 +951,7 @@ void Mix_QuitOgg()
  */
 class OGG_Init_helper
 {
+public:
     OGG_Init_helper()
     {
         ASSERT(Mix_InitOgg() == 0);
@@ -1270,6 +1271,7 @@ void Mix_QuitFLAC()
 
 class FLAC_init_helper
 {
+public:
     FLAC_init_helper()
     {
         Mix_InitFLAC();
