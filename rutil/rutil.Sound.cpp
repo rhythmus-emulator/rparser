@@ -125,7 +125,7 @@ int LoadSound(const std::string& path, SoundData& dat)
 	return r;
 }
 
-const char sig_mp3[] = { 0xFF, 0xFB };
+const char sig_mp3[] = { (char)0xFF, (char)0xFB };
 const char sig_mp3_id3[] = "ID3";
 int LoadSound(const unsigned char* p, long long iLen, SoundData& dat)
 {
@@ -1742,6 +1742,7 @@ int ConvertSound(SoundData &dat, int iFormatDesire, float iSizeRatio)
         dat.p = pNew;
         dat.size = iNewSize;
     }
+    return 0;
 }
 
 

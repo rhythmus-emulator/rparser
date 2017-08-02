@@ -6,6 +6,9 @@
 #include <cctype>
 //#include <dirent.h>
 
+#define ZIP_STATIC 1
+#include <zip.h>
+
 #ifdef WIN32
 #include <windows.h>
 #include <stdarg.h>

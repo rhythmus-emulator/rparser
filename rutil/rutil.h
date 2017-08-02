@@ -23,16 +23,18 @@
 #include <string>
 #include <vector>
 
-#define ZIP_STATIC 1
-#include <zip.h>
-
 #include <assert.h>
 #define ASSERT assert
-
 
 #define R_CP_932 932	// JAP
 #define R_CP_949 949	// KOR
 #define R_CP_UTF8 1252
+
+
+// pre-declaration for zip_t
+struct zip;
+typedef zip zip_t;
+
 
 namespace rutil {
 

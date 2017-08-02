@@ -194,10 +194,10 @@ bool Song::LoadChart(const std::string& path)
 
     FileData fDat;
 	c->SetFilePath(path);
-    if (m_pDir->Read(path, fDat) && cLoader->Load(fDat.p, fDat.iLen))
+    if (m_pDir->Read(path, fDat) && cLoader->Load(fDat.p, fDat.m_iLen))
         m_vCharts.push_back(c);
     delete cLoader;
-    DeleteFileData(fDat);
+    //DeleteFileData(fDat); // will be automatically removed
 	return c == 0;
 }
 
