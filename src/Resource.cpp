@@ -30,6 +30,10 @@ Resource::~Resource()
 
 bool Resource::Open(const char * filepath, const char * encoding, const char* filter_ext)
 {
+	// clear before open
+	Unload(false);
+
+	// start opening
 	path_ = filepath;
 	file_ext_.clear();
 	char* ext_ptr_ = 0;
@@ -44,13 +48,26 @@ bool Resource::Open(const char * filepath, const char * encoding, const char* fi
 	if (ext_ptr_) file_ext_ = ext_ptr_;
 	encoding_ = encoding;
 	filter_ext_ = filter_ext;
-	FILE *f = rutil::fopen_utf8(filepath, "rb");
-	if (!f)
+	// check is directory
+	// if not, attempt to read it archive or not.
+	if (rutil::IsDirectory(filepath))
 	{
-		error_msg_ = RPARSER_ERROR_READ;
-		return false;
+		rutil::DirFileList files;
+		rutil::GetDirectoryFiles(filepath, files);
+		return Open_dir(files);
 	}
-	return Open_fp(fp, encoding, filter_ext);
+	else
+	{
+		FILE *f = rutil::fopen_utf8(filepath, "rb");
+		if (!f)
+		{
+			error_msg_ = RPARSER_ERROR_READ;
+			return false;
+		}
+		bool r = Open_fp(fp, encoding, filter_ext);
+		fclose(fp);
+		return r;
+	}
 }
 
 void Resource::Read_fp(FILE *fp, BinaryData &d)
