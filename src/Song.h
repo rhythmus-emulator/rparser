@@ -1,5 +1,12 @@
 /*
  * by @lazykuna, MIT License.
+ *
+ * Song loader / saver, representing rparser library.
+ * This library has functions as follows:
+ * - Load and Save
+ * - Edit
+ * - Digest (in mixable form)
+ * - Resource managing (binary form)
  */
  
 #ifndef RPARSER_SONG_H

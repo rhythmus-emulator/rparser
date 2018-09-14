@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <string>
 #include <vector>
+#include <map>
 
 #include <assert.h>
 #define ASSERT assert

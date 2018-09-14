@@ -167,6 +167,7 @@ bool Resource::WriteAll()
 	{
 		if (!data_dirty_flag_[ii.first])
 			continue;
+		// TODO: make combination of folder and file path.
 		s = WriteBinary(ii.first.c_str(), ii.second);
 		if (!s)
 		{
