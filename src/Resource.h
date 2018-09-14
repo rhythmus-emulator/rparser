@@ -6,7 +6,7 @@
 #ifndef RPARSER_RESOURCE_H
 #define RPARSER_RESOURCE_H
 
-#include "rutil/rutil.h"
+#include "rutil.h"
 
 namespace rparser
 {
@@ -67,6 +67,7 @@ public:
 	const char* GetRawPtr(int &len) const;
 private:
 	std::string path_;
+	std::string dirpath_;
 	std::string file_ext_;
 	RESOURCE_TYPE resource_type_;
 

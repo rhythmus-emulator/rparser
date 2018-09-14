@@ -34,17 +34,27 @@ bool Resource::Open(const char * filepath, const char * encoding, const char* fi
 	Unload(false);
 
 	// start opening
-	path_ = filepath;
+	path_ = rutil::CleanPath(filepath);
+	filepath = path_.c_str();		// replace 'iterator' with safe path string
 	file_ext_.clear();
-	char* ext_ptr_ = 0;
+	const char* org_ptr_ = filepath;
+	const char* ext_ptr_ = 0;
+	const char* dir_ptr_ = 0;
+	dirpath_.clear();
+	file_ext_.clear();
 	while (*filepath)
 	{
 		if (*filepath == '.')
 		{
 			ext_ptr = filepath + 1;
 		}
+		if (*filepath == '/')
+		{
+			dir_ptr_ = filepath;
+		}
 		filepath++;
 	}
+	if (dir_ptr_) dirpath_ = path_.substr(0, dir_ptr_- org_ptr_) + "/";
 	if (ext_ptr_) file_ext_ = ext_ptr_;
 	encoding_ = encoding;
 	filter_ext_ = filter_ext;
@@ -52,6 +62,7 @@ bool Resource::Open(const char * filepath, const char * encoding, const char* fi
 	// if not, attempt to read it archive or not.
 	if (rutil::IsDirectory(filepath))
 	{
+		dirpath_ = filepath + (path_[path_.size()-1]=='/'?"":"/");
 		rutil::DirFileList files;
 		rutil::GetDirectoryFiles(filepath, files);
 		return Open_dir(files);
@@ -107,7 +118,7 @@ bool Resource::Open_dir(rutil::DirFileList files_)
 	{
 		// check extension
 		// fetch file pointer
-		FILE *fp = rutil::fopen_utf8(ii.first.c_str(), "rb");
+		FILE *fp = rutil::fopen_utf8(dirpath_ + ii.first, "rb");
 		if (!fp)
 		{
 			error_msg_ = RPARSER_ERROR_NOFILE;
