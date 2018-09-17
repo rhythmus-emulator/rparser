@@ -1,14 +1,29 @@
 #include "Song.h"
 #include "MetaData.h"
+#include "Chart.h"
 #include "ChartLoader.h"
 #include "ChartWriter.h"
+#include <list>
 
 using namespace rutil;
 
+#define RPARSER_SONG_ERROR_FILE				"Unable to read song file."
+#define RPARSER_SONG_ERROR_NOCHART			"No chart found in song file."
+#define RPARSER_SONG_ERROR_CHART			"Invalid chart file."
+#define RPARSER_SONG_ERROR_SAVE_CHART		"Failed to generate chart file."
+#define RPARSER_SONG_ERROR_SAVE_METADATA	"Failed to save metadata."
 
 
 namespace rparser
 {
+
+const std::list<std::pair<SONGTYPE, const char*>> type_2_ext_ = {
+	{SONGTYPE::BMS, "bms"},
+	{SONGTYPE::BMS, "bme"},
+	{SONGTYPE::BMS, "bml"},
+	{SONGTYPE::OSU, "osu"},
+	{SONGTYPE::SM, "sm"},
+};
 
 char *SongErrorCode[] = {
     "No Error", // 0
@@ -23,258 +38,22 @@ const char* GetSongErrorCode(int i) { return SongErrorCode[i]; }
 
 // ------ class Song ------
 
-void Song::RegisterChart(Chart * c)
+const std::string Song::gen_readable_ext_()
 {
-	m_vCharts.push_back(c);
-}
-
-void Song::DeleteChart(const Chart * c_)
-{
-	for (auto p = m_vCharts.begin(); p != m_vCharts.end(); ++p) {
-		if (*p == c_) {
-			m_vCharts.erase(p);
-			return;
-		}
+	std::string r;
+	// prepare for total readable extensions
+	for (auto ii : type_2_ext_)
+	{
+		r += ii.second;
+		r += ";";
 	}
-}
-
-bool Song::SaveSong()
-{
-	m_iErrorcode = 0;
-	bool r = true;
-
-    r &= SaveMetadata();
-    for (auto &c: m_vCharts)
-        r &= SaveChart(c);
-
+	if (r.back() == ';')
+		r.pop_back();
 	return r;
 }
 
-bool Song::SaveMetadata()
-{
-    // TODO
-    return false;
-}
-
-bool Song::SaveChart(const Chart* c)
-{
-    ChartWriter *cWriter;
-    switch (m_Songtype) {
-        /*
-    case SONGTYPE::BMS:
-        cWriter = new ChartWriterBMS(c);
-        break;
-    case SONGTYPE::BMSON:
-        r = SaveSongAsBmsOn(path);
-        break;
-    case SONGTYPE::OSU:
-        r = SaveSongAsOsu(path);
-        break;
-        */
-    default:
-        m_iErrorcode = 1;
-        return false;
-    }
-    // TODO
-    return true;
-}
-
-bool Song::OpenDirectory()
-{
-	if (BasicDirectory::Test(m_sPath))
-		m_pDir = new BasicDirectory();
-	else if (ArchiveDirectory::Test(m_sPath))
-		m_pDir = new ArchiveDirectory();
-	else return false;
-	ASSERT(m_pDir);
-	int r = m_pDir->Open(m_sPath);
-	return r==0;
-}
-bool Song::Open(const std::string & path, SONGTYPE songtype)
-{
-	// initialize
-	Close();
-	m_iErrorcode = 0;
-	bool r = false;
-	m_Songtype = songtype;
-
-	// prepare IO (in case of valid song folder)
-	m_sPath = path;
-	if (!OpenDirectory())
-	{
-		// if it's not valid song file (neither archive nor folder)
-		// then just attempt to open with parent, then load single chart.
-		// if parent is also invalid song file, then return error.
-		printf("Song path open failed, attempting single chart loading ...\n");
-		m_sPath = GetParentDirectory(path);
-		if (!OpenDirectory())
-		{
-			return false;
-		}
-		std::string m_sChartPath = GetFilename(path);
-		if (m_Songtype == SONGTYPE::UNKNOWN)
-			m_Songtype = TestSongTypeExtension(m_sChartPath);
-		else if (m_Songtype != TestSongTypeExtension(m_sChartPath))
-		{
-			Close();
-			printf("Cannot detect valid song file.\n");
-            m_iErrorcode = 4;
-			return false;
-		}
-		return LoadChart(path);
-	}
-
-	// if folder successfully opened, check songtype & valid
-	std::vector<std::string> m_vChartPaths;
-	for (std::string &fn: m_pDir->GetFileEntries())
-	{
-		if (m_Songtype == SONGTYPE::UNKNOWN)
-		{
-			m_Songtype = TestSongTypeExtension(fn);
-            if (m_Songtype != SONGTYPE::UNKNOWN)
-			    m_vChartPaths.push_back(fn);
-		}
-		else if (m_Songtype == TestSongTypeExtension(fn))
-		{
-			m_vChartPaths.push_back(fn);
-		}
-	}
-	if (m_Songtype == SONGTYPE::UNKNOWN)
-	{
-		Close();
-		printf("No valid chart file found.\n");
-        m_iErrorcode = 4;
-		return false;
-	}
-
-	// load charts
-	for (std::string &fn: m_vChartPaths)
-	{
-		LoadChart(fn);
-	}
-	// load song metadata (CHECK RESULT?)
-	LoadSongMetadata();
-
-	return true;
-}
-
-bool Song::LoadSongMetadata()
-{
-    ASSERT(m_Songtype != SONGTYPE::UNKNOWN);
-
-    // TODO
-    switch (m_Songtype) {
-    case SONGTYPE::OSU:
-        return false;
-    }
-    return true;
-}
-
-bool Song::LoadChart(const std::string& path)
-{
-    ASSERT(m_pDir);
-    ChartLoader* cLoader;
-	Chart *c = new Chart();
-	switch (m_Songtype) {
-	case SONGTYPE::BMS:
-        cLoader = new ChartLoaderBMS(c);
-		break;
-    /*
-	case SONGTYPE::BMSON:
-		LoadSongFromBmsOn(path);
-		break;
-	case SONGTYPE::VOS:
-		LoadSongFromVos(path);
-		break;
-    */
-	default:
-		delete c;
-		ASSERT(m_Songtype != SONGTYPE::UNKNOWN);
-	}
-
-    FileData fDat;
-	c->SetFilePath(path);
-    if (m_pDir->Read(path, fDat) && cLoader->Load(fDat.p, fDat.m_iLen))
-        m_vCharts.push_back(c);
-    delete cLoader;
-    //DeleteFileData(fDat); // will be automatically removed
-	return c == 0;
-}
-
-bool Song::ReadCharts(const std::string &path, std::vector<Chart*>& charts)
-{
-	Song* s = new Song();
-	if (!s->Open(path))
-	{
-		delete s;
-		return false;
-	}
-	// copy pointers and clear original pt container
-	// to prevent object deletion
-	charts = s->m_vCharts;
-	s->m_vCharts.clear();
-	s->Close();
-	delete s;
-	return true;
-}
-
-void Song::GetCharts(std::vector<Chart*>& charts)
-{
-	charts = m_vCharts;
-}
-
-int Song::GetChartCount() const
-{
-	return m_vCharts.size();
-}
-
-int Song::GetError() const
-{
-	return m_iErrorcode;
-}
-
-const char * Song::GetErrorStr() const
-{
-	return SongErrorCode[m_iErrorcode];
-}
-
-const rutil::IDirectory* Song::GetDirectory() const
-{
-	return m_pDir;
-}
-
-std::string Song::toString() const
-{
-	std::stringstream ss;
-	ss << "Song path: " << m_sPath << std::endl;
-	ss << "Is Archive?: " << m_bIsArchive << std::endl;
-	ss << "Song type: " << GetSongTypeExtension(m_Songtype) << std::endl;
-	ss << "Chart count: " << m_vCharts.size() << std::endl << std::endl;
-	for (auto c : m_vCharts)
-	{
-		ss << c->toString() << std::endl << std::endl;
-	}
-	return ss.str();
-}
-
-void Song::Close()
-{
-    m_Songtype = SONGTYPE::UNKNOWN;
-	if (m_pDir)
-	{
-		delete m_pDir;
-		m_pDir = 0;
-	}
-	for (Chart *c: m_vCharts)
-	{
-		delete c;
-	}
-	m_vCharts.clear();
-    m_iErrorcode = 0;
-}
-
 Song::Song()
-    : m_Songtype(SONGTYPE::UNKNOWN), m_pDir(0), m_iErrorcode(0)
+	: songtype_(SONGTYPE::NONE), errormsg_(0), total_readable_ext_(gen_readable_ext_())
 {
 }
 
@@ -283,47 +62,208 @@ Song::~Song()
 	Close();
 }
 
-SONGTYPE TestSongTypeExtension(const std::string & fname)
+void Song::RegisterChart(Chart * c)
 {
-	std::string ext = GetExtension(fname);
-	lower(ext);
-	const char* ext_c = ext.c_str();
-	if (strcmp(ext_c, "bms") == 0 ||
-		strcmp(ext_c, "bme") == 0 ||
-		strcmp(ext_c, "bml") == 0)
-		return SONGTYPE::BMS;
-	else if (strcmp(ext_c, "bmson") == 0)
-		return SONGTYPE::BMSON;
-	else if (strcmp(ext_c, "vos") == 0)
-		return SONGTYPE::VOS;
-	else if (strcmp(ext_c, "osu") == 0)
-		return SONGTYPE::OSU;
-	else if (strcmp(ext_c, "sm") == 0)
-		return SONGTYPE::SM;
-	else if (strcmp(ext_c, "ojm") == 0)
-		return SONGTYPE::OJM;
-	return SONGTYPE::UNKNOWN;
+	charts_.push_back(c);
+}
+
+bool Song::DeleteChart(const Chart * c_)
+{
+	for (auto p = charts_.begin(); p != charts_.end(); ++p) {
+		if (*p == c_) {
+			charts_.erase(p);
+			return true;
+		}
+	}
+	return false;
+}
+
+
+bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
+{
+	// initialize
+	Close();
+	errormsg_ = 0;
+	songtype_ = songtype;
+
+	// Read given path first.
+	// If required, only read chart files.
+	const char * fastread_ext = total_readable_ext_.c_str();
+	if (!fastread) fastread_ext = 0;
+	if (!resource_.Open(path.c_str(), 0, fastread_ext))
+	{
+		errormsg_ = RPARSER_SONG_ERROR_FILE;
+		songtype_ = SONGTYPE::NONE;
+		return false;
+	}
+
+	// Filter out file from resource, which is feasible to read.
+	std::map<std::string, const Resource::BinaryData*> chart_files;
+	resource_.FilterFiles(total_readable_ext_.c_str(), chart_files);
+	if (chart_files.size() == 0)
+	{
+		errormsg_ = RPARSER_SONG_ERROR_NOCHART;
+		songtype_ == SONGTYPE::NONE;
+		return false;
+	}
+
+	// Auto-detect songtype, if necessary.
+	if (songtype_ == SONGTYPE::NONE)
+	{
+		for (auto ii : type_2_ext_)
+		{
+			const char* ext_curr = ii.second;
+			if (chart_files.find(ext_curr) != chart_files.end())
+			{
+				songtype_ = ii.first;
+			}
+		}
+		if (songtype_ == SONGTYPE::NONE)
+		{
+			errormsg_ = RPARSER_SONG_ERROR_NOCHART;
+			return false;
+		}
+	}
+
+	// Attempt to read chart.
+	for (auto ii : chart_files)
+	{
+		Chart *c = new Chart();
+		if (!c->Load(ii.second->p, ii.second->len))
+		{
+			// Error might be occured during chart loading,
+			// But won't stop loading as there *might* be 
+			// So, just skip the wrong chart file and make log.
+			errormsg_ = RPARSER_SONG_ERROR_CHART;
+			delete c;
+			continue;
+		}
+		RegisterChart(c);
+	}
+
+	// If necessary, load song metadata.
+	LoadMetadata();
+
+	return true;
+}
+
+bool Song::Save()
+{
+	// Only update dirty charts
+	for (Chart *c : charts_)
+	{
+		if (c->IsDirty())
+		{
+			Resource::BinaryData data;
+			if (!c->MakeBinaryData(&data))
+			{
+				errormsg_ = RPARSER_SONG_ERROR_SAVE_CHART;
+				return false;
+			}
+			resource_.AllocateBinary(c->GetFilePath(), data.p, data.len, true, false);
+		}
+	}
+	// save metadata, in case of need.
+	if (!SaveMetadata())
+	{
+		errormsg_ = RPARSER_SONG_ERROR_SAVE_METADATA;
+		return false;
+	}
+	// flush (save to real file)
+	resource_.Flush();
+	return true;
+}
+
+bool Song::Close(bool save)
+{
+	if (save && !Save())
+	{
+		// error message already assigned at Save()
+		return false;
+	}
+
+	// release resources and memory.
+	for (Chart *c : charts_)
+	{
+		delete c;
+	}
+	charts_.clear();
+	resource_.Unload(false);
+	errormsg_ = 0;
+	songtype_ = SONGTYPE::NONE;
+}
+
+bool Song::LoadMetadata()
+{
+	assert(songtype_ != SONGTYPE::NONE);
+
+	// TODO
+	switch (songtype_) {
+	case SONGTYPE::OSU:
+		return false;
+	}
+	return true;
+}
+
+bool Song::SaveMetadata()
+{
+	assert(songtype_ != SONGTYPE::NONE);
+
+	// TODO
+	switch (songtype_) {
+	case SONGTYPE::OSU:
+		return false;
+	}
+	return true;
+}
+
+const std::vector<Chart*>* Song::GetCharts() const
+{
+	return &charts_;
+}
+
+void Song::GetCharts(std::vector<Chart*>& charts)
+{
+	charts = charts_;
+}
+
+const char* Song::GetErrorStr() const
+{
+	return errormsg_;
+}
+
+Resource * Song::GetResource()
+{
+	return &resource_;
+}
+
+std::string Song::toString() const
+{
+	std::stringstream ss;
+	ss << "Song path: " << path_ << std::endl;
+	ss << "Song type: " << GetSongTypeExtension(songtype_) << std::endl;
+	ss << "Chart count: " << charts_.size() << std::endl << std::endl;
+	for (auto c : charts_)
+	{
+		ss << c->toString() << std::endl << std::endl;
+	}
+	return ss.str();
 }
 
 std::string GetSongTypeExtension(SONGTYPE iType)
 {
-    switch (iType)
-    {
-    case SONGTYPE::BMS:
-        return "bms";
-    case SONGTYPE::BMSON:
-        return "bmson";
-    case SONGTYPE::VOS:
-        return "vos";
-    case SONGTYPE::OSU:
-        return "osu";
-    case SONGTYPE::SM:
-        return "sm";
-    case SONGTYPE::OJM:
-        return "ojm";
-    default:
-        return "";
-    }
+	static const std::map<SONGTYPE, const char*> type_2_str_ = {
+		{SONGTYPE::BMS, "bms"},
+		{SONGTYPE::BMSON, "bmson"},
+		{SONGTYPE::VOS, "vos"},
+		{SONGTYPE::OSU, "osu"},
+		{SONGTYPE::SM, "sm"},
+		{SONGTYPE::OJM, "ojm"},
+		{SONGTYPE::NONE, ""},
+	};
+	// this function should ensure no-exception
+	// by supplying string for all types of SONGTYPE.
+	return type_2_str_.find(iType)->second;
 }
 
 

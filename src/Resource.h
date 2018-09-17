@@ -58,6 +58,9 @@ public:
 	bool AllocateFile(std::string &name, std::string &filename, bool setdirty=true);
 	const BinaryData* GetPtr(std::string &name) const;
 	const char* GetPtr(std::string &name, int &len) const;
+	// Filter out files
+	void FilterFiles(const char* filters,
+		std::map<std::string, const BinaryData*>& chart_files);
 
 	// Some file (ex: lr2course, vos) won't behave in form of multiple file.
 	// In this case, we use data-ptr reserved for raw format

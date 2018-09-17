@@ -6,8 +6,10 @@
 #include <cctype>
 //#include <dirent.h>
 
+#ifdef USE_ZLIB
 #define ZIP_STATIC 1
 #include <zip.h>
+#endif
 
 #ifdef WIN32
 #include <windows.h>
@@ -296,6 +298,16 @@ std::string GetPathJoin(const std::string& s1, const std::string s2)
 		return s1 + s2;
 	else
 		return s1 + '/' + s2;
+}
+
+bool CheckExtension(const std::string& path, const std::string &filter)
+{
+	const std::string&& ext = GetExtension(path);
+	const std::string&& ext_lower = lower(ext);
+	std::vector<std::string> filter_exts;
+	split(filter, ';', filter_exts);
+	auto it = std::find(filter_exts.begin(), filter_exts.end(), ext_lower);
+	return (it != filter_exts.end());
 }
 
 uint32_t ReadLE32(const unsigned char* p)
@@ -698,6 +710,7 @@ int BasicDirectory::Test(const std::string &path)
 	return IsDirectory(path);
 }
 
+#ifdef USE_ZLIB
 // ------ class ArchiveDirectory ------
 
 int ArchiveDirectory::Open(const std::string& path)
@@ -815,6 +828,7 @@ void ArchiveDirectory::SetCodepage(int iCodepage)
 {
 	m_iCodepage = iCodepage;
 }
+#endif
 
 
 

@@ -1,4 +1,4 @@
-#include <Resource.h>
+#include "Resource.h"
 
 namespace rparser
 {
@@ -313,6 +313,18 @@ const char * Resource::GetPtr(std::string & name, int & len) const
 	const Resource::BinaryData* d = GetPtr(name);
 	len = d->len;
 	return d->p;
+}
+
+void Resource::FilterFiles(const char * filters, std::map<std::string, const BinaryData*>& chart_files)
+{
+	assert(filters);
+	for (auto ii : datas_)
+	{
+		if (rutil::CheckExtension(ii.first, filters))
+		{
+			chart_files[ii.first] = ii.second;
+		}
+	}
 }
 
 void Resource::AllocateRawBinary(char * p, int len, bool copy)

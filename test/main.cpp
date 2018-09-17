@@ -1,25 +1,54 @@
-#include <stdio.h>
-#include <Song.h>
-
-#define DEST_FOLDER "D:/BMS_TEST"
+#include <iostream>
+#include "Song.h"
+using namespace std;
+using namespace rparser;
 
 int main()
 {
-	printf("Hello world!\nDestination folder for test: %s\n", DEST_FOLDER);
-	
-	rutil::DirFileList dList;
-	rutil::GetDirectoryFiles(DEST_FOLDER, dList, 0);
+	Resource *res;
+	Song *song;
 
-	printf("Found target files: %d\n", dList.size());
-	for (auto d : dList)
+	cout << "Starting test for rparser library ..." << endl;
+
+	cout << "Test 1: Loading bms directory" << endl;
+	res = new Resource();
+	res->Open("./test/bms_sample");
+	delete res;
+
+	cout << "Test 2: Loading bms archive" << endl;
+#ifdef USE_ZLIB
+#else
+	cout << "Test skipped due to ZLIB library not found." << endl;
+#endif
+	
+#if 0
+	cout << "Test 3: Opening bms directory" << endl;
+
+	song = new Song();
+	song->Open("./test/bms_sample");
+	delete song;
+
+	cout << "Test 4: Opening bms archive file" << endl;
+#ifdef USE_ZLIB
+#else
+	cout << "Test skipped due to ZLIB library not found." << endl;
+#endif
+
+	cout << "Test 3: Opening bms charts" << endl;
+	cout << "File refered from: https://hitkey.nekokan.dyndns.info/bmsbench.shtml" << endl;
+	auto dest_filepaths = {
+		"./test/chart_sample/allnightmokugyo.bme",
+		"./test/chart_sample/l-for-nanasi.bms",
+		"./test/chart_sample/L9^.bme"
+	};
+
+	for (auto d : dest_filepaths)
 	{
-		printf("- %s\n", d.first.c_str());
-		std::string songpath = rutil::GetPathJoin(DEST_FOLDER, d.first);
-		rparser::Song song;
-		song.Open(songpath);
-		printf(song.toString().c_str());
-		song.Close();
+		// TODO
 	}
+#endif
+
+	cout << "Test done." << endl;
 
 	return 0;
 }

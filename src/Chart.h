@@ -59,12 +59,16 @@ struct ChartSummaryData {
  */
 class Chart {
 public:
+	bool Open(const char* filepath);
+	bool Load(const char* data, unsigned int len);
+
     const MetaData* GetMetaData() const;
     const NoteData* GetNoteData() const;
     const TimingData* GetTimingData() const;
     MetaData* GetMetaData();
     NoteData* GetNoteData();
     TimingData* GetTimingData();
+
     const ChartSummaryData* GetChartSummary() const;  // cannot modify, read-only
     std::string GetFilePath() const;
 	void SetFilePath(const std::string& sPath);
