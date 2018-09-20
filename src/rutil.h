@@ -51,12 +51,20 @@ int DecodeTo(std::string &s, int to_codepage);
 #ifdef WIN32
 int DecodeToWStr(const std::string& s, std::wstring& sOut, int from_codepage);
 int EncodeFromWStr(const std::wstring& s, std::string& sOut, int to_codepage);
+#endif
+
+
+// I/O related
+#ifdef WIN32
 FILE* fopen_utf8(const char* fname, const char* mode);
 int printf_utf8(const char* fmt, ...);
 #else
 #define fopen fopen_utf8
 #define printf printf_utf8
 #endif
+bool RemoveFile(const char* fpath);
+bool RenameFile(const char* prev_path, const char* new_path);
+bool CreateFolder(const char* path);
 
 
 

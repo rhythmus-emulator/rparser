@@ -185,6 +185,38 @@ int printf_utf8(const char* fmt, ...)
 }
 #endif
 
+bool RemoveFile(const char* fpath)
+{
+#ifdef WIN32
+	std::wstring sWfn;
+	DecodeToWStr(fpath, sWfn, CP_UTF8);
+	return (_wremove(sWfn.c_str()) == 0);
+#else
+	return (remove(fpath) == 0);
+#endif
+}
+bool RenameFile(const char* prev_path, const char* new_path)
+{
+#ifdef WIN32
+	std::wstring sWpfn, sWnfn;
+	DecodeToWStr(prev_path, sWpfn, CP_UTF8);
+	DecodeToWStr(new_path, sWnfn, CP_UTF8);
+	return (_wrename(sWpfn.c_str(), sWnfn.c_str()) == 0);
+#else
+	return (rename(prev_path, new_path) == 0);
+#endif
+}
+bool CreateFolder(const char* path)
+{
+#ifdef WIN32
+	std::wstring wpath;
+	DecodeToWStr(path, wpath, CP_UTF8);
+	return (CreateDirectoryW(wpath.c_str(), 0) != 0);
+#else
+	return (mkdir(path, 664) == 0);
+#endif
+}
+
 // seed part ..?
 
 int global_seed;

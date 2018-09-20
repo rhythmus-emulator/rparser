@@ -25,15 +25,6 @@ const std::list<std::pair<SONGTYPE, const char*>> type_2_ext_ = {
 	{SONGTYPE::SM, "sm"},
 };
 
-char *SongErrorCode[] = {
-    "No Error", // 0
-    "No Save file format (or unsupported file format) specified",   // 1
-    "The archive file isn't valid or supported one.",
-    "Corrupted archive file (or might have password)",
-    "This song archive file has no chart.",
-    "Unsupported song file format.",    // 5
-};
-const char* GetSongErrorCode(int i) { return SongErrorCode[i]; }
 
 
 // ------ class Song ------
@@ -51,9 +42,10 @@ const std::string Song::gen_readable_ext_()
 		r.pop_back();
 	return r;
 }
+const std::string Song::total_readable_ext_ = Song::gen_readable_ext_();
 
 Song::Song()
-	: songtype_(SONGTYPE::NONE), errormsg_(0), total_readable_ext_(gen_readable_ext_())
+	: songtype_(SONGTYPE::NONE), errormsg_(0)
 {
 }
 
@@ -125,10 +117,15 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 		}
 	}
 
+	// If necessary, load song metadata.
+	// Should load first than charts, as some chart may require metadata.
+	LoadMetadata();
+
 	// Attempt to read chart.
 	for (auto ii : chart_files)
 	{
 		Chart *c = new Chart();
+		c->SetFilePath(ii.first);
 		if (!c->Load(ii.second->p, ii.second->len))
 		{
 			// Error might be occured during chart loading,
@@ -140,9 +137,6 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 		}
 		RegisterChart(c);
 	}
-
-	// If necessary, load song metadata.
-	LoadMetadata();
 
 	return true;
 }
@@ -213,8 +207,26 @@ bool Song::SaveMetadata()
 	switch (songtype_) {
 	case SONGTYPE::OSU:
 		return false;
+	default:
+		// pass
 	}
 	return true;
+}
+
+void Song::SetPath(const std::string & path)
+{
+	// Set new path for Resource
+	resource_.SetPath(path.c_str());
+	//
+}
+
+const std::string Song::GetPath() const
+{
+	return resource_.GetPath();
+}
+
+void Song::SetSongType(SONGTYPE songtype)
+{
 }
 
 const std::vector<Chart*>* Song::GetCharts() const
@@ -240,7 +252,7 @@ Resource * Song::GetResource()
 std::string Song::toString() const
 {
 	std::stringstream ss;
-	ss << "Song path: " << path_ << std::endl;
+	ss << "Song path: " << GetPath() << std::endl;
 	ss << "Song type: " << GetSongTypeExtension(songtype_) << std::endl;
 	ss << "Chart count: " << charts_.size() << std::endl << std::endl;
 	for (auto c : charts_)

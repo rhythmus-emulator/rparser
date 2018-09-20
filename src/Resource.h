@@ -51,11 +51,18 @@ public:
 	// You can save data with setting parameter flush=true.
 	bool Unload(bool flush = true);
 
-	const char* GetErrorMsg();
+	// Set destination path to save
+	// Don't check existence for given path.
+	void SetPath(const char* filepath);
+	const std::string GetPath() const;
+
+	const char* GetErrorMsg() const;
 
 	bool IsLoaded();
-	void AllocateBinary(std::string &name, char *p, int len, bool setdirty=true, bool copy=false);
-	bool AllocateFile(std::string &name, std::string &filename, bool setdirty=true);
+	void AddBinary(std::string &name, char *p, int len, bool setdirty=true, bool copy=false);
+	bool AddFile(std::string &name, std::string &filename, bool setdirty=true);
+	bool Rename(std::string &prev_name, std::string &new_name);
+	bool Delete(std::string &name);
 	const BinaryData* GetPtr(std::string &name) const;
 	const char* GetPtr(std::string &name, int &len) const;
 	// Filter out files

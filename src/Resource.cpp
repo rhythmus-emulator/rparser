@@ -1,4 +1,8 @@
 #include "Resource.h"
+#include "Resource.h"
+#include "Resource.h"
+#include "Resource.h"
+#include "Resource.h"
 
 namespace rparser
 {
@@ -13,6 +17,8 @@ namespace rparser
 #define RPARSER_ERROR_WRITE_NONE	"Cannot write file. Call Create() before writing."
 #define RPARSER_ERROR_WRITE_FORMAT	"Cannot write file. Unsupported format."
 #define RPARSER_ERROR_CREATE		"Cannot create file. Please close before create."
+#define RPARSER_ERROR_RENAME		"Cannot rename file."
+#define RPARSER_ERROR_DELETE		"Cannot delete file."
 
 Resource::Resource():
 	error_msg_(0),
@@ -34,28 +40,7 @@ bool Resource::Open(const char * filepath, const char * encoding, const char* fi
 	Unload(false);
 
 	// start opening
-	path_ = rutil::CleanPath(filepath);
-	filepath = path_.c_str();		// replace 'iterator' with safe path string
-	file_ext_.clear();
-	const char* org_ptr_ = filepath;
-	const char* ext_ptr_ = 0;
-	const char* dir_ptr_ = 0;
-	dirpath_.clear();
-	file_ext_.clear();
-	while (*filepath)
-	{
-		if (*filepath == '.')
-		{
-			ext_ptr = filepath + 1;
-		}
-		if (*filepath == '/')
-		{
-			dir_ptr_ = filepath;
-		}
-		filepath++;
-	}
-	if (dir_ptr_) dirpath_ = path_.substr(0, dir_ptr_- org_ptr_) + "/";
-	if (ext_ptr_) file_ext_ = ext_ptr_;
+	SetPath(filepath);
 	encoding_ = encoding;
 	filter_ext_ = filter_ext;
 	// check is directory
@@ -256,7 +241,19 @@ void Resource::Unload(bool flush)
 	resource_type_ = RESOURCE_TYPE::NONE;
 }
 
-const char * Resource::GetErrorMsg()
+void Resource::SetPath(const char * filepath)
+{
+	path_ = rutil::CleanPath(filepath);
+	dirpath_ = rutil::GetDirectory(path_);
+	file_ext_ = rutil::GetExtension(path_);
+}
+
+const std::string Resource::GetPath() const
+{
+	return path_;
+}
+
+const char * Resource::GetErrorMsg() const
 {
 	return error_msg_;
 }
@@ -266,7 +263,7 @@ bool Resource::IsLoaded()
 	return (resource_type_ != RESOURCE_TYPE::NONE);
 }
 
-void Resource::AllocateBinary(std::string & name, char * p, int len, bool setdirty, bool copy)
+void Resource::AddBinary(std::string & name, char * p, int len, bool setdirty, bool copy)
 {
 	BinaryData d;
 	if (copy)
@@ -284,7 +281,7 @@ void Resource::AllocateBinary(std::string & name, char * p, int len, bool setdir
 	is_dirty |= setdirty;
 }
 
-bool Resource::AllocateFile(std::string & name, std::string & filename, bool setdirty)
+bool Resource::AddFile(std::string & name, std::string & filename, bool setdirty)
 {
 	FILE *fp = rutil::fopen_utf8(name, "rb");
 	if (!fp)
@@ -296,6 +293,54 @@ bool Resource::AllocateFile(std::string & name, std::string & filename, bool set
 	Read_fp(fp, d);
 	fclose(fp);
 	AllocateBinary(name, d.p, d.len, setdirty)
+	return true;
+}
+
+bool Resource::Rename(std::string & prev_name, std::string & new_name)
+{
+	auto it = datas_.find(prev_name);
+	if (it == datas_.end())
+	{
+		error_msg_ = RPARSER_ERROR_NOFILE;
+		return false;
+	}
+
+	// if FOLDER I/O, then it affects file system directly.
+	if (resource_type_ == RESOURCE_TYPE::FOLDER)
+	{
+		if (!rutil::RenameFile(prev_name.c_str(), new_name.c_str()))
+		{
+			error_msg_ = RPARSER_ERROR_RENAME;
+			return false;
+		}
+	}
+
+	BinaryData d = it->second;
+	datas_[new_name] = d;
+	datas_.erase(it);
+	return true;
+}
+
+bool Resource::Delete(std::string & name)
+{
+	auto it = datas_.find(prev_name);
+	if (it == datas_.end())
+	{
+		error_msg_ = RPARSER_ERROR_NOFILE;
+		return false;
+	}
+
+	// if FOLDER I/O, then it affects file system directly.
+	if (resource_type_ == RESOURCE_TYPE::FOLDER)
+	{
+		if (!rutil::RemoveFile(name.c_str()))
+		{
+			error_msg_ = RPARSER_ERROR_DELETE;
+			return false;
+		}
+	}
+
+	datas_.erase(it);
 	return true;
 }
 

@@ -84,6 +84,7 @@ public:
     // utilities
     const char* GetErrorStr() const;
 	Resource* GetResource();
+	bool RenameChart(const Chart* c, const std::string& new_filepath);
 
 
 
@@ -99,15 +100,15 @@ public:
     bool Close(bool save=false);
 
 	void SetPath(const std::string& path);
+	const std::string GetPath() const;
 	void SetSongType(SONGTYPE songtype);
 
 	std::string toString() const;
     Song();
     ~Song();
 private:
-	const std::string total_readable_ext_;
-	const std::string gen_readable_ext_();
-	std::string path_;
+	static const std::string total_readable_ext_;
+	static const std::string gen_readable_ext_();
 
 	// in case of need ...
 	std::string errormsg_detailed_;
