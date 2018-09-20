@@ -55,6 +55,9 @@ public:
 	// Don't check existence for given path.
 	void SetPath(const char* filepath);
 	const std::string GetPath() const;
+	void SetExtension(const char* extension);
+	void SetResourceType(RESOURCE_TYPE rtype);
+	RESOURCE_TYPE GetResourceType() const;
 
 	const char* GetErrorMsg() const;
 
@@ -83,7 +86,6 @@ private:
 
 	std::map<std::string, BinaryData> datas_;
 	std::map<std::string, bool> data_dirty_flag_;
-	std::list<std::string> removed_filepaths_;
 	BinaryData data_raw_;
 	const char* error_msg_;
 	bool is_dirty_;

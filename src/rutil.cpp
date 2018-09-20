@@ -342,6 +342,14 @@ bool CheckExtension(const std::string& path, const std::string &filter)
 	return (it != filter_exts.end());
 }
 
+std::string ChangeExtension(const std::string& path, const std::string &new_ext)
+{
+	size_t pos = path.find_last_of('.');
+	if (pos == std::string::npos)
+		return path + "." + new_ext;
+	return path.substr(0, pos + 1) + new_ext;
+}
+
 uint32_t ReadLE32(const unsigned char* p)
 {
     return p[0] | (p[1] << 8) | (p[2] << 16) | (p[3] << 24);

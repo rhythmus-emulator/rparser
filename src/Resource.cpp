@@ -3,6 +3,9 @@
 #include "Resource.h"
 #include "Resource.h"
 #include "Resource.h"
+#include "Resource.h"
+#include "Resource.h"
+#include "Resource.h"
 
 namespace rparser
 {
@@ -251,6 +254,22 @@ void Resource::SetPath(const char * filepath)
 const std::string Resource::GetPath() const
 {
 	return path_;
+}
+
+void Resource::SetExtension(const char * extension)
+{
+	path_ = rutil::ChangeExtension(path_, extension);
+	file_ext_ = extension;
+}
+
+void Resource::SetResourceType(RESOURCE_TYPE rtype)
+{
+	resource_type_ = rtype;
+}
+
+RESOURCE_TYPE Resource::GetResourceType() const
+{
+	return resource_type_;
 }
 
 const char * Resource::GetErrorMsg() const

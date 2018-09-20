@@ -30,6 +30,10 @@ enum class SONGTYPE {
 	SM,
 	DTX,
 	OJM,
+
+	// ARCHIVED BMS FILE TYPE.
+	// not allowed on chart type.
+	BMSARCH,
 };
 
 class Chart;
@@ -104,7 +108,8 @@ public:
 
 	// @description
 	// Change(convert) song type to other, including file extension.
-	bool SetSongType(SONGTYPE songtype);
+	// WARNING: This may involve real file I/O.
+	bool ChangeSongType(SONGTYPE songtype);
 
 	std::string toString() const;
     Song();
@@ -119,7 +124,9 @@ private:
 
 
 
-std::string GetSongTypeExtension(SONGTYPE iType);
+const char* GetChartExtension(SONGTYPE iType);
+const char* GetSongExtension(SONGTYPE iType);
+RESOURCE_TYPE GetSongResourceType(SONGTYPE iType);
 
 }
 

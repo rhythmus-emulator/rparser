@@ -94,8 +94,9 @@ std::string GetDirectory(const std::string& path);
 std::string GetParentDirectory(const std::string& path);
 std::string GetFilename(const std::string& path);
 std::string GetExtension(const std::string& path, std::string *sOutName=0);
-std::string GetPathJoin(const std::string& s1, const std::string s2);
 bool CheckExtension(const std::string& path, const std::string &filter);
+std::string ChangeExtension(const std::string& path, const std::string &new_ext);
+std::string GetPathJoin(const std::string& s1, const std::string s2);
 
 
 

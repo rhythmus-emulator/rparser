@@ -12,11 +12,13 @@ using namespace rutil;
 #define RPARSER_SONG_ERROR_CHART			"Invalid chart file."
 #define RPARSER_SONG_ERROR_SAVE_CHART		"Failed to generate chart file."
 #define RPARSER_SONG_ERROR_SAVE_METADATA	"Failed to save metadata."
+#define RPARSER_SONG_ERROR_SAVE_FILE		"Failed to save file (general I/O error)"
 
 
 namespace rparser
 {
 
+// used when detecting chart file / inferencing song type
 const std::list<std::pair<SONGTYPE, const char*>> type_2_ext_ = {
 	{SONGTYPE::BMS, "bms"},
 	{SONGTYPE::BMS, "bme"},
@@ -110,6 +112,8 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 				songtype_ = ii.first;
 			}
 		}
+		// if resource is archive file and SONGTYPE::BMS,
+		// then change type to SONGTYPE::BMSARCH
 		if (songtype_ == SONGTYPE::NONE)
 		{
 			errormsg_ = RPARSER_SONG_ERROR_NOCHART;
@@ -141,20 +145,27 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 	return true;
 }
 
+#define SAVE_CHART_CODE\
+			if (c->IsDirty())						\
+			{										\
+				Resource::BinaryData data;			\
+				if (!c->MakeBinaryData(&data))		\
+				{									\
+					errormsg_ = RPARSER_SONG_ERROR_SAVE_CHART;\
+					return false;					\
+				}									\
+				resource_.AllocateBinary(c->GetFilePath(), data.p, data.len, true, false);\
+			}
+
 bool Song::Save()
 {
 	// Only update dirty charts
-	for (Chart *c : charts_)
+	// (no need to update binary data in case of binary type)
+	if (resource_.GetResourceType() != RESOURCE_TYPE::BINARY)
 	{
-		if (c->IsDirty())
+		for (Chart *c : charts_)
 		{
-			Resource::BinaryData data;
-			if (!c->MakeBinaryData(&data))
-			{
-				errormsg_ = RPARSER_SONG_ERROR_SAVE_CHART;
-				return false;
-			}
-			resource_.AllocateBinary(c->GetFilePath(), data.p, data.len, true, false);
+			SAVE_CHART_CODE;
 		}
 	}
 
@@ -215,7 +226,7 @@ bool Song::SaveMetadata()
 	return true;
 }
 
-bool Song::SetSongType(SONGTYPE songtype)
+bool Song::ChangeSongType(SONGTYPE songtype)
 {
 	// make it easy
 	if (songtype == songtype_)
@@ -223,13 +234,27 @@ bool Song::SetSongType(SONGTYPE songtype)
 
 	// keep consistency for all charts
 	// and need to rename extension.
-	songtype_ = songtype;
-	for (Chart *c : charts)
+	for (Chart *c : charts_)
 	{
 		c->SetSongType(songtype);
-		c->RenameExtension(GetSongTypeExtension(songtype));
+		c->RenameExtension(GetChartExtension(songtype));
 	}
 
+	// If original type was binary file (e.g. VOS),
+	// There might be no binary data stored in chart.
+	// To prevent that case, save binary data here.
+	SAVE_CHART_CODE;
+
+	// Change Resource extension first and save.
+	resource_.SetExtension(GetSongExtension(songtype));
+	resource_.SetResourceType(GetSongResourceType(songtype));
+	if (!resource_.Flush())
+	{
+		errormsg_ = RPARSER_SONG_ERROR_SAVE_FILE;
+		return false;
+	}
+
+	songtype_ = songtype;
 	return true;
 }
 
@@ -269,7 +294,7 @@ std::string Song::toString() const
 {
 	std::stringstream ss;
 	ss << "Song path: " << GetPath() << std::endl;
-	ss << "Song type: " << GetSongTypeExtension(songtype_) << std::endl;
+	ss << "Song type: " << GetChartExtension(songtype_) << std::endl;
 	ss << "Chart count: " << charts_.size() << std::endl << std::endl;
 	for (auto c : charts_)
 	{
@@ -278,11 +303,12 @@ std::string Song::toString() const
 	return ss.str();
 }
 
-std::string GetSongTypeExtension(SONGTYPE iType)
+const char* GetChartExtension(SONGTYPE iType)
 {
 	static const std::map<SONGTYPE, const char*> type_2_str_ = {
 		{SONGTYPE::BMS, "bms"},
 		{SONGTYPE::BMSON, "bmson"},
+		{SONGTYPE::BMSARCH, "bms"},
 		{SONGTYPE::VOS, "vos"},
 		{SONGTYPE::OSU, "osu"},
 		{SONGTYPE::SM, "sm"},
@@ -292,6 +318,45 @@ std::string GetSongTypeExtension(SONGTYPE iType)
 	// this function should ensure no-exception
 	// by supplying string for all types of SONGTYPE.
 	return type_2_str_.find(iType)->second;
+}
+
+const char* GetSongExtension(SONGTYPE iType)
+{
+	// not include directory type extension,
+	// it'll return empty string.
+
+	static const std::map<SONGTYPE, const char*> type_2_ext_ = {
+		{SONGTYPE::BMSARCH, "zip"},
+		{SONGTYPE::VOS, "vos"},
+		{SONGTYPE::OSU, "osu"},
+		{SONGTYPE::OJM, "ojm"},
+		{SONGTYPE::DTX, "dtx"},
+	};
+
+	auto ii = type_2_ext_.find(iType);
+	if (ii == type_2_ext_.end())
+		return "";
+	else
+		return ii->second;
+}
+
+RESOURCE_TYPE GetSongResourceType(SONGTYPE iType)
+{
+	switch (iType)
+	{
+	case SONGTYPE::BMS:
+	case SONGTYPE::BMSON:
+	case SONGTYPE::SM:
+		return RESOURCE_TYPE::FOLDER;
+	case SONGTYPE::OSU:
+	case SONGTYPE::OJM:
+	case SONGTYPE::BMSARCH:
+	case SONGTYPE::DTX:
+		return RESOURCE_TYPE::ARCHIVE;
+	case SONGTYPE::VOS:
+		return RESOURCE_TYPE::BINARY;
+	}
+	return RESOURCE_TYPE::NONE;
 }
 
 
