@@ -101,7 +101,10 @@ public:
 
 	void SetPath(const std::string& path);
 	const std::string GetPath() const;
-	void SetSongType(SONGTYPE songtype);
+
+	// @description
+	// Change(convert) song type to other, including file extension.
+	bool SetSongType(SONGTYPE songtype);
 
 	std::string toString() const;
     Song();

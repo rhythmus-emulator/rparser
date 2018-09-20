@@ -83,6 +83,7 @@ private:
 
 	std::map<std::string, BinaryData> datas_;
 	std::map<std::string, bool> data_dirty_flag_;
+	std::list<std::string> removed_filepaths_;
 	BinaryData data_raw_;
 	const char* error_msg_;
 	bool is_dirty_;

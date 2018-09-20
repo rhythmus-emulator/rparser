@@ -157,12 +157,14 @@ bool Song::Save()
 			resource_.AllocateBinary(c->GetFilePath(), data.p, data.len, true, false);
 		}
 	}
+
 	// save metadata, in case of need.
 	if (!SaveMetadata())
 	{
 		errormsg_ = RPARSER_SONG_ERROR_SAVE_METADATA;
 		return false;
 	}
+
 	// flush (save to real file)
 	resource_.Flush();
 	return true;
@@ -213,6 +215,24 @@ bool Song::SaveMetadata()
 	return true;
 }
 
+bool Song::SetSongType(SONGTYPE songtype)
+{
+	// make it easy
+	if (songtype == songtype_)
+		return true;
+
+	// keep consistency for all charts
+	// and need to rename extension.
+	songtype_ = songtype;
+	for (Chart *c : charts)
+	{
+		c->SetSongType(songtype);
+		c->RenameExtension(GetSongTypeExtension(songtype));
+	}
+
+	return true;
+}
+
 void Song::SetPath(const std::string & path)
 {
 	// Set new path for Resource
@@ -223,10 +243,6 @@ void Song::SetPath(const std::string & path)
 const std::string Song::GetPath() const
 {
 	return resource_.GetPath();
-}
-
-void Song::SetSongType(SONGTYPE songtype)
-{
 }
 
 const std::vector<Chart*>* Song::GetCharts() const
