@@ -53,6 +53,7 @@ bool Resource::Open(const char * filepath, const char * encoding, const char* fi
 		dirpath_ = filepath + (path_[path_.size()-1]=='/'?"":"/");
 		rutil::DirFileList files;
 		rutil::GetDirectoryFiles(filepath, files);
+		resource_type_ = RESOURCE_TYPE::FOLDER;
 		return Open_dir(files);
 	}
 	else
@@ -63,6 +64,12 @@ bool Resource::Open(const char * filepath, const char * encoding, const char* fi
 			error_msg_ = RPARSER_ERROR_READ;
 			return false;
 		}
+		// Before attempt Open_fp,
+		// Try extension check for binary file reading.
+		if (file_ext_ == "zip")
+			resource_type_ = RESOURCE_TYPE::ARCHIVE;
+		else if (file_ext_ == "vos")
+			resource_type_ = RESOURCE_TYPE::VOSBINARY;
 		bool r = Open_fp(fp, encoding, filter_ext);
 		fclose(fp);
 		return r;
@@ -82,20 +89,28 @@ void Resource::Read_fp(FILE *fp, BinaryData &d)
 
 bool Resource::Open_fp(FILE * fp)
 {
-	// check extension whether it is archive file or not
-	if (rutil::lower(file_ext_) == "zip")
+	switch (resource_type_)
 	{
+	case RESOURCE_TYPE::ARCHIVE:
 #ifdef USE_ZLIB
 		return Load_from_zip(fp);
 #else
 		error_msg_ = RPARSER_ERROR_READ;
 		return false;
 #endif
+	case RESOURCE_TYPE::VOSBINARY:
+		assert(0);
+		return false;
 	}
 	// if it's not archive file, then it's a simple single binary file.
+	// check for availabity.
+	if (resource_type_ == RESOURCE_TYPE::NONE)
+	{
+		return false;
+	}
 	// just read the whole bulk file.
 	Read_fp(fp, data_raw_);
-	resource_type_ = RESOURCE_TYPE::BINARY;
+	resource_type_ = RESOURCE_TYPE::VOSBINARY;
 	return true;
 }
 
@@ -120,10 +135,6 @@ bool Resource::Open_dir(rutil::DirFileList files_)
 		fclose(fp);
 		datas_[ii.first] = d;
 		data_dirty_flag_[ii.first] = false;
-	}
-	if (r)
-	{
-		resource_type_ = RESOURCE_TYPE::FOLDER;
 	}
 	return r;
 }
@@ -248,7 +259,7 @@ void Resource::SetPath(const char * filepath)
 {
 	path_ = rutil::CleanPath(filepath);
 	dirpath_ = rutil::GetDirectory(path_);
-	file_ext_ = rutil::GetExtension(path_);
+	file_ext_ = rutil::lower(rutil::GetExtension(path_));
 }
 
 const std::string Resource::GetPath() const

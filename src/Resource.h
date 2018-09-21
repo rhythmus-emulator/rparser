@@ -16,7 +16,8 @@ enum class RESOURCE_TYPE
 	NONE,
 	FOLDER,
 	ARCHIVE,
-	BINARY
+	// special file format for VOS
+	VOSBINARY,
 };
 
 class Resource
@@ -80,7 +81,9 @@ public:
 	const char* GetRawPtr(int &len) const;
 private:
 	std::string path_;
+	// directory path of opened file.
 	std::string dirpath_;
+	// gurantees lowered string.
 	std::string file_ext_;
 	RESOURCE_TYPE resource_type_;
 
@@ -95,7 +98,7 @@ private:
 	void Read_fp(FILE *fp, BinaryData &d);
 	bool Open_fp(FILE *fp);
 	bool Open_dir(rutil::DirFileList files_);
-#ifdef USE_ZILB
+#ifdef USE_ZLIB
 	bool Load_from_zip(FILE *fp);	// TODO
 	bool WriteZip();	// TODO
 #endif

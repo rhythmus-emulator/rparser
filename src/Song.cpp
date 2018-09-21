@@ -13,6 +13,7 @@ using namespace rutil;
 #define RPARSER_SONG_ERROR_SAVE_CHART		"Failed to generate chart file."
 #define RPARSER_SONG_ERROR_SAVE_METADATA	"Failed to save metadata."
 #define RPARSER_SONG_ERROR_SAVE_FILE		"Failed to save file (general I/O error)"
+#define RPARSER_SONG_ERROR_RENAME_FILE		"Failed to rename file (general I/O error)"
 
 
 namespace rparser
@@ -160,14 +161,12 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 bool Song::Save()
 {
 	// Only update dirty charts
-	// (no need to update binary data in case of binary type)
-	if (resource_.GetResourceType() != RESOURCE_TYPE::BINARY)
+	for (Chart *c : charts_)
 	{
-		for (Chart *c : charts_)
-		{
-			SAVE_CHART_CODE;
-		}
+		SAVE_CHART_CODE;
 	}
+
+	// READ FROM BINARY IN CASE OF THIS.
 
 	// save metadata, in case of need.
 	if (!SaveMetadata())
@@ -234,16 +233,20 @@ bool Song::ChangeSongType(SONGTYPE songtype)
 
 	// keep consistency for all charts
 	// and need to rename extension.
+	std::string org_rel_path, new_rel_path;
 	for (Chart *c : charts_)
 	{
 		c->SetSongType(songtype);
+		org_rel_path = c->GetRelPath();
 		c->RenameExtension(GetChartExtension(songtype));
+		new_rel_path = c->GetRelPath();
+		if (!resource_.Rename(org_rel_path, new_rel_path))
+		{
+			errormsg_ = RPARSER_SONG_ERROR_RENAME_FILE;
+			errormsg_detailed_ = org_rel_path + " to " + new_rel_path;
+			return false;
+		}
 	}
-
-	// If original type was binary file (e.g. VOS),
-	// There might be no binary data stored in chart.
-	// To prevent that case, save binary data here.
-	SAVE_CHART_CODE;
 
 	// Change Resource extension first and save.
 	resource_.SetExtension(GetSongExtension(songtype));
@@ -251,6 +254,7 @@ bool Song::ChangeSongType(SONGTYPE songtype)
 	if (!resource_.Flush())
 	{
 		errormsg_ = RPARSER_SONG_ERROR_SAVE_FILE;
+		errormsg_detailed_.clear();
 		return false;
 	}
 
@@ -309,10 +313,14 @@ const char* GetChartExtension(SONGTYPE iType)
 		{SONGTYPE::BMS, "bms"},
 		{SONGTYPE::BMSON, "bmson"},
 		{SONGTYPE::BMSARCH, "bms"},
-		{SONGTYPE::VOS, "vos"},
 		{SONGTYPE::OSU, "osu"},
 		{SONGTYPE::SM, "sm"},
 		{SONGTYPE::OJM, "ojm"},
+
+		// binary type: return ext "chart"
+		{SONGTYPE::VOS, "chart"},
+
+		// nonetype (dummy)
 		{SONGTYPE::NONE, ""},
 	};
 	// this function should ensure no-exception
@@ -354,7 +362,7 @@ RESOURCE_TYPE GetSongResourceType(SONGTYPE iType)
 	case SONGTYPE::DTX:
 		return RESOURCE_TYPE::ARCHIVE;
 	case SONGTYPE::VOS:
-		return RESOURCE_TYPE::BINARY;
+		return RESOURCE_TYPE::VOSBINARY;
 	}
 	return RESOURCE_TYPE::NONE;
 }
