@@ -63,7 +63,7 @@ public:
 	const char* GetErrorMsg() const;
 
 	bool IsLoaded();
-	void AddBinary(std::string &name, char *p, int len, bool setdirty=true, bool copy=false);
+	void AddBinary(std::string &name, char *p, unsigned int len, bool setdirty=true, bool copy=false);
 	bool AddFile(std::string &name, std::string &filename, bool setdirty=true);
 	bool Rename(std::string &prev_name, std::string &new_name);
 	bool Delete(std::string &name);
@@ -76,7 +76,7 @@ public:
 	// Some file (ex: lr2course, vos) won't behave in form of multiple file.
 	// In this case, we use data-ptr reserved for raw format
 	// instead of data-key mapping list.
-	void AllocateRawBinary(char *p, int len, bool copy=false);
+	void AllocateRawBinary(char *p, unsigned int len, bool copy=false);
 	const BinaryData* GetRawPtr() const;
 	const char* GetRawPtr(int &len) const;
 private:
@@ -95,9 +95,19 @@ private:
 
 	std::string filter_ext_;
 	std::string encoding_;
-	void Read_fp(FILE *fp, BinaryData &d);
+	// general file reading function (from file handle)
 	bool Open_fp(FILE *fp);
+	// general file reading function (from directory)
 	bool Open_dir(rutil::DirFileList files_);
+
+	// read file from fp and write to BinaryData, allocating memory.
+	void Read_fp(FILE *fp, BinaryData &d);
+	// hidden method
+	bool _Read_VOS(FILE *fp);
+	bool _Read_VOS_v2(FILE *fp);
+	bool _Read_VOS_v3(FILE *fp);
+	bool _Write_VOS_v3(FILE *fp);
+
 #ifdef USE_ZLIB
 	bool Load_from_zip(FILE *fp);	// TODO
 	bool WriteZip();	// TODO

@@ -1,3 +1,5 @@
+* text   eol=lf
 *.bms    binary
 *.bme    binary
 *.bml    binary
+*.vos    binary

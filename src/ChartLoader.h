@@ -55,8 +55,8 @@ public:
 };
 
 
-int LoadChart( const std::string& fn, SONGTYPE songtype = SONGTYPE::UNKNOWN );
-int LoadChart( const void* p, int iLen, SONGTYPE songtype = SONGTYPE::UNKNOWN );
+int LoadChart( const std::string& fn, SONGTYPE songtype = SONGTYPE::NONE );
+int LoadChart( const void* p, int iLen, SONGTYPE songtype = SONGTYPE::NONE );
 
 }
 

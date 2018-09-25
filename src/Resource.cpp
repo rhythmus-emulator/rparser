@@ -23,6 +23,12 @@ namespace rparser
 #define RPARSER_ERROR_RENAME		"Cannot rename file."
 #define RPARSER_ERROR_DELETE		"Cannot delete file."
 
+inline void _allocate_binarydata(Resource::BinaryData &d, unsigned int len)
+{
+	d.len = len;
+	d.p = (char*)malloc(len);
+}
+
 Resource::Resource():
 	error_msg_(0),
 	is_dirty_(false),
@@ -138,6 +144,92 @@ bool Resource::Open_dir(rutil::DirFileList files_)
 	}
 	return r;
 }
+
+// --
+// VOS file read / write
+// --
+
+// not analyze chart,
+// but just read whole charts and metadata.
+bool Resource::_Read_VOS(FILE *fp)
+{
+	unsigned int vos_version;
+	fread(&vos_version, 4, 1, fp);
+	if (vos_version == 2)
+	{
+		return _Read_VOS_v2(fp);
+	}
+	else if (vos_verson == 3)
+	{
+		return _Read_VOS_v3(fp);
+	}
+	// unsupported version
+	error_msg_ = RPARSER_ERROR_READ;
+	return false;
+}
+
+struct vos_header_v2_s
+{
+	unsigned int filename_size;
+	char filename[12];
+	unsigned int filesize;
+};
+
+bool Resource::_Read_VOS_v2(FILE *fp)
+{
+	BinaryData d;
+	vos_header_v2_s vos_header;
+	// vos file
+	fread(&vos_header, sizeof(vos_header_v2_s), 1, fp);
+	_allocate_binarydata(d, vos_header.filesize);
+	fread(d.p, 1, d.len, fp);
+	AddBinary("Vosctemp.trk", d.p, d.len, false, false);
+	// midi file
+	fread(&vos_header, sizeof(vos_header_v2_s), 1, fp);
+	_allocate_binarydata(d, vos_header.filesize);
+	fread(d.p, 1, d.len, fp);
+	AddBinary("Vosctemp.mid", d.p, d.len, false, false);
+}
+
+struct vos_header_v3_s
+{
+	unsigned int header_size;	// useless
+
+	char inf_flag[16];			// useless, just checking
+	unsigned int offset_inf;	// end of INF file
+	char mid_flag[16];
+	unsigned int offset_mid;	// end of MID file
+	char eof_flag[16];			// empty area (EOF string flag)
+};
+
+bool Resource::_Read_VOS_v3(FILE *fp)
+{
+	// .inf file format
+	BinaryData d;
+	vos_header_v3_s vos_header;
+	fread(&vos_header, sizeof(vos_header_v3_s), 1, fp);
+	// read inf file
+	_allocate_binarydata(d, vos_header.offset_inf - vos_header.header_size);
+	fread(d.p, 1, d.len, fp);
+	// check out for VOS1 signature before adding binary
+	if (memcmp(d.p, "VOS1", 4) == 0)
+	{
+		AddBinary("Vosctemp.inf", d.p+46, d.len-46, false, true);
+		free(d.p);
+	}
+	else
+	{
+		AddBinary("Vosctemp.inf", d.p, d.len, false, false);
+	}
+	// read mid file
+	_allocate_binarydata(d, vos_header.offset_mid - vos_header.offset_inf);
+	fread(d.p, 1, d.len, fp);
+	AddBinary("Vosctemp.mid", d.p, d.len, false, false);
+}
+
+// --
+// VOS file read / write end
+// --
 
 #ifdef USE_ZLIB
 bool Resource::Load_from_zip(FILE * fp)
@@ -293,7 +385,7 @@ bool Resource::IsLoaded()
 	return (resource_type_ != RESOURCE_TYPE::NONE);
 }
 
-void Resource::AddBinary(std::string & name, char * p, int len, bool setdirty, bool copy)
+void Resource::AddBinary(std::string & name, char * p, unsigned int len, bool setdirty, bool copy)
 {
 	BinaryData d;
 	if (copy)
@@ -402,7 +494,7 @@ void Resource::FilterFiles(const char * filters, std::map<std::string, const Bin
 	}
 }
 
-void Resource::AllocateRawBinary(char * p, int len, bool copy)
+void Resource::AllocateRawBinary(char * p, unsigned int len, bool copy)
 {
 	BinaryData d;
 	if (copy)
