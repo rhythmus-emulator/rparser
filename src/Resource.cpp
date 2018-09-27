@@ -420,7 +420,7 @@ bool Resource::IsLoaded()
 	return (resource_type_ != RESOURCE_TYPE::NONE);
 }
 
-void Resource::AddBinary(std::string & name, char * p, unsigned int len, bool setdirty, bool copy)
+void Resource::AddBinary(const std::string & name, char * p, unsigned int len, bool setdirty, bool copy)
 {
 	BinaryData d;
 	if (copy)
@@ -438,7 +438,7 @@ void Resource::AddBinary(std::string & name, char * p, unsigned int len, bool se
 	is_dirty |= setdirty;
 }
 
-bool Resource::AddFile(std::string & name, std::string & filename, bool setdirty)
+bool Resource::AddFile(const std::string & name, const std::string & filename, bool setdirty)
 {
 	FILE *fp = rutil::fopen_utf8(name, "rb");
 	if (!fp)
@@ -453,7 +453,7 @@ bool Resource::AddFile(std::string & name, std::string & filename, bool setdirty
 	return true;
 }
 
-bool Resource::Rename(std::string & prev_name, std::string & new_name)
+bool Resource::Rename(const std::string & prev_name, const std::string & new_name)
 {
 	auto it = datas_.find(prev_name);
 	if (it == datas_.end())
@@ -478,7 +478,7 @@ bool Resource::Rename(std::string & prev_name, std::string & new_name)
 	return true;
 }
 
-bool Resource::Delete(std::string & name)
+bool Resource::Delete(const std::string & name)
 {
 	auto it = datas_.find(prev_name);
 	if (it == datas_.end())
@@ -501,7 +501,7 @@ bool Resource::Delete(std::string & name)
 	return true;
 }
 
-const Resource::BinaryData * Resource::GetPtr(std::string & name) const
+const Resource::BinaryData * Resource::GetPtr(const std::string & name) const
 {
 	auto ii = datas_.find(name);
 	if (ii == datas_.end())
@@ -510,7 +510,7 @@ const Resource::BinaryData * Resource::GetPtr(std::string & name) const
 		return &ii->second;
 }
 
-const char * Resource::GetPtr(std::string & name, int & len) const
+const char * Resource::GetPtr(const std::string & name, int & len) const
 {
 	const Resource::BinaryData* d = GetPtr(name);
 	len = d->len;

@@ -238,14 +238,11 @@ bool Song::ChangeSongType(SONGTYPE songtype)
 	{
 		c->SetSongType(songtype);
 		org_rel_path = c->GetRelPath();
-		c->RenameExtension(GetChartExtension(songtype));
-		new_rel_path = c->GetRelPath();
-		if (!resource_.Rename(org_rel_path, new_rel_path))
-		{
-			errormsg_ = RPARSER_SONG_ERROR_RENAME_FILE;
-			errormsg_detailed_ = org_rel_path + " to " + new_rel_path;
+		new_rel_path = rutil::ChangeExtension(org_rel_path, GetChartExtension(songtype));
+		// as RenameChart() func is public function,
+		// errormsg_ is set. don't reset it.
+		if (!RenameChart(c, new_rel_path))
 			return false;
-		}
 	}
 
 	// Change Resource extension first and save.
@@ -259,6 +256,18 @@ bool Song::ChangeSongType(SONGTYPE songtype)
 	}
 
 	songtype_ = songtype;
+	return true;
+}
+
+bool Song::RenameChart(const Chart* c, const std::string& new_filepath)
+{
+	const std::string&& org_rel_path = c->GetRelPath();
+	if (!resource_.Rename(org_rel_path, new_filepath))
+	{
+		errormsg_ = RPARSER_SONG_ERROR_RENAME_FILE;
+		errormsg_detailed_ = org_rel_path + " to " + new_filepath + "\n" + resource_.GetErrorMsg();
+		return false;
+	}
 	return true;
 }
 

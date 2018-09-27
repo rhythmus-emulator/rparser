@@ -63,12 +63,12 @@ public:
 	const char* GetErrorMsg() const;
 
 	bool IsLoaded();
-	void AddBinary(std::string &name, char *p, unsigned int len, bool setdirty=true, bool copy=false);
-	bool AddFile(std::string &name, std::string &filename, bool setdirty=true);
-	bool Rename(std::string &prev_name, std::string &new_name);
-	bool Delete(std::string &name);
-	const BinaryData* GetPtr(std::string &name) const;
-	const char* GetPtr(std::string &name, int &len) const;
+	void AddBinary(const std::string &name, char *p, unsigned int len, bool setdirty=true, bool copy=false);
+	bool AddFile(const std::string &name, const std::string &filename, bool setdirty=true);
+	bool Rename(const std::string &prev_name, const std::string &new_name);
+	bool Delete(const std::string &name);
+	const BinaryData* GetPtr(const std::string &name) const;
+	const char* GetPtr(const std::string &name, int &len) const;
 	// Filter out files
 	void FilterFiles(const char* filters,
 		std::map<std::string, const BinaryData*>& chart_files);
