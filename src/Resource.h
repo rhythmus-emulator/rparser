@@ -106,7 +106,7 @@ private:
 	bool _Read_VOS(FILE *fp);
 	bool _Read_VOS_v2(FILE *fp);
 	bool _Read_VOS_v3(FILE *fp);
-	bool _Write_VOS_v3(FILE *fp);
+	bool _Write_VOS_v2(FILE *fp);
 
 #ifdef USE_ZLIB
 	bool Load_from_zip(FILE *fp);	// TODO

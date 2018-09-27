@@ -10,7 +10,7 @@
 namespace rparser
 {
 
-// Error flags ...
+	// Error flags ...
 #define RPARSER_ERROR_NOFILE		"No file exists, or file isn't openable."
 #define RPARSER_ERROR_DIR			"Cannot read directory."
 #define RPARSER_ERROR_READ			"File found, but it's not suitable for opening."
@@ -19,6 +19,7 @@ namespace rparser
 	" Or, is disk space enough or permission allowed?"
 #define RPARSER_ERROR_WRITE_NONE	"Cannot write file. Call Create() before writing."
 #define RPARSER_ERROR_WRITE_FORMAT	"Cannot write file. Unsupported format."
+#define RPARSER_ERROR_WRITE_VOS		"Cannot write file (vos). Vosctemp.trk not exists (internal error)."
 #define RPARSER_ERROR_CREATE		"Cannot create file. Please close before create."
 #define RPARSER_ERROR_RENAME		"Cannot rename file."
 #define RPARSER_ERROR_DELETE		"Cannot delete file."
@@ -29,7 +30,7 @@ inline void _allocate_binarydata(Resource::BinaryData &d, unsigned int len)
 	d.p = (char*)malloc(len);
 }
 
-Resource::Resource():
+Resource::Resource() :
 	error_msg_(0),
 	is_dirty_(false),
 	resource_type_(RESOURCE_TYPE::NONE)
@@ -56,7 +57,7 @@ bool Resource::Open(const char * filepath, const char * encoding, const char* fi
 	// if not, attempt to read it archive or not.
 	if (rutil::IsDirectory(filepath))
 	{
-		dirpath_ = filepath + (path_[path_.size()-1]=='/'?"":"/");
+		dirpath_ = filepath + (path_[path_.size() - 1] == '/' ? "" : "/");
 		rutil::DirFileList files;
 		rutil::GetDirectoryFiles(filepath, files);
 		resource_type_ = RESOURCE_TYPE::FOLDER;
@@ -178,15 +179,15 @@ struct vos_header_v2_s
 bool Resource::_Read_VOS_v2(FILE *fp)
 {
 	BinaryData d;
-	vos_header_v2_s vos_header;
+	vos_header_v2_s vos_header_v2;
 	// vos file
 	fread(&vos_header, sizeof(vos_header_v2_s), 1, fp);
-	_allocate_binarydata(d, vos_header.filesize);
+	_allocate_binarydata(d, vos_header_v2.filesize);
 	fread(d.p, 1, d.len, fp);
 	AddBinary("Vosctemp.trk", d.p, d.len, false, false);
 	// midi file
 	fread(&vos_header, sizeof(vos_header_v2_s), 1, fp);
-	_allocate_binarydata(d, vos_header.filesize);
+	_allocate_binarydata(d, vos_header_v2.filesize);
 	fread(d.p, 1, d.len, fp);
 	AddBinary("Vosctemp.mid", d.p, d.len, false, false);
 }
@@ -206,15 +207,15 @@ bool Resource::_Read_VOS_v3(FILE *fp)
 {
 	// .inf file format
 	BinaryData d;
-	vos_header_v3_s vos_header;
-	fread(&vos_header, sizeof(vos_header_v3_s), 1, fp);
+	vos_header_v3_s vos_header_v3;
+	fread(&vos_header_v3, sizeof(vos_header_v3_s), 1, fp);
 	// read inf file
-	_allocate_binarydata(d, vos_header.offset_inf - vos_header.header_size);
+	_allocate_binarydata(d, vos_header_v3.offset_inf - vos_header_v3.header_size);
 	fread(d.p, 1, d.len, fp);
 	// check out for VOS1 signature before adding binary
 	if (memcmp(d.p, "VOS1", 4) == 0)
 	{
-		AddBinary("Vosctemp.inf", d.p+46, d.len-46, false, true);
+		AddBinary("Vosctemp.inf", d.p + 46, d.len - 46, false, true);
 		free(d.p);
 	}
 	else
@@ -222,9 +223,43 @@ bool Resource::_Read_VOS_v3(FILE *fp)
 		AddBinary("Vosctemp.inf", d.p, d.len, false, false);
 	}
 	// read mid file
-	_allocate_binarydata(d, vos_header.offset_mid - vos_header.offset_inf);
+	_allocate_binarydata(d, vos_header_v3.offset_mid - vos_header_v3.offset_inf);
 	fread(d.p, 1, d.len, fp);
 	AddBinary("Vosctemp.mid", d.p, d.len, false, false);
+}
+
+bool Resource::_Write_VOS_v2(FILE *fp)
+{
+	vos_header_v2_s vos_header_v2;
+	const static char* VOS_SIG = [2, 0, 0, 0];
+	const BinaryData *d_trk, *d_mid;
+
+	// write signature
+	fwrite(VOS_SIG, 4, 1, fp);
+
+	d_trk = GetPtr("Vosctemp.trk");
+	d_mid = GetPtr("Vosctemp.mid");
+	if (!d_trk || !d_mid)
+	{
+		error_msg_ = RPARSER_ERROR_WRITE_VOS;
+		return false;
+	}
+
+	// write VOS file
+	memcpy(vos_header_v2.filename, "Vosctemp.trk", 12);
+	vos_header_v2.filename_size = 12;
+	vos_header_v2.filesize = d_trk->len;
+	fwrite(&vos_header_v2, sizeof(vos_header_v2_s), 1, fp);
+	fwrite(d_trk->p, 1, d_trk->len, fp);
+	
+	// write MID file
+	memcpy(vos_header_v2.filename, "Vosctemp.mid", 12);
+	vos_header_v2.filename_size = 12;
+	vos_header_v2.filesize = d_mid->len;
+	fwrite(&vos_header_v2, sizeof(vos_header_v2_s), 1, fp);
+	fwrite(d_mid->p, 1, d_mid->len, fp);
+
+	return true;
 }
 
 // --
