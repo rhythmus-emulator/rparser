@@ -5,7 +5,7 @@
 #ifndef RPARSER_CHART_H
 #define RPARSER_CHART_H
 
-#include "NoteData.h"
+#include "ChartData.h"
 #include "MetaData.h"
 #include "TimingData.h"
 #include <sstream>
@@ -36,10 +36,10 @@ public:
 	bool Load(const char* data, unsigned int len);
 
     const MetaData* GetMetaData() const;
-    const NoteData* GetNoteData() const;
+    const ChartData* GetChartData() const;
     const TimingData* GetTimingData() const;
     MetaData* GetMetaData();
-    NoteData* GetNoteData();
+	ChartData* GetChartData();
     TimingData* GetTimingData();
 
     std::string GetFilePath() const;
@@ -66,8 +66,7 @@ public:
     Chart();
     Chart(Chart* c);
 private:
-    MetaData metadata_;
-    NoteData notedata_;
+    ChartData chartdata_;
     TimingData timingdata_;
 
     // chart status structure

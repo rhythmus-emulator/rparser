@@ -2,27 +2,30 @@
  * by @lazykuna, MIT License.
  */
 
-#ifndef RPARSER_NOTEDATA_H
-#define RPARSER_NOTEDATA_H
+#ifndef RPARSER_CHARTDATA_H
+#define RPARSER_CHARTDATA_H
 
+#include "MetaData.h"
 #include <map>
 #include <vector>
 #include <algorithm>
 
 /*
  * NOTE:
- * NoteData stores note object in semantic objects, not raw object.
+ * ChartData stores note object in semantic objects, not raw object.
  * These modules written below does not contain status about current modification.
  */
 
 
-namespace rparser {
+namespace rparser
+{
 
 /*
  * @description
  * Soundable/Renderable, or tappable object.
  */
-enum class TRACKTYPE {
+enum class TRACKTYPE
+{
     TRACK_EMPTY,
     TRACK_TAP,           // Simple note object (key input)
 	TRACK_TOUCH,         // Osu like object (touch input)
@@ -34,7 +37,8 @@ enum class TRACKTYPE {
 
 // These types are also appliable to TOUCH / VEFX type also.
 // COMMENT: NoteTapType has lane information at 0xF0!
-enum class NoteType {
+enum class NoteType
+{
     NOTE_EMPTY,
     NOTE_TAP,			// general tappable / scorable note
     NOTE_INVISIBLE,		// invisible and no damage, but scorable. changes keysound (bms)
@@ -44,21 +48,20 @@ enum class NoteType {
     NOTE_AUTOPLAY,		// drawn and sound but not judged,
     NOTE_FAKE,			// drawn but not judged nor sound.
     NOTE_COMBOZONE,		// free combo area (Taigo yellow note / DJMAX stick rotating)
-	NOTE_DRAGSTART,		// dragging longnote (start)
-	NOTE_DRAGEND,		// dragging longnote (end).
-	NOTE_CHAINSTART,	// chain longnote (start)
-	NOTE_CHAINEND,		// chain longnote (end).
-	NOTE_REPEATSTART,	// repeat longnote (start)
-	NOTE_REPEATEND,		// repeat longnote (end)
+	NOTE_DRAG,			// dragging longnote (TECHNICA / deemo / SDVX VEFX ...)
+	NOTE_CHAIN,			// chain longnote (TECHNICA / osu)
+	NOTE_REPEAT,		// repeat longnote (TECHNICA)
 };
 
-enum class SoundType {
+enum class SoundType
+{
 	SOUND_NONE,
 	SOUND_WAV,
 	SOUND_MIDI,
 };
 
-enum class BgaType {
+enum class BgaType
+{
     BGA_EMPTY,
     BGA_BASE,
     BGA_MISS,
@@ -66,7 +69,8 @@ enum class BgaType {
 	BGA_LAYER2, /* on and on ... */
 };
 
-enum class TrackSpecialType {
+enum class TrackSpecialType
+{
 	SPC_EMPTY,
 	SPC_REST,			// osu specific type (REST area)
 	SPC_KEYBIND,		// key bind layer (bms #SWBGA)
@@ -102,10 +106,12 @@ typedef unsigned long long trackinfo;
  * Mostly these object has type, position, value.
  * You may need to process these objects properly to make playable objects.
  */
-struct Note {
+struct Note
+{
 	trackinfo track;				// track info (row/type/subtype/idx)
 	rowid length;					// length of note in row (if LN with specified length exists)
     int value;                      // command value
+	int value_end;					// command value (for longnote)
 	int x, y;                       // (in case of TOUCH object)
 
     float volume;
@@ -129,7 +135,8 @@ struct Note {
  * @description
  * Special objects whose position is based on beat.
  */
-enum class TIMINGOBJTYPE {
+enum class TIMINGOBJTYPE
+{
 	TYPE_NONE,
 	TYPE_BPM,
 	TYPE_STOP,
@@ -154,7 +161,8 @@ struct TimingObject
  * Special objects which are queued in time.
  * (currently undefined object)
  */
-enum class ACTIONTYPE {
+enum class ACTIONTYPE
+{
 	TYPE_NONE,
 };
 
@@ -167,17 +175,35 @@ struct Action
 
 
 
+/*
+ * @description
+ * Conditional Flow Statement
+ */
+class ConditionStatement
+{
+public:
+	void AddSentence(unsigned int cond, ChartData* chartdata);
+	ChartData* EvaluateSentence(int seed = -1);
+
+	ConditionStatement(int value, bool israndom, bool isswitchstmt);
+	~ConditionStatement();
+private:
+	int value_;
+	bool israndom_;
+	bool isswitchstmt_;
+	std::map<unsigned int, ChartData*> sentences_;
+};
+
+
 class NoteSelection;
 
 
 /*
  * @description
- * Notedata consists with multiple track(lane), and Track contains Notes.
- * And each note is indexed with 'Row'
- * In case of osu(or touch based)/taigo, all note in First track;
- * - so no meaning in track - but should use multiple track when multitouch. (up to 10)
+ * ChartData consists with track / timingdata / metadatas, parsed for each section.
  */
-class NoteData {
+class ChartData
+{
 /* iterators */
 public:
     typedef std::vector<Note>::iterator noteiter;
@@ -219,6 +245,8 @@ public:
 	const std::vector<Note>* GetNotes() const;
 	const std::vector<TimingObject>* GetTimingObjects() const;
 	const std::vector<Action>* GetActions() const;
+	const MetaData* GetMetaData() const;
+	MetaData* GetMetaData();
 
 
 	// Flush objects at once and sort it rather using AddXX() method for each of them.
@@ -228,6 +256,10 @@ public:
 		std::vector<Action>& actions);
 	// clear all objects. (optional: case statements)
 	void Clear(bool removeStmt = true);
+	// copy and merge objects from other ChartData (without stmt)
+	void Merge(const ChartData &cd, bool overwrite = true, rowid rowFrom = 0);
+	// evaluate all stmt and generate objects (process control flow)
+	void EvaluateStmt();
 
 
 public:
@@ -288,8 +320,9 @@ public:
     
 
 public:
-    NoteData();
-    ~NoteData();
+	ChartData();
+	ChartData(ChartData &nd);
+    ~ChartData();
     std::string const toString();
 
 
@@ -311,6 +344,14 @@ private:
 	 * (TIME based objects; mostly used for special action [undefined])
 	 */
 	std::vector<Action> actions_;
+	/*
+	 * Metadata of this chart section.
+	 */
+	MetaData metadata_;
+	/*
+	 * Conditional flow
+	 */
+	std::vector<ConditionStatement> stmts_;
 };
 
 class NoteSelection
@@ -318,7 +359,7 @@ class NoteSelection
 private:
     // COMMENT: this vector should be in always sorted state
     std::vector<Note*> m_vNotes;
-    friend class NoteData;      // only notedata class can directly access to this object
+    friend class ChartData;      // only chartdata class can directly access to this object
 public:
     void SelectNote(Note* n);
     void UnSelectNote(const Note* n);

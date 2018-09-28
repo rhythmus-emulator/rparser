@@ -11,9 +11,6 @@
 
 namespace rparser {
 
-class NoteData;
-class MetaData;
-
 // BPM, STOP, WARP, MEASURE
 #define NUM_TIMINGOBJECT_TYPE 6
 enum TYPE_TIMINGOBJ {
