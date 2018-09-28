@@ -1,6 +1,5 @@
 #include "Song.h"
 #include "MetaData.h"
-#include "Chart.h"
 #include "ChartLoader.h"
 #include "ChartWriter.h"
 #include <list>
@@ -146,16 +145,16 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 	return true;
 }
 
-#define SAVE_CHART_CODE\
-			if (c->IsDirty())						\
-			{										\
-				Resource::BinaryData data;			\
-				if (!c->MakeBinaryData(&data))		\
-				{									\
-					errormsg_ = RPARSER_SONG_ERROR_SAVE_CHART;\
-					return false;					\
-				}									\
-				resource_.AllocateBinary(c->GetFilePath(), data.p, data.len, true, false);\
+#define SAVE_CHART_CODE																		\
+			if (c->IsDirty())																\
+			{																				\
+				Resource::BinaryData data;													\
+				if (!c->MakeBinaryData(&data))												\
+				{																			\
+					errormsg_ = RPARSER_SONG_ERROR_SAVE_CHART;								\
+					return false;															\
+				}																			\
+				resource_.AllocateBinary(c->GetFilePath(), data.p, data.len, true, false);	\
 			}
 
 bool Song::Save()

@@ -8,68 +8,93 @@
 #include <map>
 #include <vector>
 #include <algorithm>
-#include "TimingData.h"
 
 /*
- * I only concertrates in parsing note objects.
- * Don't care about judging and playing in this code.
+ * NOTE:
+ * NoteData stores note object in semantic objects, not raw object.
+ * These modules written below does not contain status about current modification.
  */
+
 
 namespace rparser {
 
-enum NoteType {
-    // @description does nothing, maybe going to be removed.
+/*
+ * @description
+ * Soundable/Renderable, or tappable object.
+ */
+enum class TRACKTYPE {
+    TRACK_EMPTY,
+    TRACK_TAP,           // Simple note object (key input)
+	TRACK_TOUCH,         // Osu like object (touch input)
+	TRACK_VEFX,          // SDVX like object (level input)
+	TRACK_BGM,           // autoplay & indrawable background sound object.
+	TRACK_BGA,           // drawable object
+	TRACK_SPECIAL,       // special objects (mostly control flow)
+};
+
+// These types are also appliable to TOUCH / VEFX type also.
+// COMMENT: NoteTapType has lane information at 0xF0!
+enum class NoteType {
     NOTE_EMPTY,
-    // @description tappable note (user-interact)
-    NOTE_TAP,
-    // @description touch note, which has its position
-    NOTE_TOUCH,
-    // @description WAV/BGA/MIDI notes,
-    // which are automatically processed in time
-    NOTE_BGM,
-    NOTE_BGA,
-    NOTE_MIDI,
-    // @description for Bms compatibility
-    NOTE_BMS,
-    // @description resting area (for osu)
-    NOTE_REST,
-    NOTE_SHOCK,
+    NOTE_TAP,			// general tappable / scorable note
+    NOTE_INVISIBLE,		// invisible and no damage, but scorable. changes keysound (bms)
+	NOTE_LONGNOTE,		// general longnote.
+	NOTE_CHARGE,		// general chargenote. (keyup at end point)
+    NOTE_MINE,			// shock / mine note.
+    NOTE_AUTOPLAY,		// drawn and sound but not judged,
+    NOTE_FAKE,			// drawn but not judged nor sound.
+    NOTE_COMBOZONE,		// free combo area (Taigo yellow note / DJMAX stick rotating)
+	NOTE_DRAGSTART,		// dragging longnote (start)
+	NOTE_DRAGEND,		// dragging longnote (end).
+	NOTE_CHAINSTART,	// chain longnote (start)
+	NOTE_CHAINEND,		// chain longnote (end).
+	NOTE_REPEATSTART,	// repeat longnote (start)
+	NOTE_REPEATEND,		// repeat longnote (end)
 };
 
-enum NoteTapType {
-    // @description undefined, usually for UnTappable object.
-    TAPNOTE_EMPTY,
-    // @description general tappable note
-    TAPNOTE_TAP,
-    // @description invisible, no damage, but scorable
-    TAPNOTE_INVISIBLE,
-    // @description head of longnote (various types)
-    TAPNOTE_CHARGE,
-    TAPNOTE_MINE,
-    TAPNOTE_AUTOPLAY,
-    // @description drawn but not judged
-    TAPNOTE_FAKE,
-    // @description not drawn no miss, but judged
-    TAPNOTE_EXTRA,
-    // @description free score area, like osu / taigo
-    TAPNOTE_FREE,
+enum class SoundType {
+	SOUND_NONE,
+	SOUND_WAV,
+	SOUND_MIDI,
 };
 
-enum NoteBgaType {
-    NOTEBGA_EMPTY,
-    NOTEBGA_BGA,
-    NOTEBGA_MISS,
-    NOTEBGA_LAYER1,
-    NOTEBGA_LAYER2,
+enum class BgaType {
+    BGA_EMPTY,
+    BGA_BASE,
+    BGA_MISS,
+	BGA_LAYER1,
+	BGA_LAYER2, /* on and on ... */
 };
 
-enum NoteBmsType {
-    NOTEBMS_EMPTY,
-    NOTEBMS_BPM,
-    NOTEBMS_STOP,
-    NOTEBMS_BGAOPAC,
-    NOTEBMS_INVISIBLE,  // for only-keysound changing
+enum class TrackSpecialType {
+	SPC_EMPTY,
+	SPC_REST,			// osu specific type (REST area)
+	SPC_KEYBIND,		// key bind layer (bms #SWBGA)
+	SPC_BMS_EXTCHR,		// #EXTCHR cmd from BMS. (not supported)
+	SPC_BMS_STOP,		// #STOP command from metadata 
+	SPC_BMS_BPM,		// #BPM / #EXBPM command from metadata 
+	SPC_BMS_TEXT,		// #TEXT / #SONG command in BMS
+	SPC_BMS_OPTION,		// #CHANGEOPTION command in BMS
+	SPC_BMS_ARGB_BASE,	// BGA opacity setting (#ARGB channel)
+	SPC_BMS_ARGB_MISS,	// BGA opacity setting (#ARGB channel)
+	SPC_BMS_ARGB_LAYER1,// BGA opacity setting (#ARGB channel)
+	SPC_BMS_ARGB_LAYER2,// BGA opacity setting (#ARGB channel)
 };
+
+/*
+ * structure of trackno (64bit)
+ * 8bit: duplicated index (used for BGA channel / duplicated note)
+ * 8bit: channel subtype
+ * 8bit: channel type
+ * left (40bit): row number
+ */
+typedef unsigned long long rowid;
+typedef unsigned long long trackinfo;
+#define TRACK_IDX(t) (t & 0xF)
+#define TRACK_LANE(t) ((t>>4) & 0xFF)
+#define TRACK_SUBTYPE(t) ((t>>12) & 0xFF)
+#define TRACK_TYPE(t) ((t>>20) & 0xF)
+#define TRACK_ROW(t) (t>>24)
 
 /*
  * @description
@@ -78,39 +103,19 @@ enum NoteBmsType {
  * You may need to process these objects properly to make playable objects.
  */
 struct Note {
-    NoteType nType;     // note main type
-    int subType;        // note sub type
+	trackinfo track;				// track info (row/type/subtype/idx)
+	rowid length;					// length of note in row (if LN with specified length exists)
+    int value;                      // command value
+	int x, y;                       // (in case of TOUCH object)
 
-    int iValue;         // command value
-    int iEndValue;      // value of the end (for LN)
+    float volume;
+    int pitch;
 
-    float fVolume;
-    int iPitch;
-
-    int iRow;           // @description time position in row, only for editing.
-    int iDuration;      // row duration (for LN)
-    // @description
-    // This information is only for playing
-    // (to reduce loss of incompatible resolution)
-    float fBeat;
-    float fBeatLength;  // beat duration of msec
-    // @description time information (won't be saved)
-    // won't be filled until you call FillTimingData()
-    float fTime;        // msec
-    float fTimeLength;  // msec
-
-    // @description
-    // BMS: x means track number in TapNote, col number in BGM.
-    // x / y means position in touch based gamemode.
-    // x track / y means command in MIDI file format.
-    int x,y;
-
-    // @description bmson attribute.
+    // @description bmson attribute. (loop)
     bool restart;
 
-    Note() : x(0), y(0), iValue(0), iDuration(0),
-        fVolume(0), iPitch(0),
-        fTime(0), fTimeLength(0), fBeat(0), fBeatLength(0) {}
+	Note() : track(0), value(0), x(0), y(0),
+		volume(0), pitch(0), restart(false) {}
 
     std::string toString();
 	bool operator<(const Note &other) const;
@@ -120,103 +125,192 @@ struct Note {
     int GetTrack();
 };
 
+/*
+ * @description
+ * Special objects whose position is based on beat.
+ */
+enum class TIMINGOBJTYPE {
+	TYPE_NONE,
+	TYPE_BPM,
+	TYPE_STOP,
+	TYPE_WARP,
+	TYPE_SCROLL,
+	TYPE_MEASURE,
+	TYPE_TICK,
+	TYPE_INVALID
+};
 
-struct ChartSummaryData;
+struct TimingObject
+{
+	TIMINGOBJTYPE type;
+	double beat;			// object position in beat
+	double value;			// detail desc of timing object.
+};
+
+
+
+/*
+ * @description
+ * Special objects which are queued in time.
+ * (currently undefined object)
+ */
+enum class ACTIONTYPE {
+	TYPE_NONE,
+};
+
+struct Action
+{
+	ACTIONTYPE type;
+	unsigned int time_ms;
+	unsigned int value;
+};
+
+
+
 class NoteSelection;
+
+
+/*
+ * @description
+ * Notedata consists with multiple track(lane), and Track contains Notes.
+ * And each note is indexed with 'Row'
+ * In case of osu(or touch based)/taigo, all note in First track;
+ * - so no meaning in track - but should use multiple track when multitouch. (up to 10)
+ */
 class NoteData {
+/* iterators */
 public:
-    /*
-     * @description
-     * Notedata consists with multiple track(lane), and Track contains Notes.
-     * And each note is indexed with 'Row'
-     * In case of osu(or touch based)/taigo, all note in First track; 
-     * - so no meaning in track - but should use multiple track when multitouch. (up to 10)
-     */
-    typedef std::vector<Note> Track;
-    typedef std::vector<Note>::iterator trackiter;
-    typedef std::vector<Note>::const_iterator const_trackiter;
-
-	trackiter begin() { return m_Track.begin(); };
-	trackiter end() { return m_Track.end(); };
-	const_trackiter begin() const { return m_Track.begin(); };
-	const_trackiter end() const { return m_Track.end(); };
-    trackiter lower_bound(int row);
-    trackiter upper_bound(int row);
-    trackiter lower_bound(Note &n) { return std::lower_bound(m_Track.begin(), m_Track.end(), n); };
-    trackiter upper_bound(Note &n) { return std::upper_bound(m_Track.begin(), m_Track.end(), n); };
-    Note* GetLastNoteAtTrack(int iTrackNum=-1, int iType=-1, int iSubType=-1);
+    typedef std::vector<Note>::iterator noteiter;
+    typedef std::vector<Note>::const_iterator const_noteiter;
+	noteiter begin() { return notes_.begin(); };
+	noteiter end() { return notes_.end(); };
+	const_noteiter begin() const { return notes_.begin(); };
+	const_noteiter end() const { return notes_.end(); };
+	noteiter lower_bound(int row);
+	noteiter upper_bound(int row);
+	noteiter lower_bound(Note &n) { return std::lower_bound(notes_.begin(), notes_.end(), n); };
+	noteiter upper_bound(Note &n) { return std::upper_bound(notes_.begin(), notes_.end(), n); };
 
 
-    // @description calculate fBeat from iRow(after editing)
-    void CalculateNoteBeat();
-    // @description fill all note's timing data from beat data.
-    void FillTimingData(TimingData& td);
+	typedef std::vector<TimingObject>::iterator tobjiter;
+	typedef std::vector<TimingObject>::const_iterator const_tobjiter;
+	tobjiter tobj_begin() { return timingobjs_.begin(); };
+	tobjiter tobj_end() { return timingobjs_.end(); };
+	const_tobjiter tobj_begin() const { return timingobjs_.begin(); };
+	const_tobjiter tobj_end() const { return timingobjs_.end(); };
+	tobjiter tobj_lower_bound(int row);
+	tobjiter tobj_upper_bound(int row);
+	tobjiter tobj_lower_bound(Note &n) { return std::lower_bound(timingobjs_.begin(), timingobjs_.end(), n); };
+	tobjiter tobj_upper_bound(Note &n) { return std::upper_bound(timingobjs_.begin(), timingobjs_.end(), n); };
 
 
-    /*
-     * metadata utilities
-     */
-    void FillSummaryData(ChartSummaryData& cmd);
-    // @description 
-    bool IsRangeEmpty(int iStartRow, int iEndRow);
-    bool IsRowEmpty(int row);
-    bool IsTrackEmpty(int track);
+	typedef std::vector<Action>::iterator actiter;
+	typedef std::vector<Action>::const_iterator const_actiter;
+	actiter act_begin() { return actions_.begin(); };
+	actiter act_end() { return actions_.end(); };
+	const_actiter act_begin() const { return actions_.begin(); };
+	const_actiter act_end() const { return actions_.end(); };
+	actiter act_lower_bound(int row);
+	actiter act_upper_bound(int row);
+	actiter act_lower_bound(Note &n) { return std::lower_bound(actions_.begin(), actions_.end(), n); };
+	actiter act_upper_bound(Note &n) { return std::upper_bound(actions_.begin(), actions_.end(), n); };
+
+
+	const std::vector<Note>* GetNotes() const;
+	const std::vector<TimingObject>* GetTimingObjects() const;
+	const std::vector<Action>* GetActions() const;
+
+
+	// Flush objects at once and sort it rather using AddXX() method for each of them.
+	// NOTE: original vector object will be swapped(std::move).
+	void Flush(std::vector<Note>& notes,
+		std::vector<TimingObject>& tobjs,
+		std::vector<Action>& actions);
+	// clear all objects. (optional: case statements)
+	void Clear(bool removeStmt = true);
+
+
+public:
+	// row scanning utilities (fast-scan)
+    bool IsRangeEmpty(unsigned long long startrow, unsigned long long endrow);
+	bool IsRowEmpty(unsigned long long row, TRACKTYPE type = TRACKTYPE::TRACK_EMPTY, unsigned int subtype = 0);
+	bool IsTrackEmpty(trackinfo track);
+	bool IsHoldNoteAtRow(int row, int track = -1);
+	Note* GetNoteAtRow(int row, int track = -1);
+	void GetNotesAtRow(NoteSelection &vNotes, int row = -1, int track = -1);
+	void GetNotesAtRange(NoteSelection &vNotes, int row = -1, int track = -1);
+
+
+	// full scan utilities
+	bool IsTypeEmpty(TRACKTYPE type, unsigned int subtype = 0);
+	bool IsLaneEmpty(unsigned int lane);
+	void GetNotesWithType(NoteSelection &vNotes, int nType = -1, int subType = -1);
+
+
+	// others
     bool IsEmpty();
 
 
-    /*
-     * modification utilities
-     */
-    bool IsHoldNoteAtRow(int row, int track = -1);
-    NoteType GetNoteTypeAtRow(int row, int track = -1);
-    Note* GetNoteAtRow(int row, int track=-1);
-    int GetNoteIndexAtRow(int row, int track = -1);
-    void GetNotesWithType(NoteSelection &vNotes, int nType=-1, int subType=-1);
-    void GetNotesAtRow(NoteSelection &vNotes, int row = -1, int track = -1);
-    void RemoveNotes(int iStartRow, int iEndRow, bool bInclusive);
+// insert / delete / update
+public:
+    void RemoveNotes(rowid iStartRow, rowid iEndRow, bool bInclusive);
     void RemoveNotes(const NoteSelection& vNotes);
-    void CopyRange(int rowFromBegin, int rowFromLength, int rowToBegin);
-    void CopyRange(const NoteSelection& vNotes, int rowToBegin);
-    void MoveRange(int rowFromBegin, int rowFromLength, int rowToBegin);
-    void MoveRange(const NoteSelection& vNotes, int rowToBegin);
-    void InsertBlank(int rowFromBegin, int rowFromLength);
-    void SetNoteDuplicatable(int bNoteDuplicatable);
-    void AddNote(const Note& n);
-    void AddTapNote(int iRow);
-    void AddLongNote(int iRow, int iLength);
+    void CopyRange(rowid rowFromBegin, rowid rowFromLength, rowid rowToBegin, bool overwrite = true);
+    void CopyRange(const NoteSelection& vNotes, rowid rowToBegin, bool overwrite = true);
+	void MoveRange(rowid rowFromBegin, rowid rowFromLength, rowid rowToBegin);
+	void MoveRange(const NoteSelection& vNotes, rowid rowToBegin);
+	void ShiftLane(rowid rowFromBegin, rowid rowFromLength, unsigned int newLane);
+	void ShiftLane(const NoteSelection& vNotes, unsigned int newLane);
+	void ShiftType(rowid rowFromBegin, rowid rowFromLength, TRACKTYPE newType, unsigned int newSubType);
+	void ShiftType(const NoteSelection& vNotes, TRACKTYPE newType, unsigned int newSubType);
+    void InsertBlank(rowid rowFromBegin, rowid rowFromLength);
+    void AddNote(const Note& n, bool overwrite = true);
+    void AddTapNote(rowid iRow, unsigned int lane);
+    void AddLongNote(rowid iRow, unsigned int lane, rowid iLength);
+
+
+	void AddTimingObject(const TimingObject& tobj);
+	void RemoveTimingObject(rowid start, rowid end);
+	void AddAction(const TimingObject& tobj);
+	void RemoveAction(rowid start, rowid end);
     
 
-    /*
-     * modification(option) utilities
-     */
-    void TrackMapping(int *trackmap, int s, int e);
+// modification(option) utilities
+public:
+    void LaneMapping(int *trackmap, int s, int e);
     // @description useful for iidx(DP) style
-    void TrackRandom(int side, int key);
-    void TrackSRandom(int side, int key, bool bHrandom=false);
-    void TrackRRandom(int side, int key);
-    void TrackMirror(int side, int key);
-    void TrackAllSC(int side);
-    void TrackFlip();
+    void LaneRandom(int side, int key);
+    void LaneSRandom(int side, int key, bool bHrandom=false);
+    void LaneRRandom(int side, int key);
+    void LaneMirror(int side, int key);
+    void LaneAllSC(int side);
+    void LaneFlip();
     
 
+public:
     NoteData();
     ~NoteData();
     std::string const toString();
 
-    // don't call these methods directly; use it from Chart.h
-    void SetResolution(int iRes);
-    void UpdateBeatData();
+
 private:
-    // @description All Objects are placed in here.
-    // sorted in Row->x->y
-    Track m_Track;
-    // @description
-    // Resolution of NoteData's Row position
-    // Should have same value with Timingdata.
-    int m_iRes;
-    // @description
-    // allow duplication in track based game? (iRow and track duplicatable)
-    int m_bNoteDuplicatable;
+	/*
+	 * Contains all note objects
+	 * (ROW based position; mostly exists lane/channel and not duplicable.)
+	 * Includes not only sound/rendering but also special/timing object.
+	 * note of same idx + subtype + type + row should be overwritten.
+	 */
+	std::vector<Note> notes_;
+	/*
+	 * Contains all timing related objects
+	 * (BEAT based position; mostly no lane/channel and duplicable.)
+	 */
+	std::vector<TimingObject> timingobjs_;
+	/*
+	 * Contains all time-reserved objects
+	 * (TIME based objects; mostly used for special action [undefined])
+	 */
+	std::vector<Action> actions_;
 };
 
 class NoteSelection
@@ -234,15 +328,100 @@ public:
     void Clear();
 };
 
+
+// Charge note type for mixing object
+enum class CNTYPE
+{
+	NONE = 0,
+	BMS,		// BMS type (no judge at the end of the CN)
+	CN,			// IIDX charge note type
+	HCN,		// IIDX hell charge note type
+};
+
+/*
+ * @description
+ * Soundable(Renderable) object in MixingData.
+ * State is not stored; should be generated by oneself if necessary.
+ */
+struct MixingNote
+{
+	// mixing related
+
+	bool ismixable;
+	unsigned int cmd;
+	unsigned int cmdarg;
+	unsigned int value_start;
+	unsigned int value_end;
+	double time_start_ms;
+	double time_end_ms;
+	bool loop;
+
+	// playing related
+
+	bool isplayable;
+	CNTYPE cntype;
+	unsigned int lane;
+	unsigned long long row_start;
+	unsigned long long row_end;
+
+	// mouse motion related (osu!)
+
+	void* mouse_ptrs[64];
+	int mouse_ptr_len;
+
+	// reference pointer to original Note object
+
+	Note* obj_start;
+	Note* obj_end;
+};
+
+
+/*
+ * @description
+ * generated mixing object from Chart class.
+ */
+struct MixingData
+{
+	// sorted in time
+	std::vector<MixingNote> vMixingNotes;
+
+	int iNoteCount;
+	int iTrackCount;
+	float fLastNoteTime_ms;    // msec
+
+
+	// general bpm
+	// (from metadata or bpm channel)
+	// (bpm channel may overwrite metadata bpm info)
+	int iBPM;
+	// MAX BPM
+	int iMaxBPM;
+	// MIN BPM
+	int iMinBPM;
+	// is bpm changes? (maxbpm != minbpm)
+	bool isBPMChanges;
+	// is backspin object exists? (bms specific attr.)
+	bool isBSS;
+	// is charge note exists? (bms type)
+	bool isCN_bms;
+	// is charge note exists?
+	bool isCN;
+	// is hellcharge note exists?
+	bool isHCN;
+	// is Invisible note exists?
+	bool isInvisible;
+	// is fake note exists?
+	bool isFake;
+	// is bomb/shock object exists?
+	bool isBomb;
+	// is warp object exists? (stepmania specific attr.)
+	bool isWarp;
+	// is stop object exists?
+	bool isStop;
+	// is command exists/processed? (bms specific attr.)
+	bool isCommand;
+};
+
 }
 
 #endif
-
-/*
- * Tip for compiling notedata into playable objects:
- * - Separate Autoplay objects from playable objects
- *   (ex: BGM, BGA, INVISIBLE, FAKE, etc...)
- *   Consider these autoplay objects as objects which 
- *   do not affected when calculating Judgements - 
- *   just process them when timing reached.
- */

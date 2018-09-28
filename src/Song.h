@@ -12,6 +12,7 @@
 #ifndef RPARSER_SONG_H
 #define RPARSER_SONG_H
 
+#include "Chart.h"
 #include "Resource.h"
 #include "MetaData.h"
 
@@ -20,9 +21,9 @@
 
 namespace rparser {
 
-
+// MUST be in same order with Chart::CHARTTYPE
 enum class SONGTYPE {
-	NONE,
+	NONE = 0,
 	BMS,
 	BMSON,
 	OSU,
@@ -31,8 +32,10 @@ enum class SONGTYPE {
 	DTX,
 	OJM,
 
+	// BELOW: 
+	// NOT allowed on chart type. 
+
 	// ARCHIVED BMS FILE TYPE.
-	// not allowed on chart type.
 	BMSARCH,
 };
 
@@ -79,7 +82,8 @@ public:
 	void GetCharts(std::vector<Chart*>& charts);
 
 	// @description
-	// Required in special case, like
+	// Required in special case which metadata is separated with chart file
+	// e.g. osu file format.
 	bool LoadMetadata();
     bool SaveMetadata();
 

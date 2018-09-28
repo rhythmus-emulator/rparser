@@ -203,6 +203,13 @@ public:
 };
 #endif
 
+// if succeed, return true, and write md5 hash to char* out;
+// else, return false.
+// (requires MD5_DIGEST_LENGTH; 16)
+bool md5(const void* p, int iLen, char* out);
+// same to md5; returns 32byte string (%02x formatted)
+bool md5_str(const void* p, int iLen, char* out);
+
 
 
 // BMS-util related

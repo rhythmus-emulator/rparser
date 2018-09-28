@@ -1,7 +1,6 @@
 #include "Chart.h"
 #include "TimingData.h"
 #include <sstream>
-#include <openssl/md5.h>
 
 namespace rparser
 {
@@ -71,19 +70,6 @@ void Chart::SetFilePath(const std::string& sPath)
 std::string Chart::GetHash() const
 {
     return m_ChartSummaryData.sHash;
-}
-void Chart::UpdateHash(const void* p, int iLen)
-{
-    unsigned char result[MD5_DIGEST_LENGTH];
-    MD5((unsigned char*)p, iLen, result);
-    std::string hash_str;
-    char buf[6];
-    for (int i = 0; i < MD5_DIGEST_LENGTH; i++)
-    {
-        sprintf(buf, "%02x", result[i]);
-        hash_str.append(buf);
-    }
-    m_ChartSummaryData.sHash = hash_str;
 }
 
 std::string Chart::toString()

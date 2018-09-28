@@ -12,52 +12,25 @@
 
 namespace rparser {
 
-
-
-/*
-* @description
-* only contains brief chart metadata, which may be useful for visualizing status.
-* Also these status won't be saved.
-*/
-struct ChartSummaryData {
-    std::string sFilePath;
-    std::string sFormat;
-    std::string sHash;      // MD5
-
-    std::string sTitle;
-    std::string sSubTitle;
-    std::string sLongTitle;
-    std::string sArtist;
-    std::string sGenre;
-
-    int iNoteCount;
-    int iTrackCount;
-    float fLastNoteTime;    // msec
-
-						    // @description basc BPM of the song
-    int iBPM;
-    int iMaxBPM;
-    int iMinBPM;
-    bool isBPMChanges;
-    // @description is bomb object exists?
-    bool isBSS;         // backspin scratch
-    bool isCharge;
-    bool isHellCharge;
-    bool isBomb;
-    // @description timingdata related
-    bool isWarp;
-    bool isStop;
-    // @description is command exists/processed? (in case of BMS)
-    bool isCommand;
-
-    std::string toString();
+// MUST be in same order with Song::SONGTYPE
+enum class CHARTTYPE {
+	NONE = 0,
+	BMS,
+	BMSON,
+	OSU,
+	VOS,
+	SM,
+	DTX,
+	OJM,
 };
 
 /*
  * @description
  * chart data contains: notedata, timingdata, metadata
+ * includes mutable note objects.
  */
-class Chart {
+class Chart
+{
 public:
 	bool Open(const char* filepath);
 	bool Load(const char* data, unsigned int len);
@@ -69,44 +42,44 @@ public:
     NoteData* GetNoteData();
     TimingData* GetTimingData();
 
-    const ChartSummaryData* GetChartSummary() const;  // cannot modify, read-only
     std::string GetFilePath() const;
 	void SetFilePath(const std::string& sPath);
-    std::string GetHash() const;
-    void UpdateChartSummary();
-    void UpdateHash(const void* p, int iLen);
 
     // @description clone myself to another chart
     Chart* Clone();
 
-    // @description change resolution for chart globally
-    void ChangeResolution(int newRes);
-    // @description call this function when STOP/BPM metadata or object is changed
-    // Calling this function will clear all Timingdata, so be careful.
+    // @description
+	// ONLY call this function when timing related object is changed.
+	// (e.g. when exiting editing mode and entering view mode)
+    // Calling this function requires full scan of NoteData, so be aware of it ...
     void UpdateTimingData();
-    // @description call this function when calculate fBeat from iRow
-    // (cf: playing after editing)
-    void UpdateBeatData();
-	// @description Load timing object from NoteData
-	// (used for BMS type file)
-	void LoadExternObject();
+
+	// generate mixing object
+	void GenerateMixingData(MixingData& md);
+	// returns chart object file to iLen;
+	bool Flush(char **out, int &iLen) const;
+	// returns true if there is any modification from last Flush()
+	bool IsDirty() const;
+
 
     std::string toString();
-
     Chart();
     Chart(Chart* c);
 private:
-    MetaData m_Metadata;
-    NoteData m_Notedata;
-    TimingData m_Timingdata;
+    MetaData metadata_;
+    NoteData notedata_;
+    TimingData timingdata_;
 
-    // not saved to file, just to store current chart state.
-    ChartSummaryData m_ChartSummaryData;
+    // chart status structure
+	// (not saved)
+	struct ChartStatus {
+		std::string filepath;	// absolute path
+		std::string relpath;	// relative path
+		char hash[33];			// MD5 hash of chart file (len 32)
+		bool dirty;				// is it modified from last Flush() ?
+		CHARTTYPE type;			// chart file format
+	} chartstat_;
 };
-
-
-
-
 
 }
 

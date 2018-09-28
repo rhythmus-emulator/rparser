@@ -11,6 +11,10 @@
 #include <zip.h>
 #endif
 
+#ifdef USE_OPENSSL 
+#include <openssl/md5.h>
+#endif
+
 #ifdef WIN32
 #include <windows.h>
 #include <stdarg.h>
@@ -870,6 +874,34 @@ void ArchiveDirectory::SetCodepage(int iCodepage)
 }
 #endif
 
+
+bool md5(const void* p, int iLen, char* out)
+{
+#ifdef USE_OPENSSL
+	MD5((unsigned char*)p, iLen, out);
+	return true;
+#else
+	return false;
+#endif
+}
+
+bool md5_str(const void* p, int iLen, char *out)
+{
+#ifndef USE_OPENSSL
+#define MD5_DIGEST_LENGTH 16
+#endif
+	char result[MD5_DIGEST_LENGTH];
+	if (md5(p, iLen, result))
+	{
+		char buf[6];
+		for (int i = 0; i < MD5_DIGEST_LENGTH; i++)
+		{
+			sprintf(buf, "%02x", result[i]);
+			out += 2;
+		}
+	}
+	else return false;
+}
 
 
 // BMS-related utils

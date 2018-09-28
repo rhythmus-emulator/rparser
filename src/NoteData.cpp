@@ -13,6 +13,7 @@ char *n_type[] = {
     "NOTE_EMPTY",
     "NOTE_TAP",
     "NOTE_TOUCH",
+	"NOTE_VEFX",
     "NOTE_BGM",
     "NOTE_BGA",
     "NOTE_MIDI",
@@ -52,10 +53,10 @@ std::string Note::toString()
 {
     std::stringstream ss;
     std::string sType, sSubtype;
-    sType = n_type[nType];
+    sType = n_type[(int)nType];
     switch (nType)
     {
-        case NOTE_TAP:
+		case NOTETYPE::NOTE_TAP:
         case NOTE_TOUCH:
             sSubtype = n_subtype_tap[subType];
             break;
