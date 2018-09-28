@@ -337,6 +337,8 @@ private:
 	/*
 	 * Contains all timing related objects
 	 * (BEAT based position; mostly no lane/channel and duplicable.)
+	 * NOTE: do not need to attempt render TimingObject using this data ...
+	 *       Row position is already calculated at TimingData.
 	 */
 	std::vector<TimingObject> timingobjs_;
 	/*
