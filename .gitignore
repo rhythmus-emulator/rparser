@@ -1,5 +1,6 @@
 .vscode
+.vs
 build
 bin
 CMakeFiles
-.vs
+test/lib/

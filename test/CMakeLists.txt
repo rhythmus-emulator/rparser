@@ -5,16 +5,8 @@ set (RPARSER_TEST_HEADERS
     )
 
 
-if (NOT MSVC)
-find_package(iconv)
-else ()
-set(ICONV_LIB '')
-set(ICONV_INCLUDE_DIR '')
-endif ()
-find_package(zip)
-find_package(zlib)
-find_package(openssl)
-
+# lib: gtest_main
+add_subdirectory("${CMAKE_SOURCE_DIR}/../rparser-lib/googletest-release-1.8.1" "${CMAKE_CURRENT_SOURCE_DIR}/lib")
 
 
 include_directories(${RPARSER_INCLUDE_DIR} ${RUTIL_INCLUDE_DIR} ${ZIP_INCLUDE_DIR})
