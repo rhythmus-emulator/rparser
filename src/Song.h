@@ -15,6 +15,7 @@
 #include "Chart.h"
 #include "Resource.h"
 #include "MetaData.h"
+#include "Error.h"
 
 #include <algorithm>
 #include "rutil.h"
@@ -31,81 +32,73 @@ enum class SONGTYPE {
 	SM,
 	DTX,
 	OJM,
-
-	// BELOW: 
-	// NOT allowed on chart type. 
-
-	// ARCHIVED BMS FILE TYPE.
 	BMSARCH,
 };
 
 class Chart;
 
 /*
- * @description
- * Song contains all charts using same(or similar) resources.
- * So all charts must be in same folder.
+ * \brief
+ * Contains song chart, metadata and all resource(image, sound).
+ *
+ * \param resource_
+ * \param charts_
+ * \param charts_old_filename_ used whether chart filename has changed when saving
+ * \param timingdata_global_ in case of a song has global timingdata
+ * \param songmeta_global_ in case of a song has global metadata
+ * \param songtype_ (not saved) detected chart format of this song
+ * \param error_ last error status
  */
-
 class Song {
 private:
-	// @description
-	// Responsive for file load and managing resources related to song.
+	struct ChartFile
+	{
+		Chart* c;
+		std::string new_filename;
+		std::string old_filename;
+		bool is_dirty;
+	};
+
 	Resource resource_;
-
-    // @description
-	// Chart object container.
-    std::vector<Chart*> charts_;
-
-    // @description
-	// in case of song has metadata
-	// metadata: a general data, used for every song file
-    MetaData songmeta_;
-
-    // not saved; just indicates current opening state.
-	SONGTYPE songtype_;            // Detected chart format of this song
-	const char* errormsg_;
+    std::vector<ChartFile> charts_;
+	TimingData *timingdata_global_;
+    MetaData *metadata_global_;
+	SONGTYPE songtype_;
+	ERROR error_;
 public:
-    // @description
-    // register Chart to Song vector.
-    void RegisterChart(Chart* c);
+    /* \brief register Chart to Song vector. */
+    void RegisterChart(Chart* c, const std::string& filename);
 
-    // @description
-    // Delete Chart from registered array.
-	// Returns true if succeed, false if chart ptr not found.
-    // * You must release Chart object by yourself.
+    /* \brief Delete chart from Song object.
+	 * \warning You must release Chart object by yourself. */
     bool DeleteChart(const Chart* c);
 
-	// @description
-	// Get all charts, if required.
-	const std::vector<Chart*>* GetCharts() const;
+	bool RenameChart(const Chart* c, const std::string& newfilename);
+
 	void GetCharts(std::vector<Chart*>& charts);
 
-	// @description
-	// Required in special case which metadata is separated with chart file
-	// e.g. osu file format.
+	/* \brief
+	 * Required in special case which metadata is separated with chart file
+	 * e.g. osu file format. */
 	bool LoadMetadata();
     bool SaveMetadata();
 
-
-
-    // utilities
     const char* GetErrorStr() const;
 	Resource* GetResource();
-	bool RenameChart(const Chart* c, const std::string& new_filepath);
 
 
 
     // @description
 	// Read song file, and load charts and other metadata.
     // Acceptable file path: folder / archive / raw file(not a single chart; special case)
-	bool Open(const std::string &path, bool fastread=false, SONGTYPE songtype = SONGTYPE::NONE);
+	bool Open(const std::string &path, bool onlyreadchart=false, SONGTYPE songtype = SONGTYPE::NONE);
 	// @description
 	// save all changes into song file, if available.
 	bool Save();
 	// @description
 	// clear all current song metadata & resource, close directory.
     bool Close(bool save=false);
+	bool Rename(const std::string& newPath);
 
 	void SetPath(const std::string& path);
 	const std::string GetPath() const;
@@ -125,8 +118,6 @@ private:
 	// in case of need ...
 	std::string errormsg_detailed_;
 };
-
-
 
 const char* GetChartExtension(SONGTYPE iType);
 const char* GetSongExtension(SONGTYPE iType);

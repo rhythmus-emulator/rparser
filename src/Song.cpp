@@ -1,19 +1,11 @@
 #include "Song.h"
+#include "ChartUtil.h"
 #include "MetaData.h"
 #include "ChartLoader.h"
 #include "ChartWriter.h"
 #include <list>
 
 using namespace rutil;
-
-#define RPARSER_SONG_ERROR_FILE				"Unable to read song file."
-#define RPARSER_SONG_ERROR_NOCHART			"No chart found in song file."
-#define RPARSER_SONG_ERROR_CHART			"Invalid chart file."
-#define RPARSER_SONG_ERROR_SAVE_CHART		"Failed to generate chart file."
-#define RPARSER_SONG_ERROR_SAVE_METADATA	"Failed to save metadata."
-#define RPARSER_SONG_ERROR_SAVE_FILE		"Failed to save file (general I/O error)"
-#define RPARSER_SONG_ERROR_RENAME_FILE		"Failed to rename file (general I/O error)"
-
 
 namespace rparser
 {
@@ -46,8 +38,11 @@ const std::string Song::gen_readable_ext_()
 }
 const std::string Song::total_readable_ext_ = Song::gen_readable_ext_();
 
+// --
+
 Song::Song()
-	: songtype_(SONGTYPE::NONE), errormsg_(0)
+	: songtype_(SONGTYPE::NONE), error_(ERROR::NONE),
+	timingdata_global_(0), metadata_global_(0)
 {
 }
 
@@ -56,15 +51,15 @@ Song::~Song()
 	Close();
 }
 
-void Song::RegisterChart(Chart * c)
+void Song::RegisterChart(Chart * c, const std::string& filename)
 {
-	charts_.push_back(c);
+	charts_.push_back({ c, filename, filename, false });
 }
 
-bool Song::DeleteChart(const Chart * c_)
+bool Song::DeleteChart(const Chart * c)
 {
 	for (auto p = charts_.begin(); p != charts_.end(); ++p) {
-		if (*p == c_) {
+		if (p->c == c) {
 			charts_.erase(p);
 			return true;
 		}
@@ -72,12 +67,22 @@ bool Song::DeleteChart(const Chart * c_)
 	return false;
 }
 
+bool Song::RenameChart(const Chart* c, const std::string& newfilename)
+{
+	for (auto p = charts_.begin(); p != charts_.end(); ++p) {
+		if (p->c == c) {
+			p->new_filename = newfilename;
+			p->is_dirty = true;
+			return true;
+		}
+	}
+	return false;
+}
 
 bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 {
 	// initialize
 	Close();
-	errormsg_ = 0;
 	songtype_ = songtype;
 
 	// Read given path first.
@@ -86,7 +91,7 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 	if (!fastread) fastread_ext = 0;
 	if (!resource_.Open(path.c_str(), 0, fastread_ext))
 	{
-		errormsg_ = RPARSER_SONG_ERROR_FILE;
+		error_ = ERROR::OPEN_NO_FILE;
 		songtype_ = SONGTYPE::NONE;
 		return false;
 	}
@@ -94,12 +99,14 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 	// Filter out file from resource, which is feasible to read.
 	std::map<std::string, const Resource::BinaryData*> chart_files;
 	resource_.FilterFiles(total_readable_ext_.c_str(), chart_files);
+#if 0
 	if (chart_files.size() == 0)
 	{
-		errormsg_ = RPARSER_SONG_ERROR_NOCHART;
+		error_ = ERROR::OPEN_NO_CHART;
 		songtype_ == SONGTYPE::NONE;
 		return false;
 	}
+#endif
 
 	// Auto-detect songtype, if necessary.
 	if (songtype_ == SONGTYPE::NONE)
@@ -112,13 +119,15 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 				songtype_ = ii.first;
 			}
 		}
+#if 0
 		// if resource is archive file and SONGTYPE::BMS,
 		// then change type to SONGTYPE::BMSARCH
 		if (songtype_ == SONGTYPE::NONE)
 		{
-			errormsg_ = RPARSER_SONG_ERROR_NOCHART;
+			error_ = ERROR::OPEN_NO_CHART;
 			return false;
 		}
+#endif
 	}
 
 	// If necessary, load song metadata.
@@ -129,54 +138,58 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 	for (auto ii : chart_files)
 	{
 		Chart *c = new Chart();
-		c->SetFilePath(ii.first);
 		if (!c->Load(ii.second->p, ii.second->len))
 		{
 			// Error might be occured during chart loading,
 			// But won't stop loading as there *might* be 
 			// So, just skip the wrong chart file and make log.
-			errormsg_ = RPARSER_SONG_ERROR_CHART;
+			error_ = ERROR::OPEN_INVALID_CHART;
 			delete c;
 			continue;
 		}
-		RegisterChart(c);
+		RegisterChart(c, ii.first);
 	}
 
 	return true;
 }
 
-#define SAVE_CHART_CODE																		\
-			if (c->IsDirty())																\
-			{																				\
-				Resource::BinaryData data;													\
-				if (!c->MakeBinaryData(&data))												\
-				{																			\
-					errormsg_ = RPARSER_SONG_ERROR_SAVE_CHART;								\
-					return false;															\
-				}																			\
-				resource_.AllocateBinary(c->GetFilePath(), data.p, data.len, true, false);	\
-			}
-
 bool Song::Save()
 {
 	// Only update dirty charts
-	for (Chart *c : charts_)
+	for (ChartFile &cf : charts_)
 	{
-		SAVE_CHART_CODE;
+		if (cf.is_dirty)
+		{
+			Resource::BinaryData data;
+			// remove previous file and create new file again
+			resource_.Delete(cf.old_filename);
+			if (!SerializeChart(cf.c, data))
+			{
+				error_ = ERROR::WRITE_SERIALIZE_CHART;
+				return false;
+			}
+			resource_.AddBinary(cf.new_filename, data.p, data.len, true, false);
+			cf.old_filename = cf.new_filename;
+			cf.is_dirty = false;
+		}
 	}
-
-	// READ FROM BINARY IN CASE OF THIS.
 
 	// save metadata, in case of need.
 	if (!SaveMetadata())
 	{
-		errormsg_ = RPARSER_SONG_ERROR_SAVE_METADATA;
+		error_ = ERROR::WRITE_METADATA;
 		return false;
 	}
 
 	// flush (save to real file)
 	resource_.Flush();
 	return true;
+}
+
+bool Song::Rename(const std::string& newPath)
+{
+	// XXX: not implemented yet (do it in Resource class)
+	return false;
 }
 
 bool Song::Close(bool save)
@@ -188,13 +201,13 @@ bool Song::Close(bool save)
 	}
 
 	// release resources and memory.
-	for (Chart *c : charts_)
+	for (ChartFile &cf : charts_)
 	{
-		delete c;
+		delete cf.c;
 	}
 	charts_.clear();
 	resource_.Unload(false);
-	errormsg_ = 0;
+	error_ = ERROR::NONE;
 	songtype_ = SONGTYPE::NONE;
 }
 
@@ -226,47 +239,42 @@ bool Song::SaveMetadata()
 
 bool Song::ChangeSongType(SONGTYPE songtype)
 {
-	// make it easy
+	MetaData *metadata_common = 0;
+	TimingData *timingdata_common = 0;
+
 	if (songtype == songtype_)
 		return true;
 
-	// keep consistency for all charts
-	// and need to rename extension.
-	std::string org_rel_path, new_rel_path;
-	for (Chart *c : charts_)
+	// check whether global timingdata / metadata is necesssary
+	switch (songtype)
 	{
-		c->SetSongType(songtype);
-		org_rel_path = c->GetRelPath();
-		new_rel_path = rutil::ChangeExtension(org_rel_path, GetChartExtension(songtype));
-		// as RenameChart() func is public function,
-		// errormsg_ is set. don't reset it.
-		if (!RenameChart(c, new_rel_path))
-			return false;
+	case SONGTYPE::OSU:
+	case SONGTYPE::VOS:
+		if (!metadata_global_) metadata_global_ = new MetaData();
+		if (!timingdata_global_) timingdata_global_ = new TimingData();
+		break;
+	default:
+		if (metadata_global_) metadata_common = metadata_global_, metadata_global_ = 0;
+		if (timingdata_global_) timingdata_common = timingdata_global_, timingdata_global_ = 0;
+		break;
 	}
 
-	// Change Resource extension first and save.
-	resource_.SetExtension(GetSongExtension(songtype));
-	resource_.SetResourceType(GetSongResourceType(songtype));
-	if (!resource_.Flush())
+	for (ChartFile &cf : charts_)
 	{
-		errormsg_ = RPARSER_SONG_ERROR_SAVE_FILE;
-		errormsg_detailed_.clear();
-		return false;
+		Chart *c = cf.c;
+		if (metadata_global_)
+			c->SetExternMetaData(metadata_global_);
+		else
+			c->SetIndepMetaData();
+		if (timingdata_global_)
+			c->SetExternTimingData(timingdata_global_);
+		else
+			c->SetIndepTimingData();
 	}
 
 	songtype_ = songtype;
-	return true;
-}
-
-bool Song::RenameChart(const Chart* c, const std::string& new_filepath)
-{
-	const std::string&& org_rel_path = c->GetRelPath();
-	if (!resource_.Rename(org_rel_path, new_filepath))
-	{
-		errormsg_ = RPARSER_SONG_ERROR_RENAME_FILE;
-		errormsg_detailed_ = org_rel_path + " to " + new_filepath + "\n" + resource_.GetErrorMsg();
-		return false;
-	}
+	delete metadata_common;
+	delete timingdata_common;
 	return true;
 }
 
@@ -282,19 +290,16 @@ const std::string Song::GetPath() const
 	return resource_.GetPath();
 }
 
-const std::vector<Chart*>* Song::GetCharts() const
-{
-	return &charts_;
-}
-
 void Song::GetCharts(std::vector<Chart*>& charts)
 {
-	charts = charts_;
+	charts.clear();
+	for (ChartFile &cf : charts_)
+		charts.push_back(cf.c);
 }
 
 const char* Song::GetErrorStr() const
 {
-	return errormsg_;
+	return get_error_msg(error_);
 }
 
 Resource * Song::GetResource()
@@ -308,9 +313,9 @@ std::string Song::toString() const
 	ss << "Song path: " << GetPath() << std::endl;
 	ss << "Song type: " << GetChartExtension(songtype_) << std::endl;
 	ss << "Chart count: " << charts_.size() << std::endl << std::endl;
-	for (auto c : charts_)
+	for (auto cf : charts_)
 	{
-		ss << c->toString() << std::endl << std::endl;
+		ss << cf.c->toString() << std::endl << std::endl;
 	}
 	return ss.str();
 }

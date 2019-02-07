@@ -11,19 +11,6 @@
 #include <sstream>
 
 namespace rparser {
-
-// MUST be in same order with Song::SONGTYPE
-enum class CHARTTYPE {
-	NONE = 0,
-	BMS,
-	BMSON,
-	OSU,
-	VOS,
-	SM,
-	DTX,
-	OJM,
-};
-
 /*
  * @description
  * chart data contains: notedata, timingdata, metadata
@@ -42,8 +29,10 @@ public:
 	ChartData* GetChartData();
     TimingData* GetTimingData();
 
-    std::string GetFilePath() const;
-	void SetFilePath(const std::string& sPath);
+	void SetExternMetaData(MetaData* md);
+	void SetExternTimingData(TimingData* td);
+	void SetIndepMetaData();
+	void SetIndepTimingData();
 
     // @description clone myself to another chart
     Chart* Clone();
@@ -54,17 +43,9 @@ public:
     // Calling this function requires full scan of NoteData, so be aware of it ...
     void UpdateTimingData();
 
-	// generate mixing object
-	void GenerateMixingData(MixingData& md);
-	// returns chart object file to iLen;
-	bool Flush(char **out, int &iLen) const;
-	// returns true if there is any modification from last Flush()
-	bool IsDirty() const;
-
-
     std::string toString();
-    Chart();
-    Chart(Chart* c);
+    Chart(const TimingData *td=0, const MetaData *md=0);
+    Chart(const Chart* c);
 private:
     ChartData chartdata_;
     TimingData timingdata_;
@@ -74,9 +55,7 @@ private:
 	struct ChartStatus {
 		std::string filepath;	// absolute path
 		std::string relpath;	// relative path
-		char hash[33];			// MD5 hash of chart file (len 32)
-		bool dirty;				// is it modified from last Flush() ?
-		CHARTTYPE type;			// chart file format
+		char hash[32];			// MD5 hash of chart file
 	} chartstat_;
 };
 

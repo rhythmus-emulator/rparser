@@ -25,10 +25,8 @@ Chart::Chart()
 
 Chart::Chart(Chart* c)
 {
-    m_ChartSummaryData = c->m_ChartSummaryData;
-    m_Metadata = c->m_Metadata;
-    m_Notedata = c->m_Notedata;
-    m_Timingdata = c->m_Timingdata;
+	chartdata_ = c->chartdata_;
+	timingdata_ = c->timingdata_;
 }
 
 const MetaData* Chart::GetMetaData() const
@@ -98,30 +96,11 @@ Chart* Chart::Clone()
     return new Chart(this);
 }
 
-void Chart::ChangeResolution(int newRes)
-{
-    m_Timingdata.SetResolution(newRes);
-    m_Notedata.SetResolution(newRes);
-}
-
 void Chart::UpdateTimingData()
 {
     // invalidate timingdata from meta/notedata
 	m_Notedata.FillTimingData(m_Timingdata);
 }
-
-void Chart::UpdateBeatData()
-{
-    m_Timingdata.UpdateBeatData();
-    m_Notedata.UpdateBeatData();
-}
-
-void Chart::LoadExternObject()
-{
-	m_Timingdata.ClearExternObject();
-	m_Timingdata.LoadExternObject(m_Metadata, m_Notedata);
-}
-
 
 // chart summary
 std::string ChartSummaryData::toString()

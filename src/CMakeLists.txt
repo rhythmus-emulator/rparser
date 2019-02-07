@@ -6,6 +6,7 @@ set (RPARSER_SOURCES
     "ChartLoaderBMS.cpp"
     "ChartLoaderVOS.cpp"
     "ChartWriter.cpp"
+    "ChartUtil.cpp"
     "MetaData.cpp"
     "Resource.cpp"
     "Song.cpp"
@@ -17,10 +18,12 @@ set (RPARSER_HEADERS
 	"ChartData.h"
     "ChartLoader.h"
     "ChartWriter.h"
+    "ChartUtil.h"
     "MetaData.h"
 	"Resource.h"
     "Song.h"
     "TimingData.h"
+    "Error.h"
 	"rutil.h")
 
 # declare RPARSER_INCLUDE_DIR variable to parent scope
@@ -47,9 +50,3 @@ include_directories(${ZIP_INCLUDE_DIR} ${ZLIB_INCLUDE_DIR} ${OPENSSL_INCLUDE_DIR
 
 
 add_library(rparser ${RPARSER_SOURCES} ${RPARSER_HEADERS})
-
-
-# if proceed with test
-if (rparser_test)
-	add_subdirectory("test")
-endif()

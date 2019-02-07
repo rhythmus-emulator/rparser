@@ -1,0 +1,10 @@
+ERR(NONE, "No error."),
+ERR(OPEN_NO_FILE, "Could not found file."),
+ERR(OPEN_NO_CHART, "No song chart found."),
+ERR(OPEN_INVALID_FILE, "Corrupt file."),
+ERR(OPEN_INVALID_CHART, "Corrupt chart file."),
+ERR(WRITE_NO_PATH, "Path not exists."),
+ERR(WRITE_SERIALIZE_CHART, "Error occured during serializing chart file."),
+ERR(WRITE_METADATA, "Failed to save metadata."),
+ERR(WRITE_RENAME, "Failed to rename file."),
+ERR(UNKNOWN, "Unknown error occured.")

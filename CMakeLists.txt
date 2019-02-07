@@ -18,6 +18,9 @@ find_package(zip PATHS ${LIB_DIR})
 find_package(zlib PATHS ${LIB_DIR})
 find_package(openssl PATHS ${LIB_DIR})
 
-# add subdirectories
+# project: library
 add_subdirectory("${PROJECT_SOURCE_DIR}/src")
+
+# project: test
+# (if not, just add src)
 add_subdirectory("${PROJECT_SOURCE_DIR}/test")

@@ -90,25 +90,26 @@ enum class TrackSpecialType
  * 8bit: duplicated index (used for BGA channel / duplicated note)
  * 8bit: channel subtype
  * 8bit: channel type
- * left (40bit): row number
+ * 32bit: row number
  */
 typedef unsigned long long rowid;
-typedef unsigned long long trackinfo;
-#define TRACK_IDX(t) (t & 0xF)
-#define TRACK_LANE(t) ((t>>4) & 0xFF)
-#define TRACK_SUBTYPE(t) ((t>>12) & 0xFF)
-#define TRACK_TYPE(t) ((t>>20) & 0xF)
-#define TRACK_ROW(t) (t>>24)
+typedef struct trackinfo
+{
+	uint8_t idx;
+	uint8_t lane;
+	uint8_t subtype;
+	uint8_t type;
+	uint32_t row;
+
+	trackinfo() : idx(0), lane(0), subtype(0), type(0), row(0) {}
+};
 
 /*
  * @description
- * An object in BGM/BGA/Tappable channel
- * Mostly these object has type, position, value.
- * You may need to process these objects properly to make playable objects.
+ * Note data such as sound, length, etc. (except for position info)
  */
-struct Note
+struct NoteData
 {
-	trackinfo track;				// track info (row/type/subtype/idx)
 	rowid length;					// length of note in row (if LN with specified length exists)
     int value;                      // command value
 	int value_end;					// command value (for longnote)
@@ -120,16 +121,17 @@ struct Note
     // @description bmson attribute. (loop)
     bool restart;
 
-	Note() : track(0), value(0), x(0), y(0),
+	NoteData() : value(0), x(0), y(0),
 		volume(0), pitch(0), restart(false) {}
 
     std::string toString();
-	bool operator<(const Note &other) const;
-	bool operator==(const Note &other) const;
+	bool operator<(const NoteData &other) const;
+	bool operator==(const NoteData &other) const;
     bool IsTappableNote();
     int GetPlayerSide();
     int GetTrack();
 };
+typedef std::pair<trackinfo, NoteData> Note;
 
 /*
  * @description
@@ -419,51 +421,6 @@ struct MixingNote
 };
 
 
-/*
- * @description
- * generated mixing object from Chart class.
- */
-struct MixingData
-{
-	// sorted in time
-	std::vector<MixingNote> vMixingNotes;
-
-	int iNoteCount;
-	int iTrackCount;
-	float fLastNoteTime_ms;    // msec
-
-
-	// general bpm
-	// (from metadata or bpm channel)
-	// (bpm channel may overwrite metadata bpm info)
-	int iBPM;
-	// MAX BPM
-	int iMaxBPM;
-	// MIN BPM
-	int iMinBPM;
-	// is bpm changes? (maxbpm != minbpm)
-	bool isBPMChanges;
-	// is backspin object exists? (bms specific attr.)
-	bool isBSS;
-	// is charge note exists? (bms type)
-	bool isCN_bms;
-	// is charge note exists?
-	bool isCN;
-	// is hellcharge note exists?
-	bool isHCN;
-	// is Invisible note exists?
-	bool isInvisible;
-	// is fake note exists?
-	bool isFake;
-	// is bomb/shock object exists?
-	bool isBomb;
-	// is warp object exists? (stepmania specific attr.)
-	bool isWarp;
-	// is stop object exists?
-	bool isStop;
-	// is command exists/processed? (bms specific attr.)
-	bool isCommand;
-};
 
 }
 

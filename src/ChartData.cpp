@@ -1,4 +1,3 @@
-#include "NoteData.h"
 #include "Chart.h"
 #include "rutil.h"
 #include <sstream>
@@ -49,7 +48,7 @@ char *n_subtype_bms[] = {
     "NOTEBMS_INVISIBLE",
 };
 
-std::string Note::toString()
+std::string NoteData::toString()
 {
     std::stringstream ss;
     std::string sType, sSubtype;
