@@ -6,7 +6,7 @@
 #define RPARSER_NOTELOADER_H
 
 #include "Song.h"
-#include "NoteData.h"
+#include "ChartData.h"
 #include <vector>
 
 namespace rparser {
@@ -54,7 +54,7 @@ public:
     bool Load( const void* p, int iLen );
 };
 
-
+ChartLoader* CreateChartLoader(SONGTYPE songtype);
 int LoadChart( const std::string& fn, SONGTYPE songtype = SONGTYPE::NONE );
 int LoadChart( const void* p, int iLen, SONGTYPE songtype = SONGTYPE::NONE );
 

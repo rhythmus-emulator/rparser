@@ -19,10 +19,6 @@ const std::list<std::pair<SONGTYPE, const char*>> type_2_ext_ = {
 	{SONGTYPE::SM, "sm"},
 };
 
-
-
-// ------ class Song ------
-
 const std::string Song::gen_readable_ext_()
 {
 	std::string r;
@@ -38,7 +34,7 @@ const std::string Song::gen_readable_ext_()
 }
 const std::string Song::total_readable_ext_ = Song::gen_readable_ext_();
 
-// --
+// ------ class Song ------
 
 Song::Song()
 	: songtype_(SONGTYPE::NONE), error_(ERROR::NONE),
@@ -81,6 +77,8 @@ bool Song::RenameChart(const Chart* c, const std::string& newfilename)
 
 bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 {
+	Chart *c;
+
 	// initialize
 	Close();
 	songtype_ = songtype;
@@ -130,25 +128,49 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 #endif
 	}
 
-	// If necessary, load song metadata.
-	// Should load first than charts, as some chart may require metadata.
-	LoadMetadata();
-
-	// Attempt to read chart.
-	for (auto ii : chart_files)
+	ChartLoader *cl = CreateChartLoader(songtype);
+	switch (songtype)
 	{
-		Chart *c = new Chart();
-		if (!c->Load(ii.second->p, ii.second->len))
+	case SONGTYPE::OSU:
+	case SONGTYPE::VOS:
+		metadata_global_ = new MetaData();
+		timingdata_global_ = new TimingData();
+
+		LoadMetadata();
+
+		for (auto ii : chart_files)
 		{
-			// Error might be occured during chart loading,
-			// But won't stop loading as there *might* be 
-			// So, just skip the wrong chart file and make log.
-			error_ = ERROR::OPEN_INVALID_CHART;
-			delete c;
-			continue;
+			c = new Chart(metadata_global_, timingdata_global_);
+			if (!cl->Load(ii.second->p, ii.second->len))
+			{
+				// Error might be occured during chart loading,
+				// But won't stop loading as there *might* be 
+				// So, just skip the wrong chart file and make log.
+				error_ = ERROR::OPEN_INVALID_CHART;
+				delete c;
+				continue;
+			}
+			RegisterChart(c, ii.first);
 		}
-		RegisterChart(c, ii.first);
+		break;
+	default:
+		for (auto ii : chart_files)
+		{
+			c = new ChartBMS();
+			if (!cl->Load(ii.second->p, ii.second->len))
+			{
+				// Error might be occured during chart loading,
+				// But won't stop loading as there *might* be 
+				// So, just skip the wrong chart file and make log.
+				error_ = ERROR::OPEN_INVALID_CHART;
+				delete c;
+				continue;
+			}
+			RegisterChart(c, ii.first);
+		}
+		break;
 	}
+	delete cl;
 
 	return true;
 }
@@ -163,7 +185,7 @@ bool Song::Save()
 			Resource::BinaryData data;
 			// remove previous file and create new file again
 			resource_.Delete(cf.old_filename);
-			if (!SerializeChart(cf.c, data))
+			if (!SerializeChart(*cf.c, data))
 			{
 				error_ = ERROR::WRITE_SERIALIZE_CHART;
 				return false;
@@ -209,6 +231,8 @@ bool Song::Close(bool save)
 	resource_.Unload(false);
 	error_ = ERROR::NONE;
 	songtype_ = SONGTYPE::NONE;
+	delete timingdata_global_;
+	delete metadata_global_;
 }
 
 bool Song::LoadMetadata()
@@ -241,6 +265,7 @@ bool Song::ChangeSongType(SONGTYPE songtype)
 {
 	MetaData *metadata_common = 0;
 	TimingData *timingdata_common = 0;
+	Chart *new_chart = 0;
 
 	if (songtype == songtype_)
 		return true;
@@ -252,24 +277,25 @@ bool Song::ChangeSongType(SONGTYPE songtype)
 	case SONGTYPE::VOS:
 		if (!metadata_global_) metadata_global_ = new MetaData();
 		if (!timingdata_global_) timingdata_global_ = new TimingData();
+		for (ChartFile &cf : charts_)
+		{
+			new_chart = new Chart(metadata_global_, timingdata_global_);
+			new_chart->swap(*cf.c);
+			delete cf.c;
+			cf.c = new_chart;
+		}
 		break;
 	default:
 		if (metadata_global_) metadata_common = metadata_global_, metadata_global_ = 0;
 		if (timingdata_global_) timingdata_common = timingdata_global_, timingdata_global_ = 0;
+		for (ChartFile &cf : charts_)
+		{
+			new_chart = new ChartBMS();
+			new_chart->swap(*cf.c);
+			delete cf.c;
+			cf.c = new_chart;
+		}
 		break;
-	}
-
-	for (ChartFile &cf : charts_)
-	{
-		Chart *c = cf.c;
-		if (metadata_global_)
-			c->SetExternMetaData(metadata_global_);
-		else
-			c->SetIndepMetaData();
-		if (timingdata_global_)
-			c->SetExternTimingData(timingdata_global_);
-		else
-			c->SetIndepTimingData();
 	}
 
 	songtype_ = songtype;

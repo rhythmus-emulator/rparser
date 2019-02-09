@@ -18,6 +18,7 @@
 #include "Error.h"
 
 #include <algorithm>
+#include <sstream>
 #include "rutil.h"
 
 namespace rparser {
@@ -56,6 +57,7 @@ private:
 		Chart* c;
 		std::string new_filename;
 		std::string old_filename;
+		const char hash[32];
 		bool is_dirty;
 	};
 
@@ -104,11 +106,10 @@ public:
 	const std::string GetPath() const;
 
 	// @description
-	// Change(convert) song type to other, including file extension.
-	// WARNING: This may involve real file I/O.
+	// Change(convert) song type to other (including file extension)
 	bool ChangeSongType(SONGTYPE songtype);
 
-	std::string toString() const;
+	virtual std::string toString() const;
     Song();
     ~Song();
 private:
