@@ -1,8 +1,21 @@
 #include <iostream>
+#include <gtest/gtest.h>
 #include "Song.h"
 using namespace std;
 using namespace rparser;
 
+TEST(rutil_test, basic)
+{
+	EXPECT_EQ(1, 1);
+}
+
+int main(int argc, char **argv)
+{
+	::testing::InitGoogleTest(&argc, argv);
+	return RUN_ALL_TESTS();
+}
+
+#if 0
 int main()
 {
 	Resource *res;
@@ -52,3 +65,4 @@ int main()
 
 	return 0;
 }
+#endif
