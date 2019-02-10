@@ -38,7 +38,7 @@ const std::string Song::total_readable_ext_ = Song::gen_readable_ext_();
 
 Song::Song()
 	: songtype_(SONGTYPE::NONE), error_(ERROR::NONE),
-	timingdata_global_(0), metadata_global_(0)
+	tobjs_global_(0), metadata_global_(0)
 {
 }
 
@@ -134,13 +134,13 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 	case SONGTYPE::OSU:
 	case SONGTYPE::VOS:
 		metadata_global_ = new MetaData();
-		timingdata_global_ = new TimingData();
+		tobjs_global_ = new TimingObjVec();
 
 		LoadMetadata();
 
 		for (auto ii : chart_files)
 		{
-			c = new Chart(metadata_global_, timingdata_global_);
+			c = new Chart(metadata_global_, tobjs_global_);
 			if (!cl->Load(ii.second->p, ii.second->len))
 			{
 				// Error might be occured during chart loading,
@@ -231,7 +231,7 @@ bool Song::Close(bool save)
 	resource_.Unload(false);
 	error_ = ERROR::NONE;
 	songtype_ = SONGTYPE::NONE;
-	delete timingdata_global_;
+	delete tobjs_global_;
 	delete metadata_global_;
 }
 
@@ -264,7 +264,7 @@ bool Song::SaveMetadata()
 bool Song::ChangeSongType(SONGTYPE songtype)
 {
 	MetaData *metadata_common = 0;
-	TimingData *timingdata_common = 0;
+	TimingObjVec *tobjs_common = 0;
 	Chart *new_chart = 0;
 
 	if (songtype == songtype_)
@@ -276,10 +276,10 @@ bool Song::ChangeSongType(SONGTYPE songtype)
 	case SONGTYPE::OSU:
 	case SONGTYPE::VOS:
 		if (!metadata_global_) metadata_global_ = new MetaData();
-		if (!timingdata_global_) timingdata_global_ = new TimingData();
+		if (!tobjs_global_) tobjs_global_ = new TimingObjVec();
 		for (ChartFile &cf : charts_)
 		{
-			new_chart = new Chart(metadata_global_, timingdata_global_);
+			new_chart = new Chart(metadata_global_, tobjs_global_);
 			new_chart->swap(*cf.c);
 			delete cf.c;
 			cf.c = new_chart;
@@ -287,7 +287,7 @@ bool Song::ChangeSongType(SONGTYPE songtype)
 		break;
 	default:
 		if (metadata_global_) metadata_common = metadata_global_, metadata_global_ = 0;
-		if (timingdata_global_) timingdata_common = timingdata_global_, timingdata_global_ = 0;
+		if (tobjs_global_) tobjs_common = tobjs_global_, tobjs_global_ = 0;
 		for (ChartFile &cf : charts_)
 		{
 			new_chart = new ChartBMS();
@@ -300,7 +300,7 @@ bool Song::ChangeSongType(SONGTYPE songtype)
 
 	songtype_ = songtype;
 	delete metadata_common;
-	delete timingdata_common;
+	delete tobjs_common;
 	return true;
 }
 

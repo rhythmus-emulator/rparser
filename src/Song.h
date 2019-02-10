@@ -63,7 +63,7 @@ private:
 
 	Resource resource_;
     std::vector<ChartFile> charts_;
-	TimingData *timingdata_global_;
+	TimingObjVec *tobjs_global_;
     MetaData *metadata_global_;
 	SONGTYPE songtype_;
 	ERROR error_;

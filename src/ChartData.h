@@ -161,12 +161,6 @@ struct Action
 };
 
 
-class TimingData
-{
-
-};
-
-
 // Charge note type for mixing object
 enum class CNTYPE
 {
@@ -183,6 +177,8 @@ enum class CNTYPE
 */
 struct MixingNote
 {
+	Note *n;
+
 	// mixing related
 
 	bool ismixable;

@@ -114,4 +114,15 @@ Note* GetNoteAtRow(int row, int track = -1);
 void GetNotesAtRow(NoteSelection &vNotes, int row = -1, int track = -1);
 void GetNotesAtRange(NoteSelection &vNotes, int row = -1, int track = -1);
 
+// row scanning utilities (fast-scan)
+bool IsRangeEmpty(unsigned long long startrow, unsigned long long endrow);
+bool IsRowEmpty(unsigned long long row, TRACKTYPE type = TRACKTYPE::TRACK_EMPTY, unsigned int subtype = 0);
+bool IsTrackEmpty(trackinfo track);
+bool IsHoldNoteAtRow(int row, int track = -1);
+
+// full scan utilities
+bool IsTypeEmpty(TRACKTYPE type, unsigned int subtype = 0);
+bool IsLaneEmpty(unsigned int lane);
+
+
 }

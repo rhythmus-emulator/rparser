@@ -100,6 +100,8 @@ public:
     // barlength & notecount is located at TimingData / NoteData.
     void FillSummaryData(ChartSummaryData &csd) const;
     std::string toString();
+
+	void swap(MetaData &md);
 private:
     SoundChannel m_SoundChannel;
     BGAChannel m_BGAChannel;

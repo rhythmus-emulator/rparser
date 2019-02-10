@@ -277,6 +277,8 @@ public:
     void AddObject(const MeasureObject& obj);
     void AddObject(const TickObject& obj);
 
+	void swap(TimingData &td);
+
     TimingData();
     ~TimingData();
 private:
