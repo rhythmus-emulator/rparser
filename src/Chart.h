@@ -5,12 +5,9 @@
 #ifndef RPARSER_CHARTDATA_H
 #define RPARSER_CHARTDATA_H
 
+#include "common.h"
 #include "MetaData.h"
-#include "TimingData.h"
 #include "ChartData.h"
-#include <map>
-#include <vector>
-#include <algorithm>
 
 /*
  * NOTE:
@@ -23,10 +20,6 @@ namespace rparser
 {
 
 class ConditionStatement;
-
-typedef std::vector<TimingObject> TimingObjVec;
-typedef std::vector<Action> ActionVec;
-typedef std::vector<Note> NoteVec;
 
 /*
  * \detail
@@ -41,13 +34,17 @@ class Chart
 /* iterators */
 public:
 	Chart(MetaData *md, TimingObjVec *td);
-	Chart(const Chart &nd);
+	Chart(Chart &nd);
 	~Chart();
 
 	NoteVec& GetNotes();
 	ActionVec& GetActions();
 	TimingObjVec& GetTimingObjs();
 	MetaData& GetMetaData();
+	const NoteVec& GetNotes() const;
+	const ActionVec& GetActions() const;
+	const TimingObjVec& GetTimingObjs() const;
+	const MetaData& GetMetaData() const;
 
 	void Clear();
 	// copy and merge objects from other ChartData (without stmt)
@@ -65,14 +62,8 @@ public:
     bool IsEmpty();
 
 private:
-	/*
-	 * Contains all timing related objects
-	 */
-	TimingObjVec* tobjs_;
-	/*
-	 * Metadata of this chart section.
-	 */
-	MetaData* metadata_;
+	mutable TimingObjVec* tobjs_;
+	mutable MetaData* metadata_;
 	/*
 	 * Contains all note objects
 	 * (ROW based position; mostly exists lane/channel and not duplicable.)
@@ -124,35 +115,6 @@ private:
 };
 
 
-
-/*
- * \detail
- * Mixable/Playable (timing info appended) chart object.
- *
- * \warn
- * Dependent to original chart data so don't change it when refering ChartMixing class.
- *
- * \params
- * ...
- */
-class ChartMixing
-{
-public:
-	ChartMixing();
-	ChartMixing(const Chart& c, bool deepcopy = false);
-	~ChartMixing();
-
-	std::vector<MixingNote>& GetNotes();
-	TimingData& GetTimingdata();
-	MetaData& GetMetadata();
-private:
-	std::vector<MixingNote> mixingnotes_;
-	TimingData* timingdata_;
-	MetaData* metadata_;
-
-	std::vector<Note*> notes_alloced_;
-	MetaData* metadata_alloced_;
-};
 
 }
 

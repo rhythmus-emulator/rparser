@@ -1,7 +1,5 @@
 #include "Chart.h"
 #include "rutil.h"
-#include <sstream>
-#include <algorithm>
 
 using namespace rutil;
 
@@ -13,9 +11,9 @@ Chart::Chart(MetaData *md, TimingObjVec *td)
 {
 }
 
-Chart::Chart(const Chart &nd)
-	: Chart(nd.GetMetaData(), nd.GetTimingObjs());
+Chart::Chart(Chart &nd)
 {
+  Chart(&nd.GetMetaData(), &nd.GetTimingObjs());
 	for (auto note : nd.notes_)
 	{
 		notes_.push_back(Note(note));
@@ -39,7 +37,7 @@ void Chart::swap(Chart& c)
 	notes_.swap(c.notes_);
 	actions_.swap(c.actions_);
 	stmts_.swap(c.stmts_);
-	timingdata_->swap(*c.timingdata_);
+	tobjs_->swap(*c.tobjs_);
 	metadata_->swap(*c.metadata_);
 }
 
@@ -50,13 +48,13 @@ void Chart::Clear()
 	actions_.clear();
 	stmts_.clear();
 	metadata_->Clear();
-	timingdata_->Clear();
+	tobjs_->clear();
 }
 
 void Chart::Merge(const Chart &cd, rowid rowFrom)
 {
-	notes_.insert(cd.notes_.end(), cd.notes_.begin(), cd.notes_.end());
-	actions_.insert(cd.actions_.end(), cd.actions_.begin(), cd.actions_.end());
+	notes_.insert(notes_.end(), cd.notes_.begin(), cd.notes_.end());
+	actions_.insert(actions_.end(), cd.actions_.begin(), cd.actions_.end());
 }
 
 void Chart::AppendStmt(ConditionStatement& stmt)
@@ -70,7 +68,7 @@ void Chart::EvaluateStmt(int seed)
 	{
 		Chart *c = stmt.EvaluateSentence(seed);
 		if (c)
-			Merge(c);
+			Merge(*c);
 	}
 }
 
@@ -86,7 +84,7 @@ ActionVec& Chart::GetActions()
 
 TimingObjVec& Chart::GetTimingObjs()
 {
-	return *timingdata_;
+	return *tobjs_;
 }
 
 MetaData& Chart::GetMetaData()
@@ -94,18 +92,37 @@ MetaData& Chart::GetMetaData()
 	return *metadata_;
 }
 
-ChartBMS::ChartBMS()
+const NoteVec& Chart::GetNotes() const
 {
-	tobjs_saved_ = new TimingObjVec();
-	metadata_saved_ = new MetaData();
-	Chart(tobjs_saved_, metadata_saved_);
+	return notes_;
+}
+
+const ActionVec& Chart::GetActions() const
+{
+	return actions_;
+}
+
+const TimingObjVec& Chart::GetTimingObjs() const
+{
+	return *tobjs_;
+}
+
+const MetaData& Chart::GetMetaData() const
+{
+	return *metadata_;
+}
+
+ChartBMS::ChartBMS() : Chart(new MetaData(), new TimingObjVec())
+{
+	tobjs_saved_ = &GetTimingObjs();
+	metadata_saved_ = &GetMetaData();
 }
 
 ChartBMS::ChartBMS(const Chart& c)
+  : Chart(new MetaData(c.GetMetaData()), new TimingObjVec(c.GetTimingObjs()))
 {
-	tobjs_saved_ = new TimingObjVec(c.GetTimingData());
-	metadata_saved_ = new MetaData(c.GetMetaData());
-	Chart(tobjs_saved_, metadata_saved_);
+	tobjs_saved_ = &GetTimingObjs();
+	metadata_saved_ = &GetMetaData();
 }
 
 ChartBMS::~ChartBMS()
@@ -119,7 +136,7 @@ void ConditionStatement::AddSentence(unsigned int cond, Chart* chartdata)
 	sentences_[cond] = chartdata;
 }
 
-Chart* ConditionStatement::EvaluateSentence(int seed = -1)
+Chart* ConditionStatement::EvaluateSentence(int seed)
 {
 	unsigned int cur_seed = seed;
 	if (cur_seed < 0)
@@ -146,19 +163,20 @@ ConditionStatement::~ConditionStatement()
 	}
 }
 
-ChartMixing::ChartMixing() : metadata_alloced_(0)
+MixingData::MixingData() : metadata_alloced_(0)
 {
 	timingdata_ = new TimingData();
 	metadata_ = new MetaData();
 }
 
-ChartMixing::ChartMixing(const Chart& c, bool deepcopy)
-	: metadata_alloced_(0);
+MixingData::MixingData(const Chart& c, bool deepcopy)
+	: metadata_alloced_(0)
 {
 	MixingNote mn;
 
-	timingdata_ = new TimingData(c);
-	metadata_ = c.GetMetaData();
+	timingdata_ = new TimingData();
+	metadata_ = &c.GetMetaData();
+  FillTimingData(*timingdata_, c);
 	for (auto n : c.GetNotes())
 	{
 		// TODO: fill more note data
@@ -171,7 +189,7 @@ ChartMixing::ChartMixing(const Chart& c, bool deepcopy)
 		metadata_ = metadata_alloced_ = new MetaData(metadata_);
 		for (auto mn : mixingnotes_)
 		{
-			n = new Note(mn.n);
+			n = new Note(mn.n->second);
 			notes_alloced_.push_back(n);
 			mn.n = n;
 		}
@@ -179,22 +197,22 @@ ChartMixing::ChartMixing(const Chart& c, bool deepcopy)
 	// TODO: fill more note data (timing based)
 }
 
-std::vector<MixingNote>& ChartMixing::GetNotes()
+std::vector<MixingNote>& MixingData::GetNotes()
 {
 	return mixingnotes_;
 }
 
-TimingData& ChartMixing::GetTimingdata()
+const TimingData& MixingData::GetTimingdata() const
 {
 	return *timingdata_;
 }
 
-MetaData& ChartMixing::GetMetadata()
+const MetaData& MixingData::GetMetadata() const
 {
 	return *metadata_;
 }
 
-ChartMixing::~ChartMixing()
+MixingData::~MixingData()
 {
 	for (auto n : notes_alloced_)
 		delete n;

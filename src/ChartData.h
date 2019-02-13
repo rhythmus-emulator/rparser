@@ -5,6 +5,9 @@
 #include <vector>
 #include <algorithm>
 
+namespace rparser
+{
+
 /*
 * @description
 * Soundable/Renderable, or tappable object.
@@ -208,3 +211,9 @@ struct MixingNote
 	Note* obj_start;
 	Note* obj_end;
 };
+
+typedef std::vector<TimingObject> TimingObjVec;
+typedef std::vector<Action> ActionVec;
+typedef std::vector<Note> NoteVec;
+
+}
