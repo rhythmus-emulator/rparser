@@ -38,7 +38,7 @@ const std::string Song::total_readable_ext_ = Song::gen_readable_ext_();
 
 Song::Song()
 	: songtype_(SONGTYPE::NONE), error_(ERROR::NONE),
-	tobjs_global_(0), metadata_global_(0)
+	tobjs_shared_(0), metadata_shared_(0)
 {
 }
 
@@ -47,12 +47,12 @@ Song::~Song()
 	Close();
 }
 
-void Song::RegisterChart(Chart * c, const std::string& filename)
+void Song::RegisterChart(chart::Chart * c, const std::string& filename)
 {
 	charts_.push_back({ c, filename, filename, false });
 }
 
-bool Song::DeleteChart(const Chart * c)
+bool Song::DeleteChart(const chart::Chart * c)
 {
 	for (auto p = charts_.begin(); p != charts_.end(); ++p) {
 		if (p->c == c) {
@@ -63,7 +63,7 @@ bool Song::DeleteChart(const Chart * c)
 	return false;
 }
 
-bool Song::RenameChart(const Chart* c, const std::string& newfilename)
+bool Song::RenameChart(const chart::Chart* c, const std::string& newfilename)
 {
 	for (auto p = charts_.begin(); p != charts_.end(); ++p) {
 		if (p->c == c) {
@@ -77,7 +77,7 @@ bool Song::RenameChart(const Chart* c, const std::string& newfilename)
 
 bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 {
-	Chart *c;
+  chart::Chart *c;
 
 	// initialize
 	Close();
@@ -128,48 +128,35 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 #endif
 	}
 
-	ChartLoader *cl = CreateChartLoader(songtype);
 	switch (songtype)
 	{
 	case SONGTYPE::OSU:
 	case SONGTYPE::VOS:
-		metadata_global_ = new MetaData();
-		tobjs_global_ = new TimingObjVec();
+		metadata_shared_ = new MetaData();
+		tobjs_shared_ = new chart::TempoData();
 
 		LoadMetadata();
 
-		for (auto ii : chart_files)
-		{
-			c = new Chart(metadata_global_, tobjs_global_);
-			if (!cl->Load(ii.second->p, ii.second->len))
-			{
-				// Error might be occured during chart loading,
-				// But won't stop loading as there *might* be 
-				// So, just skip the wrong chart file and make log.
-				error_ = ERROR::OPEN_INVALID_CHART;
-				delete c;
-				continue;
-			}
-			RegisterChart(c, ii.first);
-		}
 		break;
 	default:
-		for (auto ii : chart_files)
-		{
-			c = new ChartBMS();
-			if (!cl->Load(ii.second->p, ii.second->len))
-			{
-				// Error might be occured during chart loading,
-				// But won't stop loading as there *might* be 
-				// So, just skip the wrong chart file and make log.
-				error_ = ERROR::OPEN_INVALID_CHART;
-				delete c;
-				continue;
-			}
-			RegisterChart(c, ii.first);
-		}
 		break;
 	}
+
+	ChartLoader *cl = CreateChartLoader(songtype);
+  for (auto ii : chart_files)
+  {
+    c = new chart::Chart(metadata_shared_, tobjs_shared_);
+    if (!cl->Load(ii.second->p, ii.second->len))
+    {
+      // Error might be occured during chart loading,
+      // But won't stop loading as there *might* be 
+      // So, just skip the wrong chart file and make log.
+      error_ = ERROR::OPEN_INVALID_CHART;
+      delete c;
+      continue;
+    }
+    RegisterChart(c, ii.first);
+  }
 	delete cl;
 
 	return true;
@@ -231,8 +218,8 @@ bool Song::Close(bool save)
 	resource_.Unload(false);
 	error_ = ERROR::NONE;
 	songtype_ = SONGTYPE::NONE;
-	delete tobjs_global_;
-	delete metadata_global_;
+	delete tobjs_shared_;
+	delete metadata_shared_;
 }
 
 bool Song::LoadMetadata()
@@ -256,7 +243,7 @@ bool Song::SaveMetadata()
 	case SONGTYPE::OSU:
 		return false;
 	default:
-		// pass
+		break;
 	}
 	return true;
 }
@@ -264,8 +251,8 @@ bool Song::SaveMetadata()
 bool Song::ChangeSongType(SONGTYPE songtype)
 {
 	MetaData *metadata_common = 0;
-	TimingObjVec *tobjs_common = 0;
-	Chart *new_chart = 0;
+  chart::TempoData *tobjs_common = 0;
+  chart::Chart *new_chart = 0;
 
 	if (songtype == songtype_)
 		return true;
@@ -275,28 +262,22 @@ bool Song::ChangeSongType(SONGTYPE songtype)
 	{
 	case SONGTYPE::OSU:
 	case SONGTYPE::VOS:
-		if (!metadata_global_) metadata_global_ = new MetaData();
-		if (!tobjs_global_) tobjs_global_ = new TimingObjVec();
-		for (ChartFile &cf : charts_)
-		{
-			new_chart = new Chart(metadata_global_, tobjs_global_);
-			new_chart->swap(*cf.c);
-			delete cf.c;
-			cf.c = new_chart;
-		}
+		if (!metadata_shared_) metadata_shared_ = new MetaData();
+		if (!tobjs_shared_) tobjs_shared_ = new chart::TempoData();
 		break;
 	default:
-		if (metadata_global_) metadata_common = metadata_global_, metadata_global_ = 0;
-		if (tobjs_global_) tobjs_common = tobjs_global_, tobjs_global_ = 0;
-		for (ChartFile &cf : charts_)
-		{
-			new_chart = new ChartBMS();
-			new_chart->swap(*cf.c);
-			delete cf.c;
-			cf.c = new_chart;
-		}
+		if (metadata_shared_) metadata_common = metadata_shared_, metadata_shared_ = 0;
+		if (tobjs_shared_) tobjs_common = tobjs_shared_, tobjs_shared_ = 0;
 		break;
 	}
+
+  for (ChartFile &cf : charts_)
+  {
+    new_chart = new chart::Chart(metadata_shared_, tobjs_shared_);
+    new_chart->swap(*cf.c);
+    delete cf.c;
+    cf.c = new_chart;
+  }
 
 	songtype_ = songtype;
 	delete metadata_common;

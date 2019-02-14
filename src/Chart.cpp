@@ -6,25 +6,28 @@ using namespace rutil;
 namespace rparser
 {
 
-Chart::Chart(MetaData *md, TimingObjVec *td)
-	: metadata_(md), tobjs_(td)
+namespace chart
+{
+
+Chart::Chart(const MetaData *md, const TempoData *td)
+	: metadata_shared_(md), tempodata_shared_(td)
 {
 }
 
-Chart::Chart(Chart &nd)
+Chart::Chart(const Chart &nd)
 {
-  Chart(&nd.GetMetaData(), &nd.GetTimingObjs());
-	for (auto note : nd.notes_)
+  Chart(&nd.GetSharedMetaData(), &nd.GetSharedTempoData());
+	for (auto note : nd.notedata_)
 	{
-		notes_.push_back(Note(note));
+		notedata_.push_back(Note(note));
 	}
-	for (auto stmt : nd.stmts_)
+	for (auto stmt : nd.stmtdata_)
 	{
-		stmts_.push_back(ConditionStatement(stmt));
+		stmtdata_.push_back(ConditionStatement(stmt));
 	}
-	for (auto action : nd.actions_)
+	for (auto action : nd.actiondata_)
 	{
-		actions_.push_back(Action(action));
+		actiondata_.push_back(Action(action));
 	}
 }
 
@@ -34,37 +37,37 @@ Chart::~Chart()
 
 void Chart::swap(Chart& c)
 {
-	notes_.swap(c.notes_);
-	actions_.swap(c.actions_);
-	stmts_.swap(c.stmts_);
-	tobjs_->swap(*c.tobjs_);
-	metadata_->swap(*c.metadata_);
+	notedata_.swap(c.notedata_);
+	actiondata_.swap(c.actiondata_);
+	stmtdata_.swap(c.stmtdata_);
+	tempodata_.swap(c.tempodata_);
+	metadata_.swap(c.metadata_);
 }
 
 
 void Chart::Clear()
 {
-	notes_.clear();
-	actions_.clear();
-	stmts_.clear();
-	metadata_->Clear();
-	tobjs_->clear();
+	notedata_.clear();
+	actiondata_.clear();
+	stmtdata_.clear();
+  tempodata_.clear();
+	metadata_.Clear();
 }
 
-void Chart::Merge(const Chart &cd, rowid rowFrom)
+void Chart::Merge(const Chart &cd, rowid_t rowFrom)
 {
-	notes_.insert(notes_.end(), cd.notes_.begin(), cd.notes_.end());
-	actions_.insert(actions_.end(), cd.actions_.begin(), cd.actions_.end());
+	notedata_.insert(notedata_.end(), cd.notedata_.begin(), cd.notedata_.end());
+	actiondata_.insert(actiondata_.end(), cd.actiondata_.begin(), cd.actiondata_.end());
 }
 
 void Chart::AppendStmt(ConditionStatement& stmt)
 {
-	stmts_.push_back(stmt);
+	stmtdata_.push_back(stmt);
 }
 
 void Chart::EvaluateStmt(int seed)
 {
-	for (ConditionStatement stmt : stmts_)
+	for (ConditionStatement stmt : stmtdata_)
 	{
 		Chart *c = stmt.EvaluateSentence(seed);
 		if (c)
@@ -72,63 +75,54 @@ void Chart::EvaluateStmt(int seed)
 	}
 }
 
-NoteVec& Chart::GetNotes()
+NoteData& Chart::GetNoteData()
 {
-	return notes_;
+	return notedata_;
 }
 
-ActionVec& Chart::GetActions()
+ActionData& Chart::GetActionData()
 {
-	return actions_;
+	return actiondata_;
 }
 
-TimingObjVec& Chart::GetTimingObjs()
+TempoData& Chart::GetTempoData()
 {
-	return *tobjs_;
+	return tempodata_;
 }
 
 MetaData& Chart::GetMetaData()
 {
-	return *metadata_;
+	return metadata_;
 }
 
-const NoteVec& Chart::GetNotes() const
+const NoteData& Chart::GetNoteData() const
 {
-	return notes_;
+	return notedata_;
 }
 
-const ActionVec& Chart::GetActions() const
+const ActionData& Chart::GetActionData() const
 {
-	return actions_;
+	return actiondata_;
 }
 
-const TimingObjVec& Chart::GetTimingObjs() const
+const TempoData& Chart::GetTempoData() const
 {
-	return *tobjs_;
+	return tempodata_;
 }
 
 const MetaData& Chart::GetMetaData() const
 {
-	return *metadata_;
+	return metadata_;
 }
 
-ChartBMS::ChartBMS() : Chart(new MetaData(), new TimingObjVec())
+const TempoData& Chart::GetSharedTempoData() const
 {
-	tobjs_saved_ = &GetTimingObjs();
-	metadata_saved_ = &GetMetaData();
+	return tempodata_;
 }
 
-ChartBMS::ChartBMS(const Chart& c)
-  : Chart(new MetaData(c.GetMetaData()), new TimingObjVec(c.GetTimingObjs()))
+const MetaData& Chart::GetSharedMetaData() const
 {
-	tobjs_saved_ = &GetTimingObjs();
-	metadata_saved_ = &GetMetaData();
-}
-
-ChartBMS::~ChartBMS()
-{
-	delete tobjs_saved_;
-	delete metadata_saved_;
+	return metadata_;
 }
 
 void ConditionStatement::AddSentence(unsigned int cond, Chart* chartdata)
@@ -181,16 +175,16 @@ MixingData::MixingData(const Chart& c, bool deepcopy)
 	{
 		// TODO: fill more note data
 		mn.n = &n;
-		mixingnotes_.push_back(mn);
+		mixingnotedata_.push_back(mn);
 	}
 	if (deepcopy)
 	{
 		Note *n;
 		metadata_ = metadata_alloced_ = new MetaData(metadata_);
-		for (auto mn : mixingnotes_)
+		for (auto mn : mixingnotedata_)
 		{
 			n = new Note(mn.n->second);
-			notes_alloced_.push_back(n);
+			notedata_alloced_.push_back(n);
 			mn.n = n;
 		}
 	}
@@ -199,7 +193,7 @@ MixingData::MixingData(const Chart& c, bool deepcopy)
 
 std::vector<MixingNote>& MixingData::GetNotes()
 {
-	return mixingnotes_;
+	return mixingnotedata_;
 }
 
 const TimingData& MixingData::GetTimingdata() const
@@ -214,10 +208,12 @@ const MetaData& MixingData::GetMetadata() const
 
 MixingData::~MixingData()
 {
-	for (auto n : notes_alloced_)
+	for (auto n : notedata_alloced_)
 		delete n;
 	delete metadata_alloced_;
 	delete timingdata_;
 }
+
+} /* namespace chart */
 
 } /* namespace rparser */

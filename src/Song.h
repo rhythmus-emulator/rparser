@@ -25,18 +25,18 @@ namespace rparser {
 
 // MUST be in same order with Chart::CHARTTYPE
 enum class SONGTYPE {
-	NONE = 0,
-	BMS,
-	BMSON,
-	OSU,
-	VOS,
-	SM,
-	DTX,
-	OJM,
-	BMSARCH,
+  NONE = 0,
+  BMS,
+  BMSON,
+  OSU,
+  VOS,
+  SM,
+  DTX,
+  OJM,
+  BMSARCH,
 };
 
-class Chart;
+class chart::Chart;
 
 /*
  * \brief
@@ -52,72 +52,72 @@ class Chart;
  */
 class Song {
 private:
-	struct ChartFile
-	{
-		Chart* c;
-		std::string new_filename;
-		std::string old_filename;
-		const char hash[32];
-		bool is_dirty;
-	};
+  struct ChartFile
+  {
+    chart::Chart* c;
+    std::string new_filename;
+    std::string old_filename;
+    const char hash[32];
+    bool is_dirty;
+  };
 
-	Resource resource_;
-    std::vector<ChartFile> charts_;
-	TimingObjVec *tobjs_global_;
-    MetaData *metadata_global_;
-	SONGTYPE songtype_;
-	ERROR error_;
+  Resource resource_;
+  std::vector<ChartFile> charts_;
+  chart::TempoData *tobjs_shared_;
+  MetaData *metadata_shared_;
+  SONGTYPE songtype_;
+  ERROR error_;
 public:
-    /* \brief register Chart to Song vector. */
-    void RegisterChart(Chart* c, const std::string& filename);
+  /* \brief register Chart to Song vector. */
+  void RegisterChart(chart::Chart* c, const std::string& filename);
 
-    /* \brief Delete chart from Song object.
-	 * \warning You must release Chart object by yourself. */
-    bool DeleteChart(const Chart* c);
+  /* \brief Delete chart from Song object.
+   * \warning You must release Chart object by yourself. */
+  bool DeleteChart(const chart::Chart* c);
 
-	bool RenameChart(const Chart* c, const std::string& newfilename);
+  bool RenameChart(const chart::Chart* c, const std::string& newfilename);
 
-	void GetCharts(std::vector<Chart*>& charts);
+  void GetCharts(std::vector<chart::Chart*>& charts);
 
-	/* \brief
-	 * Required in special case which metadata is separated with chart file
-	 * e.g. osu file format. */
-	bool LoadMetadata();
-    bool SaveMetadata();
+  /* \brief
+   * Required in special case which metadata is separated with chart file
+   * e.g. osu file format. */
+  bool LoadMetadata();
+  bool SaveMetadata();
 
-    const char* GetErrorStr() const;
-	Resource* GetResource();
+  const char* GetErrorStr() const;
+  Resource* GetResource();
 
 
 
-    // @description
-	// Read song file, and load charts and other metadata.
-    // Acceptable file path: folder / archive / raw file(not a single chart; special case)
-	bool Open(const std::string &path, bool onlyreadchart=false, SONGTYPE songtype = SONGTYPE::NONE);
-	// @description
-	// save all changes into song file, if available.
-	bool Save();
-	// @description
-	// clear all current song metadata & resource, close directory.
-    bool Close(bool save=false);
-	bool Rename(const std::string& newPath);
+  // @description
+  // Read song file, and load charts and other metadata.
+  // Acceptable file path: folder / archive / raw file(not a single chart; special case)
+  bool Open(const std::string &path, bool onlyreadchart=false, SONGTYPE songtype = SONGTYPE::NONE);
+  // @description
+  // save all changes into song file, if available.
+  bool Save();
+  // @description
+  // clear all current song metadata & resource, close directory.
+  bool Close(bool save=false);
+  bool Rename(const std::string& newPath);
 
-	void SetPath(const std::string& path);
-	const std::string GetPath() const;
+  void SetPath(const std::string& path);
+  const std::string GetPath() const;
 
-	// @description
-	// Change(convert) song type to other (including file extension)
-	bool ChangeSongType(SONGTYPE songtype);
+  // @description
+  // Change(convert) song type to other (including file extension)
+  bool ChangeSongType(SONGTYPE songtype);
 
-	virtual std::string toString() const;
-    Song();
-    ~Song();
+  virtual std::string toString() const;
+  Song();
+  ~Song();
 private:
-	static const std::string total_readable_ext_;
-	static const std::string gen_readable_ext_();
+  static const std::string total_readable_ext_;
+  static const std::string gen_readable_ext_();
 
-	// in case of need ...
-	std::string errormsg_detailed_;
+  // in case of need ...
+  std::string errormsg_detailed_;
 };
 
 const char* GetChartExtension(SONGTYPE iType);
