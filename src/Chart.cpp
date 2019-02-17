@@ -288,63 +288,6 @@ ConditionStatement::~ConditionStatement()
   }
 }
 
-MixingData::MixingData() : metadata_alloced_(0)
-{
-  timingdata_ = new TimingData();
-  metadata_ = new MetaData();
-}
-
-MixingData::MixingData(const Chart& c, bool deepcopy)
-  : metadata_alloced_(0)
-{
-  MixingNote mn;
-
-  timingdata_ = new TimingData();
-  metadata_ = &c.GetMetaData();
-  FillTimingData(*timingdata_, c);
-  for (auto n : c.GetNotes())
-  {
-    // TODO: fill more note data
-    mn.n = &n;
-    mixingnotedata_.push_back(mn);
-  }
-  if (deepcopy)
-  {
-    Note *n;
-    metadata_ = metadata_alloced_ = new MetaData(metadata_);
-    for (auto mn : mixingnotedata_)
-    {
-      n = new Note(mn.n->second);
-      notedata_alloced_.push_back(n);
-      mn.n = n;
-    }
-  }
-  // TODO: fill more note data (timing based)
-}
-
-std::vector<MixingNote>& MixingData::GetNotes()
-{
-  return mixingnotedata_;
-}
-
-const TimingData& MixingData::GetTimingdata() const
-{
-  return *timingdata_;
-}
-
-const MetaData& MixingData::GetMetadata() const
-{
-  return *metadata_;
-}
-
-MixingData::~MixingData()
-{
-  for (auto n : notedata_alloced_)
-    delete n;
-  delete metadata_alloced_;
-  delete timingdata_;
-}
-
 } /* namespace chart */
 
 } /* namespace rparser */

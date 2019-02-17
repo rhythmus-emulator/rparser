@@ -13,6 +13,7 @@
 
 namespace rparser {
 
+const static int kDefaultBpm = 120;
 
 struct SoundChannel {
     // channelno, filename
