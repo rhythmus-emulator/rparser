@@ -6,9 +6,6 @@ using namespace rutil;
 namespace rparser
 {
 
-namespace chart
-{
-
 const char *n_type[] = {
   "NOTE_EMPTY",
   "NOTE_TAP",
@@ -52,7 +49,7 @@ const char *n_subtype_bms[] = {
   "NOTEBMS_INVISIBLE",
 };
 
-std::string Note::toString()
+std::string Note::toString() const
 {
   std::stringstream ss;
   std::string sType, sSubtype;
@@ -140,14 +137,14 @@ struct nptr_less_row : std::binary_function <Note*, Note*, bool>
 };
 
 
-Chart::Chart(const MetaData *md, const TempoData *td)
-  : metadata_shared_(md), tempodata_shared_(td)
+Chart::Chart(const MetaData *md, const NoteData *nd)
+  : metadata_shared_(md), notedata_shared_(nd)
 {
 }
 
 Chart::Chart(const Chart &nd)
 {
-  Chart(&nd.GetSharedMetaData(), &nd.GetSharedTempoData());
+  Chart(&nd.GetSharedMetaData(), &nd.GetSharedNoteData());
   for (auto note : nd.notedata_)
   {
     notedata_.push_back(Note(note));
@@ -155,10 +152,6 @@ Chart::Chart(const Chart &nd)
   for (auto stmt : nd.stmtdata_)
   {
     stmtdata_.push_back(ConditionStatement(stmt));
-  }
-  for (auto action : nd.actiondata_)
-  {
-    actiondata_.push_back(Action(action));
   }
 }
 
@@ -169,7 +162,6 @@ Chart::~Chart()
 void Chart::swap(Chart& c)
 {
   notedata_.swap(c.notedata_);
-  actiondata_.swap(c.actiondata_);
   stmtdata_.swap(c.stmtdata_);
   tempodata_.swap(c.tempodata_);
   metadata_.swap(c.metadata_);
@@ -179,16 +171,15 @@ void Chart::swap(Chart& c)
 void Chart::Clear()
 {
   notedata_.clear();
-  actiondata_.clear();
   stmtdata_.clear();
-  tempodata_.clear();
+  tempodata_.Clear();
   metadata_.Clear();
 }
 
-void Chart::Merge(const Chart &cd, rowid_t rowFrom)
+void Chart::MergeNotedata(const Chart &cd, RowPos rowFrom)
 {
+  // only merge note data
   notedata_.insert(notedata_.end(), cd.notedata_.begin(), cd.notedata_.end());
-  actiondata_.insert(actiondata_.end(), cd.actiondata_.begin(), cd.actiondata_.end());
 }
 
 void Chart::AppendStmt(ConditionStatement& stmt)
@@ -202,23 +193,13 @@ void Chart::EvaluateStmt(int seed)
   {
     Chart *c = stmt.EvaluateSentence(seed);
     if (c)
-      Merge(*c);
+      MergeNotedata(*c);
   }
 }
 
 NoteData& Chart::GetNoteData()
 {
   return notedata_;
-}
-
-ActionData& Chart::GetActionData()
-{
-  return actiondata_;
-}
-
-TempoData& Chart::GetTempoData()
-{
-  return tempodata_;
 }
 
 MetaData& Chart::GetMetaData()
@@ -231,11 +212,6 @@ const NoteData& Chart::GetNoteData() const
   return notedata_;
 }
 
-const ActionData& Chart::GetActionData() const
-{
-  return actiondata_;
-}
-
 const TempoData& Chart::GetTempoData() const
 {
   return tempodata_;
@@ -246,14 +222,65 @@ const MetaData& Chart::GetMetaData() const
   return metadata_;
 }
 
-const TempoData& Chart::GetSharedTempoData() const
+const NoteData& Chart::GetSharedNoteData() const
 {
-  return tempodata_;
+  return notedata_;
 }
 
 const MetaData& Chart::GetSharedMetaData() const
 {
   return metadata_;
+}
+
+void Chart::InvalidateAllNotePos()
+{
+  std::vector<double> v_time, v_beat;
+  std::vector<double> v_time_to_beat, v_beat_to_time;
+  int t_idx = 0, b_idx = 0;
+  for (Note nobj : notedata_)
+  {
+    if (nobj.pos.type == NotePosTypes::Time)
+    {
+      v_time.push_back(nobj.pos.time_msec);
+    } else /* Row type is already converted to beat TODO: set(convert) row too... */
+    {
+      v_beat.push_back(nobj.pos.beat);
+    }
+  }
+  v_time_to_beat = tempodata_.GetBeatFromTimeArr(v_time);
+  v_beat_to_time = tempodata_.GetTimeFromBeatArr(v_beat);
+  for (Note nobj : notedata_)
+  {
+    if (nobj.pos.type == NotePosTypes::Time)
+    {
+      nobj.pos.beat = v_time_to_beat[b_idx++];
+    } else
+    {
+      nobj.pos.time_msec = v_beat_to_time[t_idx++];
+    }
+  }
+}
+
+void Chart::InvalidateNotePos(Note &nobj)
+{
+  if (nobj.pos.type == NotePosTypes::Row)
+    nobj.pos.beat = nobj.pos.row.measure + nobj.pos.row.num / (double)nobj.pos.row.deno;
+  switch (nobj.pos.type)
+  {
+    case NotePosTypes::Time:
+      nobj.pos.beat = tempodata_.GetBeatFromTime(nobj.pos.time_msec);
+      break;
+    case NotePosTypes::Row:
+    case NotePosTypes::Beat:
+      nobj.pos.beat = tempodata_.GetTimeFromBeat(nobj.pos.beat);
+      break;
+  }
+}
+
+void Chart::InvalidateTempoData()
+{
+  TempoData new_tempodata(*this);
+  tempodata_.swap(new_tempodata);
 }
 
 void ConditionStatement::AddSentence(unsigned int cond, Chart* chartdata)
@@ -287,7 +314,5 @@ ConditionStatement::~ConditionStatement()
     delete p.second;
   }
 }
-
-} /* namespace chart */
 
 } /* namespace rparser */

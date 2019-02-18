@@ -6,6 +6,7 @@
 #define RPARSER_CHARTDATA_H
 
 #include "common.h"
+#include "TempoData.h"
 #include "MetaData.h"
 
 namespace rparser
@@ -18,41 +19,36 @@ namespace rparser
  * 16bit: duplicated index (used for BGA channel / duplicated note, pos)
  */
 typedef uint16_t RowPos;
-typedef uint8_t CObjType;
+typedef uint8_t NoteType;
 
 typedef struct
 {
-  CObjType type;
-  CObjType subtype;
+  NoteType type;
+  NoteType subtype;
   union {
-    struct { uint16_t col; } tap;
+    struct { uint8_t player,lane; } note;
     struct { uint8_t x,y; } touch;
   } channel;
-} ChartObjTrack;
+} NoteTrack;
 
-enum class ChartObjPosType
+enum class NotePosTypes
 {
   Row,
   Time,
   Beat
 };
 
-union ChartObjPos
+struct NotePos
 {
+  NotePosTypes type;
   struct
   {
     uint32_t measure;
     RowPos num;
     RowPos deno;
-  } Row;
-  struct
-  {
-    double msec;
-  } Time;
-  struct
-  {
-    double beat;
-  } Beat;
+  } row;
+  double time_msec;
+  double beat;
 };
 
 /*
@@ -66,17 +62,17 @@ union ChartObjPos
  *   value : general value
  *   sound : type (wav or midi), channel (which channel)
  */
-struct ChartObject
+struct Note
 {
-  ChartObjPosType pos_type;
-  ChartObjPos pos;
-  ChartObjPos pos_end;    // for MIDI or bmson type.
-  ChartObjTrack track;
-  ChartObject *prev;
-  ChartObject *next;
+  NotePos pos;
+  NotePos pos_end;    // for MIDI or bmson type.
+  NoteTrack track;
+  Note *prev;
+  Note *next;
 
   union {
-    int32_t value;
+    float f;
+    int32_t i;
     struct { int16_t type, channel; } sound;
   } value;
 
@@ -85,12 +81,13 @@ struct ChartObject
   // @description bmson attribute. (loop)
   bool restart;
 
-  bool operator<(const ChartObject &other) const;
-  bool operator==(const ChartObject &other) const;
+  bool operator<(const Note &other) const;
+  bool operator==(const Note &other) const;
+  std::string toString() const;
 };
 
 /** @detail Soundable/Renderable, or tappable object. */
-enum CObjType
+enum NoteTypes
 {
   kNone,
   kNote,          // Simple note object (key input)
@@ -103,7 +100,7 @@ enum CObjType
 };
 
 /** @detail Subtype of TRACK_TAP / TOUCH / VEFX */
-enum CObjSubtypeNote
+enum NoteSubTypes
 {
   kNormalNote,    // general tappable / scorable note
   kInvisibleNote, // invisible and no damage, but scorable. changes keysound (bms)
@@ -120,7 +117,7 @@ enum CObjSubtypeNote
 };
 
 /** @detail Special object which changes tempo of the chart. */
-enum CObjTypeTempo
+enum NoteTempoTypes
 {
   kBpm,
   kStop,
@@ -143,7 +140,7 @@ enum class SUBTYPE_SOUND
 #endif
 
 /** @detail Subtype of TRACK_BGA */
-enum CObjSubtypeBGA
+enum NoteBgaTypes
 {
   kMainBga,
   kMissBga,
@@ -152,7 +149,7 @@ enum CObjSubtypeBGA
 };
 
 /** @detail Subtype of TRACK_SPECIAL */
-enum class CObjSubtypeSpecial
+enum NoteSpecialTypes
 {
   kRest,            // osu specific type (REST area)
   kBmsKeyBind,      // key bind layer (bms #SWBGA)
@@ -165,7 +162,7 @@ enum class CObjSubtypeSpecial
   kBmsARGBLAYER2,   // BGA opacity setting (#ARGB channel)
 };
 
-typedef std::vector<ChartObject> ChartData;
+typedef std::vector<Note> NoteData;
 
 class ConditionStatement;
 
@@ -181,20 +178,21 @@ class Chart
 {
 /* iterators */
 public:
-  Chart(const MetaData *md, const ChartData *td);
+  Chart(const MetaData *md, const NoteData *nd);
   Chart(const Chart &nd);
   ~Chart();
 
-  ChartData& GetChartData();
+  NoteData& GetNoteData();
   MetaData& GetMetaData();
-  const ChartData& GetChartData() const;
+  const NoteData& GetNoteData() const;
   const MetaData& GetMetaData() const;
-  const ChartData& GetSharedChartData() const;
+  const TempoData& GetTempoData() const;
+  const NoteData& GetSharedNoteData() const;
   const MetaData& GetSharedMetaData() const;
-
+  
   void Clear();
   // copy and merge objects from other ChartData (without stmt)
-  void Merge(const Chart &cd, RowPos rowFrom = 0);
+  void MergeNotedata(const Chart &cd, RowPos rowFrom = 0);
 
   void AppendStmt(ConditionStatement& stmt);
   // evaluate all stmt and generate objects (process control flow)
@@ -204,13 +202,19 @@ public:
 
   virtual std::string toString() const;
 
+  void InvalidateAllNotePos();
+  void InvalidateNotePos(Note &n);
+  void InvalidateTempoData();
+
   // others
   bool IsEmpty();
 
 private:
-  const ChartData* chartdata_shared_;
+  const NoteData* notedata_shared_;
   const MetaData* metadata_shared_;
-  ChartData chartdata_;
+  NoteData notedata_;
+  MetaData metadata_;
+  TempoData tempodata_;
   std::vector<ConditionStatement> stmtdata_;
 };
 
