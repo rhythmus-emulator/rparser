@@ -145,11 +145,11 @@ Chart::Chart(const MetaData *md, const NoteData *nd)
 Chart::Chart(const Chart &nd)
 {
   Chart(&nd.GetSharedMetaData(), &nd.GetSharedNoteData());
-  for (auto note : nd.notedata_)
+  for (const auto& note : nd.notedata_)
   {
     notedata_.push_back(Note(note));
   }
-  for (auto stmt : nd.stmtdata_)
+  for (const auto& stmt : nd.stmtdata_)
   {
     stmtdata_.push_back(ConditionStatement(stmt));
   }
@@ -189,7 +189,7 @@ void Chart::AppendStmt(ConditionStatement& stmt)
 
 void Chart::EvaluateStmt(int seed)
 {
-  for (ConditionStatement stmt : stmtdata_)
+  for (const ConditionStatement& stmt : stmtdata_)
   {
     Chart *c = stmt.EvaluateSentence(seed);
     if (c)
@@ -237,7 +237,7 @@ void Chart::InvalidateAllNotePos()
   std::vector<double> v_time, v_beat;
   std::vector<double> v_time_to_beat, v_beat_to_time;
   int t_idx = 0, b_idx = 0;
-  for (Note nobj : notedata_)
+  for (const Note& nobj : notedata_)
   {
     if (nobj.pos.type == NotePosTypes::Time)
     {
@@ -249,7 +249,7 @@ void Chart::InvalidateAllNotePos()
   }
   v_time_to_beat = tempodata_.GetBeatFromTimeArr(v_time);
   v_beat_to_time = tempodata_.GetTimeFromBeatArr(v_beat);
-  for (Note nobj : notedata_)
+  for (Note& nobj : notedata_)
   {
     if (nobj.pos.type == NotePosTypes::Time)
     {
@@ -288,7 +288,7 @@ void ConditionStatement::AddSentence(unsigned int cond, Chart* chartdata)
   sentences_[cond] = chartdata;
 }
 
-Chart* ConditionStatement::EvaluateSentence(int seed)
+Chart* ConditionStatement::EvaluateSentence(int seed) const
 {
   unsigned int cur_seed = seed;
   if (cur_seed < 0)
@@ -309,7 +309,7 @@ ConditionStatement::ConditionStatement(int value, bool israndom, bool isswitchst
 
 ConditionStatement::~ConditionStatement()
 {
-  for (auto p : sentences_)
+  for (auto& p : sentences_)
   {
     delete p.second;
   }

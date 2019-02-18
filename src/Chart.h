@@ -226,13 +226,13 @@ class ConditionStatement
 {
 public:
   void AddSentence(unsigned int cond, Chart* chartdata);
-  Chart* EvaluateSentence(int seed = -1);
+  Chart* EvaluateSentence(int seed = -1) const;
 
   ConditionStatement(int value, bool israndom, bool isswitchstmt);
-  ConditionStatement(ConditionStatement& cs);
+  ConditionStatement(const ConditionStatement& cs);
   ~ConditionStatement();
 private:
-  int value_;
+  mutable int value_;
   bool israndom_;
   bool isswitchstmt_;
   std::map<int, Chart*> sentences_;

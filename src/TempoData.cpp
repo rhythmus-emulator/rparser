@@ -43,11 +43,11 @@ TempoData::TempoData()
 TempoData::TempoData(const Chart& c)
 {
   // extract tempo related object from chartdata
-  std::vector<Note*> nobj_by_beat, nobj_by_tempo;
+  std::vector<const Note*> nobj_by_beat, nobj_by_tempo;
   int nbidx=0, ntidx=0;
   NotePosTypes cur_nobj_type;
-  Note* cur_nobj;
-  for (auto nobj: c.GetNoteData())
+  const Note* cur_nobj;
+  for (const Note& nobj: c.GetNoteData())
   {
     if (nobj.track.type == NoteTypes::kTempo)
     {
@@ -266,7 +266,7 @@ double TempoData::GetDeltaBeatFromLastTime(double time_delta_msec)
 double TempoData::GetMaxBpm()
 {
   double maxbpm = tempoobjs_.front().bpm_;
-  for (auto tobj: tempoobjs_)
+  for (auto& tobj: tempoobjs_)
   {
     if (maxbpm < tobj.bpm_)
       maxbpm = tobj.bpm_;
@@ -277,7 +277,7 @@ double TempoData::GetMaxBpm()
 double TempoData::GetMinBpm()
 {
   double minbpm = tempoobjs_.front().bpm_;
-  for (auto tobj: tempoobjs_)
+  for (auto& tobj: tempoobjs_)
   {
     if (minbpm > tobj.bpm_)
       minbpm = tobj.bpm_;
@@ -288,7 +288,7 @@ double TempoData::GetMinBpm()
 bool TempoData::HasBpmChange()
 {
   double prev_bpm = tempoobjs_.front().bpm_;
-  for (auto tobj: tempoobjs_)
+  for (auto& tobj: tempoobjs_)
   {
     if (prev_bpm != tobj.bpm_)
       return true;
@@ -299,7 +299,7 @@ bool TempoData::HasBpmChange()
 
 bool TempoData::HasStop()
 {
-  for (auto tobj: tempoobjs_)
+  for (auto& tobj: tempoobjs_)
   {
     if (tobj.stoptime_ > 0)
       return true;
@@ -310,7 +310,7 @@ bool TempoData::HasStop()
 bool TempoData::HasWarp()
 {
   double prev = tempoobjs_.front().warpbeat_;
-  for (auto tobj: tempoobjs_)
+  for (auto& tobj: tempoobjs_)
   {
     if (prev != tobj.warpbeat_)
       return true;
