@@ -49,6 +49,8 @@ struct NotePos
   } row;
   double time_msec;
   double beat;
+
+  bool operator==(const NotePos &other) const;
 };
 
 /*
@@ -128,16 +130,6 @@ enum NoteTempoTypes
   kBmsBpm,          // #BPM / #EXBPM command from metadata 
   kBmsStop,         // #STOP command from metadata
 };
-
-#if 0
-/** @detail XXX: should fix */
-enum class SUBTYPE_SOUND
-{
-  SOUND_NONE,
-  SOUND_WAV,
-  SOUND_MIDI,
-};
-#endif
 
 /** @detail Subtype of TRACK_BGA */
 enum NoteBgaTypes
