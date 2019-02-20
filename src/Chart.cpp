@@ -132,7 +132,7 @@ Chart::Chart(const Chart &nd)
   Chart(&nd.GetSharedMetaData(), &nd.GetSharedNoteData());
   for (const auto& note : nd.notedata_)
   {
-    notedata_.push_back(Note(note));
+    notedata_.AddNote(Note(note));
   }
   for (const auto& stmt : nd.stmtdata_)
   {
@@ -157,14 +157,8 @@ void Chart::Clear()
 {
   notedata_.clear();
   stmtdata_.clear();
-  tempodata_.Clear();
-  metadata_.Clear();
-}
-
-void Chart::MergeNotedata(const Chart &cd, RowPos rowFrom)
-{
-  // only merge note data
-  notedata_.insert(notedata_.end(), cd.notedata_.begin(), cd.notedata_.end());
+  tempodata_.clear();
+  metadata_.clear();
 }
 
 void Chart::AppendStmt(ConditionStatement& stmt)
@@ -178,7 +172,7 @@ void Chart::EvaluateStmt(int seed)
   {
     Chart *c = stmt.EvaluateSentence(seed);
     if (c)
-      MergeNotedata(*c);
+      notedata_.Merge(c->GetNoteData());
   }
 }
 
@@ -285,6 +279,76 @@ Chart* ConditionStatement::EvaluateSentence(int seed) const
     return 0;
   return it->second;
 }
+
+NoteData::NoteData() : is_sorted_(false)
+{
+
+}
+
+NoteData::NoteData(const NoteData& notedata)
+  : notes_(notedata.notes_), is_sorted_(notedata.is_sorted_)
+{
+
+}
+
+void NoteData::swap(NoteData& notedata)
+{
+  std::swap(notes_, notedata.notes_);
+  std::swap(is_sorted_, notedata.is_sorted_);
+}
+
+void NoteData::clear()
+{
+  notes_.clear();
+  is_sorted_ = false;
+}
+
+void NoteData::Merge(const NoteData &notedata, RowPos rowFrom)
+{
+  // only merge note data
+  // TODO: implement rowFrom
+  notes_.insert(notes_.end(), notedata.begin(), notedata.end());
+}
+
+void NoteData::SortByBeat()
+{
+  if (is_sorted_) return;
+  std::sort(begin(), end());
+  is_sorted_ = true;
+}
+
+void NoteData::SortModeOff()
+{
+  is_sorted_ = false;
+}
+
+bool NoteData::IsSorted()
+{
+  return is_sorted_;
+}
+
+void NoteData::AddNote(const Note &n)
+{
+  if (is_sorted_)
+  {
+    auto it = std::upper_bound(begin(), end(), n);
+    notes_.insert(it, n);
+  } else notes_.push_back(n);
+}
+
+void NoteData::AddNote(Note &&n)
+{
+  if (is_sorted_)
+  {
+    auto it = std::upper_bound(begin(), end(), n);
+    notes_.insert(it, n);
+  } else notes_.push_back(n);
+}
+
+std::vector<Note>::iterator NoteData::begin() { return notes_.begin(); }
+std::vector<Note>::iterator NoteData::end()  { return notes_.end(); }
+const std::vector<Note>::const_iterator NoteData::begin() const  { return notes_.begin(); }
+const std::vector<Note>::const_iterator NoteData::end() const  { return notes_.end(); }
 
 ConditionStatement::ConditionStatement(int value, bool israndom, bool isswitchstmt)
   : value_(value), israndom_(israndom), isswitchstmt_(isswitchstmt)

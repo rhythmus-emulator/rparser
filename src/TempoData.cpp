@@ -331,4 +331,15 @@ std::string TempoData::toString()
   return ss.str();
 }
 
+void TempoData::clear()
+{
+  tempoobjs_.clear();
+  TempoData();
+}
+
+void TempoData::swap(TempoData& tempodata)
+{
+  std::swap(tempoobjs_, tempodata.tempoobjs_);
+}
+
 }

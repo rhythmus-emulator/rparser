@@ -1,11 +1,7 @@
 #include "ChartUtil.h"
 
-
-
 namespace rparser
 {
-
-// ------ class NoteSelection ------
 
 void NoteSelection::SelectNote(Note* n)
 {
@@ -117,12 +113,17 @@ void NoteData::TrackSRandom(int side, int key, bool bHrandom)
   }
 }
 
-void NoteData::TrackRandom(int side, int key)
+void LaneRandom(int side, int key)
 {
   ASSERT(side >= 0 && key >= 0 && key < 10);
   int vShuffle[10] = { 0,1,2,3,4,5,6,7,8,9 };
   std::random_shuffle(vShuffle, vShuffle + key);
   TrackMapping(vShuffle, side * 10, side * 10 + key);
+}
+
+void FixImpossibleNote()
+{
+  
 }
 
 void NoteData::TrackRRandom(int side, int key)

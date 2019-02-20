@@ -46,6 +46,8 @@ public:
   bool HasStop();
   bool HasWarp();
   std::string toString();
+  void clear();
+  void swap(TempoData& tempodata);
 private:
   void SetFirstObjectFromMetaData(const MetaData &md);
   void SeekByTime(double time);

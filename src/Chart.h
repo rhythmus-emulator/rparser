@@ -154,7 +154,27 @@ enum NoteSpecialTypes
   kBmsARGBLAYER2,   // BGA opacity setting (#ARGB channel)
 };
 
-typedef std::vector<Note> NoteData;
+struct NoteData
+{
+public:
+  NoteData();
+  NoteData(const NoteData& notedata);
+  void swap(NoteData& notedata);
+  void clear();
+  void Merge(const NoteData& notedata, RowPos rowstart = 0);
+  void SortByBeat();
+  void SortModeOff();
+  bool IsSorted();
+  void AddNote(const Note &n);
+  void AddNote(Note &&n);
+  std::vector<Note>::iterator begin();
+  std::vector<Note>::iterator end();
+  const std::vector<Note>::const_iterator begin() const;
+  const std::vector<Note>::const_iterator end() const;
+private:
+  std::vector<Note> notes_;
+  bool is_sorted_;
+};
 
 class ConditionStatement;
 
@@ -183,8 +203,6 @@ public:
   const MetaData& GetSharedMetaData() const;
   
   void Clear();
-  // copy and merge objects from other ChartData (without stmt)
-  void MergeNotedata(const Chart &cd, RowPos rowFrom = 0);
 
   void AppendStmt(ConditionStatement& stmt);
   // evaluate all stmt and generate objects (process control flow)
