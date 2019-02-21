@@ -121,9 +121,70 @@ void LaneRandom(int side, int key)
   TrackMapping(vShuffle, side * 10, side * 10 + key);
 }
 
-void FixImpossibleNote()
+void FixInvalidNote(Chart &c, bool delete_invalid_note)
 {
-  
+  // TODO: currently for note type.
+  //       in case of pos type ...?
+  unsigned int player_count = c.GetMetaData().player_count;
+  unsigned int track_column_count = c.GetMetaData().track_column_count;
+  double current_beat = -1;
+  Note* note_using_lane[5][256];
+  int current_lane;
+  int current_player;
+
+  ASSERT(player_count < 5);
+  ASSERT(track_column_count < 128);
+
+  // must sorted first
+  c.GetNoteData().SortByBeat();
+
+  memset(note_using_lane, 0, sizeof(note_using_lane));
+
+  for (auto& note: c.GetNoteData())
+  {
+    current_lane = note.track.channel.note.lane;
+    current_player = note.track.channel.note.player;
+    if (note.track.type != NoteTypes::kNote)
+      continue;
+    if (note.track.subtype != NoteTypes::kNote)
+      continue;
+    // if beat change, invalidate all marked note status
+    if (note.pos.beat != current_beat)
+    {
+      current_beat = note.pos.beat;
+      for (int pi=0 ; pi<player_count ; pi++)
+      {
+        for (int i=0 ; i<track_column_count ; i++)
+        {
+          Note** ncl = &note_using_lane[pi][i];
+          if (!(*ncl)->next)
+          {
+            // not longnote (or end of longnote), instantly clear.
+            (*ncl) = 0;
+          }
+          else
+          {
+            // in case of longnote, renew longnote object.
+            if ((*ncl)->pos.beat < current_beat)
+              (*ncl) = (*ncl)->next;
+          }
+        }
+      }
+    }
+    // attempt to put note in empty lane.
+    // if lane used, then attempt to next (right) lane.
+    // if proper lane not found, then note won't edited. (stay in incorrect one)
+    for (int i=0; i<track_column_count; i++)
+    {
+      int new_lane = (current_lane + i) % track_column_count;
+      if (!note_using_lane[current_player][new_lane])
+      {
+        note.track.channel.note.lane = new_lane;
+        note_using_lane[current_player][new_lane] = &note;
+        break;
+      }
+    }
+  }
 }
 
 void NoteData::TrackRRandom(int side, int key)
