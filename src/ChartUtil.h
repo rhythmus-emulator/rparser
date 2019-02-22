@@ -9,16 +9,19 @@ namespace rparser
 class NoteSelection
 {
 private:
-	std::vector<Note*> m_vNotes;
-	double beat_start;
-	double beat_end;
+  // selected range
+  int col_start_;
+  int col_end_;
+  int player_;
+  // metadata referred in effector.
+  const MetaData* metadata_;
+  // selected notes finally
+  std::vector<Note*> m_vNotes;
 public:
-	void SelectNote(Note* n);
-	void UnSelectNote(const Note* n);
-	std::vector<Note*>& GetSelection();
-	std::vector<Note*>::iterator begin();
-	std::vector<Note*>::iterator end();
-	void Clear();
+  std::vector<Note*>& GetSelection();
+  std::vector<Note*>::iterator begin();
+  std::vector<Note*>::iterator end();
+  void Clear();
 };
 
 // insert / delete / update
@@ -37,18 +40,17 @@ void AddNote(const Note& n, bool overwrite = true);
 void AddTapNote(RowPos iRow, unsigned int lane);
 void AddLongNote(RowPos iRow, unsigned int lane, RowPos iLength);
 
-
-// modification(option) utilities
-void LaneMapping(int *trackmap, int s, int e);
-// @description useful for iidx(DP) style
-void LaneRandom(NoteSelection& nsel, int side, int key);
-void LaneSRandom(int side, int key, bool bHrandom = false);
-void LaneRRandom(int side, int key);
-void LaneMirror(int side, int key);
-void LaneAllSC(int side);
-void LaneFlip();
-// fix impossible note to correct one after chart effector
-void FixImpossibleNote();
+// fix invalid note to correct one after chart effector
+void FixInvalidNote(Chart &c, SONGTYPE songtype, bool delete_invalid_note);
+namespace effector
+{
+  void Random(Chart &c, int player);
+  void SRandom(int side, int key, bool bHrandom = false);
+  void RRandom(int side, int key);
+  void Mirror(int side, int key);
+  void AllSC(int side);
+  void Flip();
+}
 
 void GetNotesWithType(NoteSelection &vNotes, int nType = -1, int subType = -1);
 Note* GetNoteAtRow(int row, int track = -1);

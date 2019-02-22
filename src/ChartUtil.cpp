@@ -1,53 +1,57 @@
 #include "ChartUtil.h"
+#include "Song.h"
 
 namespace rparser
 {
 
-void NoteSelection::SelectNote(Note* n)
-{
-	auto it = std::lower_bound(m_vNotes.begin(), m_vNotes.end(), n, nptr_less_row());
-	m_vNotes.insert(it, n);
-}
-void NoteSelection::UnSelectNote(const Note* n)
-{
-	for (int i = 0; i < m_vNotes.size(); i++)
-	{
-		if (*m_vNotes[i] == *n)
-		{
-			m_vNotes.erase(i + m_vNotes.begin());
-			break;
-		}
-	}
-}
 std::vector<Note*>& NoteSelection::GetSelection()
 {
 	return m_vNotes;
 }
+
 std::vector<Note*>::iterator NoteSelection::begin()
 {
 	return m_vNotes.begin();
 }
+
 std::vector<Note*>::iterator NoteSelection::end()
 {
 	return m_vNotes.end();
 }
+
 void NoteSelection::Clear()
 {
 	m_vNotes.clear();
 }
 
-void NoteData::TrackMapping(int *trackmap, int s, int e)
+namespace effector
 {
-  // only map for TAPNOTE
-  for (auto &n : m_Track)
+
+// TODO: use NoteSelection.
+void Random(Chart &c, int player)
+{
+  int col_random[14] = {
+    0,1,2,3,4,5,6,7,8,9,10,11,12,13
+  };
+  std::random_shuffle(col_random, col_random + key);
+  int current_col;
+  int current_player;
+  for (auto& note: c.GetNoteData())
   {
-    if (n.nType != NoteType::NOTE_TAP) continue;
-    if (n.x < s || n.x >= e) continue;
-    n.x = trackmap[n.x - s] + s;
+    current_col = note.track.lane.note.col;
+    current_player = note.track.lane.note.player;
+    if (note.track.type != NoteTypes::kNote)
+      continue;
+    if (note.track.subtype != NoteTypes::kNote)
+      continue;
+    if (current_player != player)
+      continue;
+    ASSERT(note.track.lane.note.col < 14);
+    note.track.lane.note.col = col_random[note.track.lane.note.col];
   }
 }
 
-void NoteData::TrackSRandom(int side, int key, bool bHrandom)
+void SRandom(int side, int key, bool bHrandom)
 {
   ASSERT(key < 10 && key > 0 && side >= 0 && side < 2);
   int vShuffle[10] = {
@@ -121,15 +125,15 @@ void LaneRandom(int side, int key)
   TrackMapping(vShuffle, side * 10, side * 10 + key);
 }
 
-void FixInvalidNote(Chart &c, bool delete_invalid_note)
+void FixInvalidNote(Chart &c, SONGTYPE songtype, bool delete_invalid_note)
 {
   // TODO: currently for note type.
   //       in case of pos type ...?
   unsigned int player_count = c.GetMetaData().player_count;
-  unsigned int track_column_count = c.GetMetaData().track_column_count;
+  unsigned int track_column_count = GetSongMetaData(songtype).track_col_count;
   double current_beat = -1;
   Note* note_using_lane[5][256];
-  int current_lane;
+  int current_col;
   int current_player;
 
   ASSERT(player_count < 5);
@@ -142,8 +146,8 @@ void FixInvalidNote(Chart &c, bool delete_invalid_note)
 
   for (auto& note: c.GetNoteData())
   {
-    current_lane = note.track.channel.note.lane;
-    current_player = note.track.channel.note.player;
+    current_col = note.track.lane.note.col;
+    current_player = note.track.lane.note.player;
     if (note.track.type != NoteTypes::kNote)
       continue;
     if (note.track.subtype != NoteTypes::kNote)
@@ -165,6 +169,7 @@ void FixInvalidNote(Chart &c, bool delete_invalid_note)
           else
           {
             // in case of longnote, renew longnote object.
+            // TODO: in case of pos_end attribute note?
             if ((*ncl)->pos.beat < current_beat)
               (*ncl) = (*ncl)->next;
           }
@@ -176,11 +181,17 @@ void FixInvalidNote(Chart &c, bool delete_invalid_note)
     // if proper lane not found, then note won't edited. (stay in incorrect one)
     for (int i=0; i<track_column_count; i++)
     {
-      int new_lane = (current_lane + i) % track_column_count;
-      if (!note_using_lane[current_player][new_lane])
+      int new_col = (current_col + i) % track_column_count;
+      if (!note_using_lane[current_player][new_col])
       {
-        note.track.channel.note.lane = new_lane;
-        note_using_lane[current_player][new_lane] = &note;
+        note.track.lane.note.col = new_col;
+        // in case of longnote, fix them all.
+        Note *ln_note = note.next;
+        while (ln_note)
+        {
+          ln_note->track.lane.note.col = new_col;
+        } while (ln_note = ln_note->next)
+        note_using_lane[current_player][new_col] = &note;
         break;
       }
     }
@@ -244,4 +255,6 @@ void NoteData::TrackAllSC(int side)
   }
 }
 
-}
+} /* namespace effector */
+
+} /* namespace rparser */

@@ -20,7 +20,8 @@ namespace rparser {
   META_STR(subartist); \
   META_STR(genre); \
   META_STR(charttype); \
-  META_INT(player); \
+  META_INT(player_count); \
+  META_INT(player_side); \
   META_INT(difficulty); \
   META_INT(level); \
   META_DBL(bpm); \
@@ -77,7 +78,8 @@ struct BmsStopMetaData {
  * 
  * genre
  * charttype          NORMAL, HYPER, ANOTHER, ONI, ...
- * player             player count
+ * player_count       player count
+ * player_side        player side (depreciated, just for BMS format)
  * difficulty         Chart Difficulty (Used on BMS, etc...)
  * level              level of the song
  * bpm                basic BPM (need to be filled automatically if not exists)
@@ -147,6 +149,19 @@ private:
   // other metadata for some other purpose (key, value)
   std::map<std::string, std::string> attrs_;
 };
+
+/**
+ * @detail
+ * indicates song-specific metadata, which is global and constant.
+ */
+struct SongMetaData {
+  unsigned int track_col_count;
+  unsigned int player_max_count;
+};
+
+enum class SONGTYPE;
+
+const SongMetaData& GetSongMetaData(SONGTYPE songtype);
 
 }
 

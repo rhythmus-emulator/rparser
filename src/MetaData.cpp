@@ -1,31 +1,9 @@
 #include "MetaData.h"
-#include "Chart.h"  // chartsummarydata
+#include "Song.h"   // enum class SONGTYPE
 #include "rutil.h"
 #include <stdlib.h>
 
 using namespace rutil;
-
-#define RPARSER_METADATA_LISTS \
-  META_STR(title); \
-  META_STR(subtitle); \
-  META_STR(artist); \
-  META_STR(subartist); \
-  META_STR(genre); \
-  META_STR(charttype); \
-  META_INT(player); \
-  META_INT(difficulty); \
-  META_INT(level); \
-  META_DBL(bpm); \
-  META_DBL(judge_timing); \
-  META_DBL(gauge_total); \
-  META_STR(back_image); \
-  META_STR(stage_image); \
-  META_STR(banner_image); \
-  META_STR(preview_music); \
-  META_STR(background_music); \
-  META_STR(lyrics); \
-  META_INT(bms_longnote_type); \
-  META_INT(bms_longnote_object);
 
 namespace rparser {
 
@@ -150,12 +128,17 @@ bool MetaData::SetEncoding(int from_codepage, int to_codepage)
 
 bool MetaData::SetUtf8Encoding()
 {
-
+  if (DetectEncoding() != R_CP_UTF8)
+    SetEncoding(encoding, R_CP_UTF8);
 }
 
 int MetaData::DetectEncoding()
 {
-
+  // XXX: just try UTF-8, Shift-JIS, EUC-KR (otherwise).
+  std::stringstream encoding_test_ss;
+  encoding_test_ss << title << subtitle << artist << genre;
+  encoding = rutil::DetectEncoding(encoding_test_ss.str());
+  return encoding;
 }
 
 std::string MetaData::toString()
@@ -193,7 +176,7 @@ void MetaData::clear()
   #undef META_STR
 
   bpm = kDefaultBpm;
-  player = 1;
+  player_count = 1;
 }
 
 }
