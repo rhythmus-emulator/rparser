@@ -12,23 +12,18 @@
 namespace rparser
 {
 
-/*
- * structure of trackno (32bit)
- * 8bit: channel type
- * 8bit: channel subtype
- * 16bit: duplicated index (used for BGA channel / duplicated note, pos)
- */
 typedef uint16_t RowPos;
 typedef uint8_t NoteType;
+typedef uint32_t Channel;
 
 typedef struct
 {
   NoteType type;
   NoteType subtype;
   union {
-    struct { uint8_t player,lane; } note;
+    struct { uint8_t player,col; } note;
     struct { uint8_t x,y; } touch;
-  } channel;
+  } lane;
 } NoteTrack;
 
 enum class NotePosTypes
@@ -75,6 +70,7 @@ struct Note
   union {
     float f;
     int32_t i;
+    Channel channel;
     struct { int16_t type, channel; } sound;
   } value;
 

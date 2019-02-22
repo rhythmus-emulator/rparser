@@ -10,7 +10,7 @@ set (RPARSER_SOURCES
     "MetaData.cpp"
     "Resource.cpp"
     "Song.cpp"
-    "TimingData.cpp"
+    "TempoData.cpp"
 	"rutil.cpp")
 
 set (RPARSER_HEADERS
@@ -22,9 +22,10 @@ set (RPARSER_HEADERS
     "MetaData.h"
 	"Resource.h"
     "Song.h"
-    "TimingData.h"
+    "TempoData.h"
     "Error.h"
-	"rutil.h")
+	"rutil.h"
+    "common.h")
 
 # declare RPARSER_INCLUDE_DIR variable to parent scope
 # XXX: is it necessary? should remove?

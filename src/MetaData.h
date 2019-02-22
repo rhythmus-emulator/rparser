@@ -8,108 +8,144 @@
 #ifndef RPARSER_METADATA_H
 #define RPARSER_METADATA_H
 
-//#define MAX_CHANNEL_COUNT 10240
-#include <map>
+#include "common.h"
+#include "Chart.h"
 
 namespace rparser {
 
+#define RPARSER_METADATA_LISTS \
+  META_STR(title); \
+  META_STR(subtitle); \
+  META_STR(artist); \
+  META_STR(subartist); \
+  META_STR(genre); \
+  META_STR(charttype); \
+  META_INT(player); \
+  META_INT(difficulty); \
+  META_INT(level); \
+  META_DBL(bpm); \
+  META_DBL(judge_timing); \
+  META_DBL(gauge_total); \
+  META_DBL(time_0beat_offset); \
+  META_STR(back_image); \
+  META_STR(stage_image); \
+  META_STR(banner_image); \
+  META_STR(preview_music); \
+  META_STR(background_music); \
+  META_STR(lyrics); \
+  META_INT(bms_longnote_type); \
+  META_INT(bms_longnote_object);
+  
 const static int kDefaultBpm = 120;
 
-struct SoundChannel {
-    // channelno, filename
-    std::map<int, std::string> fn;
+struct SoundMetaData {
+  // channelno, filename
+  std::map<Channel, std::string> fn;
 };
 
-
-struct BGAHeader {
+struct BgaMetaData {
+  struct BgaMetaInfo {
     std::string fn;
     int sx,sy,sw,sh;
     int dx,dy,dw,dh;
-};
-struct BGAChannel {
-    // channelno, bgainfo(filename)
-    std::map<int, BGAHeader> bga;
-};
-
-
-// @description depreciated, only for Bms file type.
-struct BPMChannel {
-	std::map<int, int> bpm;
-	bool GetBpm(int channel, float &out) const;
-};
-struct STOPChannel {
-	std::map<int, int> stop;	// #STOP command (key, value)
-	std::map<float, int> STP;	// #STP command
-	bool GetStop(int channel, float &out) const;
+  };
+  // channelno, bgainfo(filename)
+  std::map<Channel, BgaMetaInfo> bga;
 };
 
-struct ChartSummaryData;
+struct BmsBpmMetaData {
+  std::map<Channel, int> bpm;	  // #BPM command (key, value)
+  bool GetBpm(Channel channel, float &out) const;
+};
+
+struct BmsStopMetaData {
+  std::map<Channel, int> stop;  // #STOP command (key, value)
+  std::map<float, int> STP;	    // #STP command (time, value)
+  bool GetStop(Channel channel, float &out) const;
+};
 
 /*
- * @description
+ * @detail
  * contains metadata(header) part for song
+ * 
+ * @params
+ * GetAttribute       get attribute from key
+ * IsAttributeExist   check out is attribute is existing
+ * SetEncoding        convert encoding of metadata if necessary.
+ * SetUtf8Encoding    set metadata into utf8 encoding.
+ * DetectEncoding     detect encoding from metadata.
+ * 
+ * genre
+ * charttype          NORMAL, HYPER, ANOTHER, ONI, ...
+ * player             player count
+ * difficulty         Chart Difficulty (Used on BMS, etc...)
+ * level              level of the song
+ * bpm                basic BPM (need to be filled automatically if not exists)
+ * judge_timing       judge difficulty
+ * gauge_total        gauge total
+ * time_0beat_offset   start timing offset of 0 beat
+ * back_image         BG during playing
+ * stage_image        loading image
+ * banner_image
+ * preview_music
+ * background_music   BGM
+ * lyrics
+ * bms_longnote_type    used for BMS (longnote type)
+ * bms_longnote_object  used for BMS
+ * encoding           (internal use) encoding of current metadata.
  */
 class MetaData {
 public:
-    // @description supports int, string, float, double types.
-    template<typename T>
-    T GetAttribute(const std::string& key) const;
-    int GetAttribute(const std::string & key, int fallback) const;
-    double GetAttribute(const std::string & key, double fallback) const;
+  MetaData();
+  MetaData(const MetaData& m);
 
-    void SetAttribute(const std::string& key, int value);
-    void SetAttribute(const std::string& key, const std::string& value);
-    void SetAttribute(const std::string& key, double value);
-    bool IsAttributeExist(const std::string& key);
-    bool SetEncoding(int from_codepage, int to_codepage);
+  // @description supports int, string, float, double types.
+  template<typename T>
+  T GetAttribute(const std::string& key) const;
+  int GetAttribute(const std::string& key, int fallback=-1) const;
+  double GetAttribute(const std::string& key, double fallback=0.0) const;
+  void SetAttribute(const std::string& key, int value);
+  void SetAttribute(const std::string& key, const std::string& value);
+  void SetAttribute(const std::string& key, double value);
+  bool IsAttributeExist(const std::string& key);
 
-    // @description
-    // It returns valid Channel object pointer always (without exception)
-	SoundChannel* GetSoundChannel() { return &m_SoundChannel; };
-	BGAChannel* GetBGAChannel() { return &m_BGAChannel; };
-	BPMChannel* GetBPMChannel() { return &m_BPMChannel; };
-	STOPChannel* GetSTOPChannel() { return &m_STOPChannel; };
-	const SoundChannel* GetSoundChannel() const { return &m_SoundChannel; };
-	const BGAChannel* GetBGAChannel() const { return &m_BGAChannel; };
-	const BPMChannel* GetBPMChannel() const { return &m_BPMChannel; };
-	const STOPChannel* GetSTOPChannel() const { return &m_STOPChannel; };
+  bool SetEncoding(int from_codepage, int to_codepage);
+  bool SetUtf8Encoding();
+  int DetectEncoding();
 
-    // @description
-    // general attributes, mainly used in playing
-    std::string sTitle;
-    std::string sSubTitle;
-    std::string sArtist;
-    std::string sSubArtist;
-    std::string sGenre;
-    std::string sChartName;         // NORMAL, HYPER, ANOTHER, ONI, ...
-    int iPlayer;                    // player type (TODO: comment)
-    int iLNType;                    // used for BMS
-    unsigned long iDifficulty;      // Chart Difficulty (Used on BMS, etc...)
-    unsigned long iLevel;           // level of the song
-    double fBPM;                    // basic BPM (need to be filled automatically if not exists)
-    double fJudge;                  // judge difficulty
-    double fTotal;                  // guage total
-    int iLNObj;                     // used for BMS
-    std::string sBackImage;         // BG during playing
-    std::string sStageImage;        // loading image
-    std::string sBannerImage;
-    std::string sPreviewMusic;
-    std::string sMusic;             // BGM
-    std::string sLyrics;
-    std::string sExpand;            // Expand command (like BMS #if~#endif)
+  // @description
+  // It returns valid Channel object pointer always (without exception)
+  SoundMetaData* GetSoundChannel() { return &sound_channel_; };
+  BgaMetaData* GetBGAChannel() { return &bga_channel_; };
+  BmsBpmMetaData* GetBPMChannel() { return &bpm_channel_; };
+  BmsStopMetaData* GetSTOPChannel() { return &stop_channel_; };
+  const SoundMetaData* GetSoundChannel() const { return &sound_channel_; };
+  const BgaMetaData* GetBGAChannel() const { return &bga_channel_; };
+  const BmsBpmMetaData* GetBPMChannel() const { return &bpm_channel_; };
+  const BmsStopMetaData* GetSTOPChannel() const { return &stop_channel_; };
 
-    // barlength & notecount is located at TimingData / NoteData.
-    void FillSummaryData(ChartSummaryData &csd) const;
-    std::string toString();
 
-	void swap(MetaData &md);
+  #define META_INT(x) int x
+  #define META_DBL(x) double x
+  #define META_STR(x) std::string x
+  RPARSER_METADATA_LISTS
+  #undef META_INT
+  #undef META_DBL
+  #undef META_STR
+
+  int encoding;                   // (internal use) encoding of current metadata.
+
+  std::string toString();
+  void swap(MetaData &md);
+  void clear();
 private:
-    SoundChannel m_SoundChannel;
-    BGAChannel m_BGAChannel;
-	BPMChannel m_BPMChannel;
-	STOPChannel m_STOPChannel;
-    // other metadata for some other purpose
-    std::map<std::string, std::string> m_sAttributes;
+  SoundMetaData sound_channel_;
+  BgaMetaData bga_channel_;
+  BmsBpmMetaData bpm_channel_;
+  BmsStopMetaData stop_channel_;
+
+  // other metadata for some other purpose (key, value)
+  std::map<std::string, std::string> attrs_;
 };
 
 }

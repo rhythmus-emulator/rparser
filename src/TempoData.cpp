@@ -181,8 +181,8 @@ std::vector<double> TempoData::GetBeatFromTimeArr(const std::vector<double>& sor
 void TempoData::SetFirstObjectFromMetaData(const MetaData &md)
 {
   TempoObject &o = tempoobjs_.front();
-  o.bpm_ = md.fBPM;
-  o.time_ = md.time_offset_;
+  o.bpm_ = md.bpm;
+  o.time_ = md.time_0beat_offset;
 }
 
 void TempoData::SeekByTime(double time)
