@@ -6,7 +6,7 @@
 #define RPARSER_NOTELOADER_H
 
 #include "Song.h"
-#include "ChartData.h"
+#include "Chart.h"
 #include <vector>
 
 namespace rparser {

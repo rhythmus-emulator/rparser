@@ -1,6 +1,11 @@
 #include "ChartUtil.h"
 #include "Song.h"
 
+/*
+ * XXX: rand() method could be distrubed by other program/threads seed reseting.
+ *      We may need to make rand method with its own context.
+ */
+
 namespace rparser
 {
 
@@ -22,107 +27,6 @@ std::vector<Note*>::iterator NoteSelection::end()
 void NoteSelection::Clear()
 {
 	m_vNotes.clear();
-}
-
-namespace effector
-{
-
-// TODO: use NoteSelection.
-void Random(Chart &c, int player)
-{
-  int col_random[14] = {
-    0,1,2,3,4,5,6,7,8,9,10,11,12,13
-  };
-  std::random_shuffle(col_random, col_random + key);
-  int current_col;
-  int current_player;
-  for (auto& note: c.GetNoteData())
-  {
-    current_col = note.track.lane.note.col;
-    current_player = note.track.lane.note.player;
-    if (note.track.type != NoteTypes::kNote)
-      continue;
-    if (note.track.subtype != NoteTypes::kNote)
-      continue;
-    if (current_player != player)
-      continue;
-    ASSERT(note.track.lane.note.col < 14);
-    note.track.lane.note.col = col_random[note.track.lane.note.col];
-  }
-}
-
-void SRandom(int side, int key, bool bHrandom)
-{
-  ASSERT(key < 10 && key > 0 && side >= 0 && side < 2);
-  int vShuffle[10] = {
-    0,1,2,3,4,5,6,7,8,9
-  };
-  float curr_LN_length[10];   // LN length in beat
-  for (int i = 0; i < 10; i++) curr_LN_length[i] = 0;
-
-  float curr_beat = -100;		// current lane's beat
-  int curr_side = 0;			// current note's lane side
-  int curr_shuffle_idx = 0;	// shuffling index
-  int curr_note_cnt = 0;		// note count of current beat
-  for (auto &n : m_Track) {
-    if (n.nType != NoteType::NOTE_TAP) continue;
-    curr_side = n.x / 10;
-    if (curr_side != side) continue;
-    if (curr_beat != n.fBeat)
-    {
-      // new beat? then shuffle value.
-      // (no HRANDOM)
-      if (!bHrandom)
-      {
-        std::random_shuffle(vShuffle, vShuffle + key);
-        curr_shuffle_idx = 0;
-      }
-      float delta_beat = n.fBeat - curr_beat;
-      curr_beat = n.fBeat;
-      // check longnote ends
-      for (int i = 0; i < key; i++)
-      {
-        curr_LN_length[i] -= delta_beat;
-        if (curr_LN_length[i] < 0) curr_LN_length[i] = 0;
-      }
-      curr_note_cnt = 0;
-    }
-    // prevent duplication with LN
-    while (curr_LN_length[vShuffle[curr_shuffle_idx]] > 0
-      && curr_shuffle_idx < key)
-    {
-      curr_shuffle_idx++;
-      curr_note_cnt++;
-    }
-    if (curr_shuffle_idx >= key)
-    {
-      // this part will work in case of H-RANDOM
-      // prevent note jackhammering by minimizing note shuffling
-      // COMMENT:
-      // If current lane contains 2 Notes (in 9 keys),
-      // Then shuffle 7 note backward and 2 note for forward
-      // to minimize note hammering.
-      std::random_shuffle(vShuffle, vShuffle + curr_note_cnt);
-      std::random_shuffle(vShuffle + curr_note_cnt, vShuffle + key - curr_note_cnt);
-      curr_shuffle_idx = 0;
-    }
-    n.x = vShuffle[curr_shuffle_idx] + curr_side * 10;
-    curr_shuffle_idx++;
-    curr_note_cnt++;
-    // if current note is LN, then remember
-    if (n.subType == NoteTapType::TAPNOTE_CHARGE)
-    {
-      curr_LN_length[vShuffle[curr_shuffle_idx]] = n.fBeatLength;
-    }
-  }
-}
-
-void LaneRandom(int side, int key)
-{
-  ASSERT(side >= 0 && key >= 0 && key < 10);
-  int vShuffle[10] = { 0,1,2,3,4,5,6,7,8,9 };
-  std::random_shuffle(vShuffle, vShuffle + key);
-  TrackMapping(vShuffle, side * 10, side * 10 + key);
 }
 
 void FixInvalidNote(Chart &c, SONGTYPE songtype, bool delete_invalid_note)
@@ -198,60 +102,316 @@ void FixInvalidNote(Chart &c, SONGTYPE songtype, bool delete_invalid_note)
   }
 }
 
-void NoteData::TrackRRandom(int side, int key)
+namespace effector
 {
-  ASSERT(side >= 0 && key >= 0 && key < 10);
-  int vShuffle[10] = { 0,1,2,3,4,5,6,7,8,9 };
-  int iMoveVal = rand()*key;
-  for (int i = 0; i < key; i++)
-  {
-    vShuffle[i] -= iMoveVal;
-    if (vShuffle[i] < 0) vShuffle[i] += key;
-  }
-  TrackMapping(vShuffle, side * 10, side * 10 + key);
+
+void SetLanefor7Key(EffectorParam& param)
+{
+  param.player = 0;
+  param.lanesize = 7;
+  memset(param.lockedlane, 0, sizeof(param.lockedlane));
+  param.lockedlane[0] = NOTE;
+  param.lockedlane[1] = NOTE;
+  param.lockedlane[2] = NOTE;
+  param.lockedlane[3] = NOTE;
+  param.lockedlane[4] = NOTE;
+  param.lockedlane[5] = NOTE;
+  param.lockedlane[6] = NOTE;
 }
 
-void NoteData::TrackMirror(int side, int key)
+void SetLanefor9Key(EffectorParam& param)
 {
-  ASSERT(side >= 0 && key >= 0 && key < 10);
-  int vTrackmap[10];
-  for (int i = 0; i < key; i++)
-  {
-    vTrackmap[i] = key - i - 1;
-  }
-  TrackMapping(vTrackmap, side * 10, side * 10 + key);
+  param.player = 0;
+  param.lanesize = 9;
+  memset(param.lockedlane, 0, sizeof(param.lockedlane));
+  param.lockedlane[0] = NOTE;
+  param.lockedlane[1] = NOTE;
+  param.lockedlane[2] = NOTE;
+  param.lockedlane[3] = NOTE;
+  param.lockedlane[4] = NOTE;
+  param.lockedlane[5] = NOTE;
+  param.lockedlane[6] = NOTE;
+  param.lockedlane[7] = NOTE;
+  param.lockedlane[8] = NOTE;
 }
 
-void NoteData::TrackAllSC(int side)
+void SetLaneforBMS1P(EffectorParam& param)
 {
-  float curr_beat = -100;		// current beat (to detect beat changing)
-  int curr_sc = 0;			// current row has SC?
-  std::vector<Note*> vNotes_sc_candidate;
-  for (auto &n : m_Track)
+  param.player = 0;
+  param.lanesize = 8;
+  memset(param.lockedlane, 0, sizeof(param.lockedlane));
+  param.lockedlane[0] = NOTE;
+  param.lockedlane[1] = NOTE;
+  param.lockedlane[2] = NOTE;
+  param.lockedlane[3] = NOTE;
+  param.lockedlane[4] = NOTE;
+  param.lockedlane[5] = NOTE;
+  param.lockedlane[6] = NOTE;
+  param.lockedlane[7] = SC;
+}
+
+void SetLaneforBMS2P(EffectorParam& param)
+{
+  param.player = 1;
+  param.lanesize = 8;
+  memset(param.lockedlane, 0, sizeof(param.lockedlane));
+  param.lockedlane[0] = NOTE;
+  param.lockedlane[1] = NOTE;
+  param.lockedlane[2] = NOTE;
+  param.lockedlane[3] = NOTE;
+  param.lockedlane[4] = NOTE;
+  param.lockedlane[5] = NOTE;
+  param.lockedlane[6] = NOTE;
+  param.lockedlane[7] = SC;
+}
+
+void SetLaneforBMSDP1P(EffectorParam& param)
+{
+  param.player = 0;
+  param.lanesize = 16;
+  memset(param.lockedlane, 0, sizeof(param.lockedlane));
+  param.lockedlane[0] = NOTE;
+  param.lockedlane[1] = NOTE;
+  param.lockedlane[2] = NOTE;
+  param.lockedlane[3] = NOTE;
+  param.lockedlane[4] = NOTE;
+  param.lockedlane[5] = NOTE;
+  param.lockedlane[6] = NOTE;
+  param.lockedlane[14] = SC;
+  param.lockedlane[15] = SC;
+}
+
+void SetLaneforBMSDP2P(EffectorParam& param)
+{
+  param.player = 0;
+  param.lanesize = 16;
+  memset(param.lockedlane, 0, sizeof(param.lockedlane));
+  param.lockedlane[7] = NOTE;
+  param.lockedlane[8] = NOTE;
+  param.lockedlane[9] = NOTE;
+  param.lockedlane[10] = NOTE;
+  param.lockedlane[11] = NOTE;
+  param.lockedlane[12] = NOTE;
+  param.lockedlane[13] = NOTE;
+  param.lockedlane[14] = SC;
+  param.lockedlane[15] = SC;
+}
+
+void GenerateRandomColumn(int *new_col, const EffectorParam& param)
+{
+  ASSERT(param.lanesize < kMaxSizeLane);
+  int lanes_to_randomize = param.lanesize;
+  for (int i=0; i<param.lanesize; i++)
   {
-    if (n.fBeat != curr_beat)
+    // if locked lane then stay calm
+    if (param.lockedlane[i] == LaneTypes::LOCKED)
     {
-      // select one note and make it SC
-      if (curr_sc == 0)
+      new_col[i] = i;
+    }
+    else lanes_to_randomize--;
+  }
+  for (int i=0, lockedcnt=0; i<param.lanesize && lanes_to_randomize; i++)
+  {
+    // randomly set free lanes
+    if (param.lockedlane[i] == LaneTypes::NOTE)
+    {
+      new_col[i] = rand() % lanes_to_randomize + lockedcnt;
+      lockedcnt++;
+      lanes_to_randomize--;
+    }
+  }
+  ASSERT(lanes_to_randomize == 0);
+}
+
+inline bool CheckNoteValidity(Note& note, const EffectorParam& param)
+{
+  int current_col = note.track.lane.note.col;
+  int current_player = note.track.lane.note.player;
+  if (note.track.type != NoteTypes::kNote)
+    return false;
+  if (current_player != param.player)
+    return false;
+  ASSERT(note.track.lane.note.col < kMaxSizeLane);
+  return true;
+}
+
+void Random(Chart &c, const EffectorParam& param)
+{
+  int new_col[kMaxSizeLane];
+
+  GenerateRandomColumn(new_col, param);
+
+  c.GetNoteData().SortByBeat();
+
+  for (auto& note: c.GetNoteData())
+  {
+    if (!CheckNoteValidity(note, param)) continue;
+    note.track.lane.note.col = new_col[note.track.lane.note.col];
+  }
+}
+
+void SRandom(Chart &c, const EffectorParam& param)
+{
+  int new_col[kMaxSizeLane];
+  double current_beat = -1.0;
+  
+  c.GetNoteData().SortByBeat();
+
+  for (auto& note: c.GetNoteData())
+  {
+    if (!CheckNoteValidity(note, param)) continue;
+    // reassign note if beat changed
+    if (note.pos.beat != current_beat)
+    {
+      GenerateRandomColumn(new_col, param);
+      current_beat = note.pos.beat;
+    }
+    // XXX: notes might be duplicated to longnote, making unplayable.
+    //      So must fix these notes using some method.
+    note.track.lane.note.col = new_col[note.track.lane.note.col];
+  }
+}
+
+void HRandom(Chart &c, const EffectorParam& param)
+{
+  int new_col[kMaxSizeLane];
+  int current_measure = -1;
+  double current_beat = -1.0;
+
+  c.GetNoteData().SortByBeat();
+
+  for (auto& note: c.GetNoteData())
+  {
+    if (!CheckNoteValidity(note, param)) continue;
+
+    if (note.pos.beat != current_beat)
+    {
+      current_beat = note.pos.beat;
+      double new_measure = c.GetTempoData().GetMeasureFromBeat(current_beat);
+      if ((int)new_measure != current_measure)
       {
-        Note* n_sc_candidate = vNotes_sc_candidate[vNotes_sc_candidate.size() * rand()];
-        n_sc_candidate->x = 0;
+        current_measure = new_measure;
+        GenerateRandomColumn(new_col, param);
       }
-      // prepare for next
-      curr_sc = 0;
-      curr_beat = n.fBeat;
-      vNotes_sc_candidate.clear();
     }
-    else if (curr_sc) {
-      continue;
-    }
-    // SC channel : 0
-    if (n.x == 0)
+
+    note.track.lane.note.col = new_col[note.track.lane.note.col];
+  }
+}
+
+void RRandom(Chart &c, const EffectorParam& param)
+{
+  int new_col[kMaxSizeLane];
+  int unlocked_cols[kMaxSizeLane];
+  int unlocked_cnt = 0;
+  int delta_lane = rand();
+  ASSERT(param.lanesize < kMaxSizeLane);
+
+  for (int i=0, lockedcnt=0; i<param.lanesize; i++)
+  {
+    // if locked lane then stay calm
+    if (param.lockedlane[i] == LaneTypes::LOCKED)
     {
-      curr_sc = 1;
-      continue;
+      new_col[i] = i;
     }
-    vNotes_sc_candidate.push_back(&n);
+    else unlocked_cols[unlocked_cnt++] = i;
+  }
+  for (int i=0, c=0; i<param.lanesize; i++)
+  {
+    if (param.lockedlane[i] == LaneTypes::NOTE)
+    {
+      new_col[i] = unlocked_cols[(c++ + delta_lane) % unlocked_cnt];
+    }
+  }
+
+  c.GetNoteData().SortByBeat();
+
+  for (auto& note: c.GetNoteData())
+  {
+    if (!CheckNoteValidity(note, param)) continue;
+    note.track.lane.note.col = new_col[note.track.lane.note.col];
+  }
+}
+
+void Mirror(Chart &c, const EffectorParam& param)
+{
+  int new_col[kMaxSizeLane];
+
+  for (int i=0; i<kMaxSizeLane; i++) new_col[i] = i;
+
+  // half of the lane is switched.
+  int s=0, e=param.lanesize-1;
+  while (s < e)
+  {
+    while (param.lockedlane[s] != NOTE && s < e) s++;
+    while (param.lockedlane[e] != NOTE && s < e) e--;
+    std::swap(new_col[s], new_col[e]);
+    s++; e--;
+  }
+
+  c.GetNoteData().SortByBeat();
+
+  for (auto& note: c.GetNoteData())
+  {
+    if (!CheckNoteValidity(note, param)) continue;
+    note.track.lane.note.col = new_col[note.track.lane.note.col];
+  }
+}
+
+void AllSC(Chart &c, const EffectorParam& param)
+{
+  std::vector<Note*> row_notes;
+  double current_beat = -1.0;
+  int sc_idx = -1;
+  for (int i=0; i<param.lanesize; i++)
+  {
+    if (param.lockedlane[i] == SC)
+    {
+      sc_idx = i;
+      break;
+    }
+  }
+  //ASSERT(sc_idx != -1);
+  if (sc_idx == -1) return;
+
+  c.GetNoteData().SortByBeat();
+
+  for (auto& note: c.GetNoteData())
+  {
+    if (!CheckNoteValidity(note, param)) continue;
+    
+    if (note.pos.beat != current_beat)
+    {
+      current_beat = note.pos.beat;
+      if (row_notes.size())
+        row_notes[rand() % row_notes.size()]->track.lane.note.col = sc_idx;
+      row_notes.clear();
+    }
+
+    row_notes.push_back(&note);
+  }
+
+  if (row_notes.size())
+    row_notes[rand() % row_notes.size()]->track.lane.note.col = sc_idx;
+}
+
+void Flip(Chart &c, const EffectorParam& param)
+{
+  int new_col[kMaxSizeLane];
+
+  // half of the lane is switched.
+  // XXX: ignores locked lane.
+  for (int i=0; i<param.lanesize; i++)
+  {
+    new_col[i] = param.lanesize - i - 1;
+  }
+
+  c.GetNoteData().SortByBeat();
+
+  for (auto& note: c.GetNoteData())
+  {
+    if (!CheckNoteValidity(note, param)) continue;
+    note.track.lane.note.col = new_col[note.track.lane.note.col];
   }
 }
 

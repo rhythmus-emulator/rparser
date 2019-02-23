@@ -36,7 +36,7 @@ enum class NotePosTypes
 struct NotePos
 {
   NotePosTypes type;
-  struct
+  struct Row
   {
     uint32_t measure;
     RowPos num;
@@ -158,6 +158,7 @@ public:
   void swap(NoteData& notedata);
   void clear();
   void Merge(const NoteData& notedata, RowPos rowstart = 0);
+  void Cut(double start_beat, double end_beat);
   void SortByBeat();
   void SortModeOff();
   bool IsSorted();

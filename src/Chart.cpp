@@ -1,4 +1,5 @@
 #include "Chart.h"
+#include "ChartUtil.h"
 #include "rutil.h"
 
 using namespace rutil;
@@ -214,44 +215,47 @@ const MetaData& Chart::GetSharedMetaData() const
 void Chart::InvalidateAllNotePos()
 {
   std::vector<double> v_time, v_beat;
-  std::vector<double> v_time_to_beat, v_beat_to_time;
-  int t_idx = 0, b_idx = 0;
-  for (const Note& nobj : notedata_)
-  {
-    if (nobj.pos.type == NotePosTypes::Time)
-    {
-      v_time.push_back(nobj.pos.time_msec);
-    } else /* Row type is already converted to beat TODO: set(convert) row too... */
-    {
-      v_beat.push_back(nobj.pos.beat);
-    }
-  }
-  v_time_to_beat = tempodata_.GetBeatFromTimeArr(v_time);
-  v_beat_to_time = tempodata_.GetTimeFromBeatArr(v_beat);
-  for (Note& nobj : notedata_)
-  {
-    if (nobj.pos.type == NotePosTypes::Time)
-    {
-      nobj.pos.beat = v_time_to_beat[b_idx++];
-    } else
-    {
-      nobj.pos.time_msec = v_beat_to_time[t_idx++];
-    }
-  }
+  std::vector<NotePos::Row> v_row;
+  std::vector<double> v_row_to_beat;
+  int t_idx = 0, b_idx = 0, r_idx = 0;
+  // Sort by row / beat / time.
+  SortedNoteObjects sorted;
+  SortNoteObjectsByType(GetNoteData(), sorted);
+  // Make conversion of row --> beat --> time first.
+  for (const Note* nobj : sorted.nobj_by_row)
+    v_row.push_back(nobj->pos.row);
+  const std::vector<double>&& v_row_to_beat = tempodata_.GetBeatFromRowArr(v_row);
+  for (Note* nobj : sorted.nobj_by_row)
+    v_beat.push_back(nobj->pos.beat = v_row_to_beat[r_idx++]);
+  const std::vector<double>&& v_row_to_time = tempodata_.GetTimeFromBeatArr(v_beat);
+  r_idx = 0;
+  for (Note* nobj : sorted.nobj_by_row)
+    nobj->pos.time_msec = v_row_to_time[r_idx++];
+  v_beat.clear();
+  // Make conversion of beat <--> time.
+  for (const Note* nobj : sorted.nobj_by_beat)
+    v_beat.push_back(nobj->pos.beat);
+  for (const Note* nobj : sorted.nobj_by_tempo)
+    v_time.push_back(nobj->pos.time_msec);
+  const std::vector<double>&& v_time_to_beat = tempodata_.GetBeatFromTimeArr(v_time);
+  const std::vector<double>&& v_beat_to_time = tempodata_.GetTimeFromBeatArr(v_beat);
+  for (Note* nobj : sorted.nobj_by_beat)
+    nobj->pos.time_msec = v_beat_to_time[t_idx++];
+  for (Note* nobj : sorted.nobj_by_tempo)
+    nobj->pos.beat = v_time_to_beat[b_idx++];
 }
 
 void Chart::InvalidateNotePos(Note &nobj)
 {
-  if (nobj.pos.type == NotePosTypes::Row)
-    nobj.pos.beat = nobj.pos.row.measure + nobj.pos.row.num / (double)nobj.pos.row.deno;
   switch (nobj.pos.type)
   {
     case NotePosTypes::Time:
       nobj.pos.beat = tempodata_.GetBeatFromTime(nobj.pos.time_msec);
       break;
     case NotePosTypes::Row:
+      nobj.pos.beat = tempodata_.GetBeatFromRow(nobj.pos.row);
     case NotePosTypes::Beat:
-      nobj.pos.beat = tempodata_.GetTimeFromBeat(nobj.pos.beat);
+      nobj.pos.time_msec = tempodata_.GetTimeFromBeat(nobj.pos.beat);
       break;
   }
 }

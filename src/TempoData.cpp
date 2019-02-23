@@ -1,5 +1,6 @@
 #include "TempoData.h"
 #include "Chart.h"
+#include "ChartUtil.h"
 
 namespace rparser
 {
@@ -16,15 +17,21 @@ inline double GetDeltaBeatFromTimeInTempoSegment(const TempoObject& tobj, double
   return time_delta_msec * beat_per_msec;
 }
 
+inline double GetBeatFromRowInTempoSegment(const TempoObject& n, const NotePos::Row& row)
+{
+  return n.measure_length_changed_beat_
+    + n.measure_length_ * (row.measure - n.measure_idx_ + row.num / (double)row.deno);
+}
+
 TempoObject::TempoObject()
 : bpm_(kDefaultBpm), beat_(0), time_(0),
-  measure_length_changed_pos_(0), measure_length_(4),
+  measure_length_changed_beat_(0), measure_length_(4), measure_idx_(0),
   stoptime_(0), delaytime_(0), warpbeat_(0), scrollspeed_(1), tick_(1) {}
 
 TempoObject::TempoObject(const TempoObject& o)
 : bpm_(o.bpm_), beat_(o.beat_), time_(o.time_),
-  measure_length_changed_pos_(o.measure_length_changed_pos_),
-  measure_length_(o.measure_length_),
+  measure_length_changed_beat_(o.measure_length_changed_beat_),
+  measure_length_(o.measure_length_), measure_idx_(0),
   stoptime_(0), delaytime_(0), warpbeat_(0),  // cleared when copied
   scrollspeed_(o.scrollspeed_), tick_(o.tick_) {}
 
@@ -43,21 +50,18 @@ TempoData::TempoData()
 TempoData::TempoData(const Chart& c)
 {
   // extract tempo related object from chartdata
-  std::vector<const Note*> nobj_by_beat, nobj_by_tempo;
+  std::vector<const Note*> nobj_by_beat, nobj_by_tempo, nobj_by_row;
   int nbidx=0, ntidx=0;
   NotePosTypes cur_nobj_type;
   const Note* cur_nobj;
-  for (const Note& nobj: c.GetNoteData())
-  {
-    if (nobj.track.type == NoteTypes::kTempo)
-    {
-      if (nobj.pos.type == NotePosTypes::Beat)
-        nobj_by_beat.push_back(&nobj);
-      else if (nobj.pos.type == NotePosTypes::Time)
-        nobj_by_tempo.push_back(&nobj);
-      else ASSERT(0); /* XXX: not implemented */
-    }
-  }
+  float v;
+
+  ConstSortedNoteObjects sorted;
+  SortNoteObjectsByType(c.GetNoteData(), sorted);
+  nobj_by_beat.swap(sorted.nobj_by_beat);
+  nobj_by_tempo.swap(sorted.nobj_by_tempo);
+  nobj_by_row.swap(sorted.nobj_by_row);
+
   // make tempo segment from note objects
   while (nbidx < nobj_by_beat.size() && ntidx < nobj_by_tempo.size())
   {
@@ -77,12 +81,23 @@ TempoData::TempoData(const Chart& c)
     switch (cur_nobj->track.subtype)
     {
     case NoteTempoTypes::kBpm:
-    case NoteTempoTypes::kBmsBpm:
       SetBPMChange(cur_nobj->value.f);
       break;
+    case NoteTempoTypes::kBmsBpm:
+      if (c.GetMetaData().GetBPMChannel()->GetBpm(cur_nobj->value.channel, v))
+        SetBPMChange(v);
+      else
+        RPARSER_LOG("Failed to fetch BPM information.");
+      break;
     case NoteTempoTypes::kStop:
-    case NoteTempoTypes::kBmsStop:
       SetSTOP(cur_nobj->value.f);
+      break;
+    case NoteTempoTypes::kBmsStop:
+      if (c.GetMetaData().GetSTOPChannel()->GetStop(cur_nobj->value.channel, v))
+        SetSTOP(v);
+      else
+        RPARSER_LOG("Failed to fetch STOP information.");
+      break;
       break;
     case NoteTempoTypes::kMeasure:
       SetMeasureLengthChange(cur_nobj->value.f);
@@ -100,7 +115,7 @@ TempoData::TempoData(const Chart& c)
   }
 }
 
-double TempoData::GetTimeFromBeat(double beat)
+double TempoData::GetTimeFromBeat(double beat) const
 {
   // binary search to find proper tempoobject segment.
   int min = 0, max = tempoobjs_.size() - 1;
@@ -123,10 +138,11 @@ double TempoData::GetTimeFromBeat(double beat)
       l = m + 1;
     }
   }
-  return GetDeltaTimeFromBeatInTempoSegment(tempoobjs_[idx], beat);
+  return tempoobjs_[idx].time_ +
+    GetDeltaTimeFromBeatInTempoSegment(tempoobjs_[idx], beat - tempoobjs_[idx].beat_);
 }
 
-double TempoData::GetBeatFromTime(double time)
+double TempoData::GetBeatFromTime(double time) const
 {
   // binary search to find proper tempoobject segment.
   int min = 0, max = tempoobjs_.size() - 1;
@@ -149,7 +165,61 @@ double TempoData::GetBeatFromTime(double time)
       l = m + 1;
     }
   }
-  return GetDeltaBeatFromTimeInTempoSegment(tempoobjs_[idx], time);
+  return tempoobjs_[idx].beat_ +
+    GetDeltaBeatFromTimeInTempoSegment(tempoobjs_[idx], time - tempoobjs_[idx].time_);
+}
+
+double TempoData::GetBeatFromRow(const NotePos::Row& row) const
+{
+  // binary search to find proper tempoobject segment.
+  int min = 0, max = tempoobjs_.size() - 1;
+  int l = min, r = max;
+  int idx = 0;
+  while( l <= r )
+  {
+    int m = ( l + r ) / 2;
+    if( ( m == min || tempoobjs_[m].measure_idx_ <= row.measure ) && ( m == max || row.measure < tempoobjs_[m+1].measure_idx_ ) )
+    {
+      idx = m;
+      break;
+    }
+    else if( tempoobjs_[m].measure_idx_ > row.measure )
+    {
+      r = m - 1;
+    }
+    else
+    {
+      l = m + 1;
+    }
+  }
+
+  return GetBeatFromRowInTempoSegment(tempoobjs_[idx], row);
+}
+
+double TempoData::GetMeasureFromBeat(double beat) const
+{
+  // binary search to find proper tempoobject segment.
+  int min = 0, max = tempoobjs_.size() - 1;
+  int l = min, r = max;
+  int idx = 0;
+  while( l <= r )
+  {
+    int m = ( l + r ) / 2;
+    if( ( m == min || tempoobjs_[m].beat_ <= beat ) && ( m == max || beat < tempoobjs_[m+1].beat_ ) )
+    {
+      idx = m;
+      break;
+    }
+    else if( tempoobjs_[m].beat_ > beat )
+    {
+      r = m - 1;
+    }
+    else
+    {
+      l = m + 1;
+    }
+  }
+  return tempoobjs_[idx].measure_idx_ + (beat - tempoobjs_[idx].beat_) / tempoobjs_[idx].measure_length_;
 }
 
 std::vector<double> TempoData::GetTimeFromBeatArr(const std::vector<double>& sorted_beat)
@@ -178,18 +248,31 @@ std::vector<double> TempoData::GetBeatFromTimeArr(const std::vector<double>& sor
   return r_beat;
 }
 
+std::vector<double> TempoData::GetBeatFromRowArr(const std::vector<NotePos::Row>& sorted_row)
+{
+  std::vector<double> r_beat;
+  int idx = 0;
+  for (const NotePos::Row& row: sorted_row)
+  {
+    // go to next segment if available.
+    // -- measure pos might be same, so move as much as possible.
+    while (idx+1 < tempoobjs_.size() && row.measure > tempoobjs_[idx+1].measure_idx_) idx++;
+    r_beat.push_back(GetBeatFromRowInTempoSegment(tempoobjs_[idx], row));
+  }
+  return r_beat;
+}
+
 void TempoData::SetFirstObjectFromMetaData(const MetaData &md)
 {
   TempoObject &o = tempoobjs_.front();
   o.bpm_ = md.bpm;
-  o.time_ = md.time_0beat_offset;
 }
 
 void TempoData::SeekByTime(double time)
 {
   ASSERT(time >= tempoobjs_.back().time_);
   if (time == tempoobjs_.back().time_) return;
-  double beat = GetDeltaBeatFromLastTime(time);
+  double beat = tempoobjs_.back().beat_ + GetDeltaBeatFromLastTime(time - tempoobjs_.back().time_);
   TempoObject new_tobj(tempoobjs_.back());
   new_tobj.time_ = time;
   new_tobj.beat_ = beat;
@@ -200,11 +283,20 @@ void TempoData::SeekByBeat(double beat)
 {
   ASSERT(beat >= tempoobjs_.back().beat_);
   if (beat == tempoobjs_.back().beat_) return;
-  double time = GetDeltaBeatFromLastTime(beat);
+  double time = tempoobjs_.back().time_ + GetDeltaBeatFromLastTime(beat - tempoobjs_.back().beat_);
   TempoObject new_tobj(tempoobjs_.back());
   new_tobj.time_ = time;
   new_tobj.beat_ = beat;
   tempoobjs_.push_back(new_tobj);
+}
+
+void TempoData::SeekByRow(const NotePos::Row& row)
+{
+  // convert row into beat
+  const TempoObject& n = tempoobjs_.back();
+  const double beat = n.measure_length_changed_beat_
+    + n.measure_length_ * (row.measure - n.measure_idx_ + row.num / (double)row.deno);
+  SeekByBeat( GetBeatFromRowInTempoSegment(tempoobjs_.back(), row) );
 }
 
 NotePosTypes TempoData::SeekBySmallerPos(double beat, double time)
@@ -230,7 +322,18 @@ void TempoData::SetBPMChange(double bpm)
 
 void TempoData::SetMeasureLengthChange(double measure_length)
 {
-  tempoobjs_.back().measure_length_ = measure_length;
+  TempoObject& tobj = tempoobjs_.back();
+  // don't do unnecessary thing as much as possible
+  if (tobj.measure_length_ == measure_length) return;
+  // reinvalidate beat and measure index if necessary
+  // and calculate measure of current tobj
+  if (tobj.measure_length_changed_beat_ != tobj.beat_)
+  {
+    tobj.measure_idx_ = tobj.measure_idx_ +
+      (tobj.beat_ - tobj.measure_length_changed_beat_) / tobj.measure_length_;
+    tobj.measure_length_changed_beat_ = tobj.beat_;
+  }
+  tobj.measure_length_ = measure_length;
 }
 
 void TempoData::SetSTOP(double stop)

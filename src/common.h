@@ -10,5 +10,6 @@
 #include <assert.h>
 
 #define ASSERT(x) assert(x)
+#define RPARSER_LOG(x) {}
 
 #endif
