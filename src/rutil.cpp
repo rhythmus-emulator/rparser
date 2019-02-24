@@ -997,42 +997,4 @@ bool md5_str(const void* p, int iLen, char *out)
   else return false;
 }
 
-
-// BMS-related utils
-int atoi_bms(const char* p, int length)
-{
-  int r = 0;
-  while (p && length)
-  {
-    r *= 26+10;
-    if (*p >= 'a' && *p <= 'z')
-      r += 10+(*p-'a');
-    else if (*p >= 'A' && *p <= 'Z')
-      r += 10+(*p-'A');
-    else if (*p >= '0' && *p <= '9')
-      r += (*p-'0');
-    else break;
-    ++p; --length;
-  }
-  return r;
-}
-int atoi_bms16(const char* p, int length)
-{
-  // length up-to-2
-  int r = 0;
-  while (p && length)
-  {
-    r *= 16;
-    if (*p >= 'a' && *p <= 'f')
-      r += 10+(*p-'a');
-    else if (*p >= 'A' && *p <= 'F')
-      r += 10+(*p-'A');
-    else if (*p >= '0' && *p <= '9')
-      r += (*p-'0');
-    else break;
-    ++p; --length;
-  }
-  return r;
-}
-
 }

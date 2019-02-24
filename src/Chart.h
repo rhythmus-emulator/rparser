@@ -28,6 +28,7 @@ typedef struct
 
 enum class NotePosTypes
 {
+  NullPos,
   Row,
   Time,
   Beat
@@ -201,6 +202,8 @@ public:
   
   void Clear();
 
+  ConditionStatement* CreateStmt(int value, bool israndom, bool isswitchstmt);
+  ConditionStatement* GetLastStmt();
   void AppendStmt(ConditionStatement& stmt);
   // evaluate all stmt and generate objects (process control flow)
   void EvaluateStmt(int seed = -1);
@@ -234,6 +237,8 @@ class ConditionStatement
 public:
   void AddSentence(unsigned int cond, Chart* chartdata);
   Chart* EvaluateSentence(int seed = -1) const;
+  size_t GetSentenceCount();
+  Chart* CreateSentence(unsigned int cond);
 
   ConditionStatement(int value, bool israndom, bool isswitchstmt);
   ConditionStatement(const ConditionStatement& cs);

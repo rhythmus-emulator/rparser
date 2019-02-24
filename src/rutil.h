@@ -214,16 +214,6 @@ bool md5(const void* p, int iLen, char* out);
 // same to md5; returns 32byte string (%02x formatted)
 bool md5_str(const void* p, int iLen, char* out);
 
-
-
-// BMS-util related
-
-// @description only change 2 character; 00-ZZ to integer
-int atoi_bms(const char* p, int length=0xF);
-// 00-FF
-int atoi_bms16(const char* p, int length=2);
-
-
 };
 
 #endif
