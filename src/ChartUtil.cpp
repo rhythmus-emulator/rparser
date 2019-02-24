@@ -29,6 +29,12 @@ void NoteSelection::Clear()
 	m_vNotes.clear();
 }
 
+void ClipRange(Chart &c, double beat_start, double beat_end)
+{
+  // TODO
+  ASSERT(0);
+}
+
 void FixInvalidNote(Chart &c, SONGTYPE songtype, bool delete_invalid_note)
 {
   // TODO: currently for note type.

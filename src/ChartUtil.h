@@ -26,10 +26,10 @@ public:
   void Clear();
 };
 
-// insert / delete / update
 void RemoveNotes(Chart &c, const NoteSelection& vNotes);
-void CopyRange(Chart &c, const NoteSelection& vNotes, double beat_delta);
-void MoveRange(Chart &c, const NoteSelection& vNotes, double beat_delta);
+void CopyNotes(Chart &c, const NoteSelection& vNotes, double beat_delta);
+void MoveNotes(Chart &c, const NoteSelection& vNotes, double beat_delta);
+void ClipRange(Chart &c, double beat_start, double beat_end);
 void ShiftLane(Chart &c, const NoteSelection& vNotes, unsigned int newLane);
 void ShiftType(Chart &c, const NoteSelection& vNotes, int notetype, int notesubtype);
 void InsertBlank(RowPos rowFromBegin, RowPos rowFromLength);
