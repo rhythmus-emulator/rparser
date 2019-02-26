@@ -128,8 +128,8 @@ bool MetaData::SetEncoding(int from_codepage, int to_codepage)
 
 bool MetaData::SetUtf8Encoding()
 {
-  if (DetectEncoding() != R_CP_UTF8)
-    SetEncoding(encoding, R_CP_UTF8);
+  if (DetectEncoding() != E_UTF8)
+    SetEncoding(encoding, E_UTF8);
 }
 
 int MetaData::DetectEncoding()

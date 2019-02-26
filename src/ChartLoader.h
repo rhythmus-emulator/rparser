@@ -43,10 +43,27 @@ public:
   bool Load( const void* p, int iLen );
 };
 
+enum VOS_VERSION {
+  VOS_UNKNOWN = 0,
+  VOS_V2 = 2,
+  VOS_V3 = 3
+};
 
 class ChartLoaderVOS : public ChartLoader {
+private:
+  const unsigned char* p_;
+  const unsigned char *note_p_;
+  const unsigned char* midi_p_;
+  int vos_version_;
+  int len_;
+  bool ParseVersion();
+  bool ParseMetaDataV2();
+  bool ParseMetaDataV3();
+  bool ParseNoteDataV2();
+  bool ParseNoteDataV3();
+  bool ParseMIDI();
 public:
-  ChartLoaderVOS(Chart* c): ChartLoader(c) {};
+  ChartLoaderVOS(Chart* c);
   bool Test( const void* p, int iLen );
   bool TestName( const char *fn );
   bool Load( const void* p, int iLen );
