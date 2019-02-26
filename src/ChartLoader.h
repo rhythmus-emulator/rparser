@@ -32,10 +32,23 @@ private:
   Chart* chart_context_;
   std::vector<Chart*> chart_context_stack_;
   ConditionStatement* condstmt_;
-  bool ParseTrimmedLine(const char* p, unsigned int len);
-  bool ParseControlFlow(const char* command, const char* value, unsigned int len);
-  bool ParseMetaData(const char* command, const char* value, unsigned int len);
-  bool ParseNote(unsigned int measure, unsigned int bms_channel, const char* value, unsigned int len);
+  struct LineContext {
+    const char* stmt;
+    unsigned int stmt_len;
+    char command[256];
+    const char* value;
+    unsigned int value_len;
+    unsigned int measure;
+    unsigned int bms_channel;
+
+    void clear();
+    LineContext();
+  } current_line_;
+
+  bool ParseCurrentLine();
+  bool ParseControlFlow();
+  bool ParseMetaData();
+  bool ParseNote();
 public:
   ChartLoaderBMS(Chart* c);
   bool Test( const void* p, int iLen );

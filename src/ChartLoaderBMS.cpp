@@ -8,6 +8,18 @@ using namespace rutil;
 
 namespace rparser {
 
+ChartLoaderBMS::LineContext::LineContext() { clear(); }
+void ChartLoaderBMS::LineContext::clear()
+{
+  stmt = 0;
+  stmt_len = 0;
+  *command = 0;
+  value = 0;
+  value_len = 0;
+  measure = 0;
+  bms_channel = 0;
+}
+
 ChartLoaderBMS::ChartLoaderBMS(Chart* c)
   : ChartLoader(c), chart_context_(c)
 {
@@ -47,15 +59,18 @@ bool ChartLoaderBMS::Load( const void* p, int iLen )
       const char *st_trimmed = linestart;
       const char *chr_trimmed = chr;
       while (chr_trimmed > st_trimmed && 
-             (*st_trimmed == ' ' || *st_trimmed == '\t'))
+             (*st_trimmed == ' ' || *st_trimmed == '\t' || *st_trimmed == '\r'))
         st_trimmed++;
       while (chr_trimmed > st_trimmed && 
-             (*chr_trimmed == ' ' || *chr_trimmed == '\t'))
+             (*chr_trimmed == ' ' || *chr_trimmed == '\t' || *chr_trimmed == '\r'))
         chr_trimmed--;
-      if (!ParseTrimmedLine(st_trimmed, chr_trimmed-st_trimmed))
+      current_line_.clear();
+      current_line_.stmt = chr_trimmed;
+      current_line_.stmt_len = chr_trimmed-st_trimmed;
+      if (!ParseCurrentLine())
       {
         // XXX: for debug
-        std::string de(st_trimmed, chr_trimmed-st_trimmed);
+        std::string de(current_line_.stmt, current_line_.stmt_len);
         printf("parse failed: \"%s\"", de.c_str());
       }
       chr = linestart+1;
@@ -131,12 +146,13 @@ int atoi_bms16(const char* p, int length)
 }
 #endif
 
-bool ChartLoaderBMS::ParseTrimmedLine(const char* p, unsigned int len)
+bool ChartLoaderBMS::ParseCurrentLine()
 {
-  char command[256];
-  const char *c = p;
-  char *cw = command;
+  const char *c, *p;
+  const unsigned int len = current_line_.stmt_len;
+  char *cw = current_line_.command;
   char terminator_type;
+  c = p = current_line_.stmt;
 
   if (*c != '#') return false;
   while (*c != ' ' || *c != ':')
@@ -147,18 +163,18 @@ bool ChartLoaderBMS::ParseTrimmedLine(const char* p, unsigned int len)
   }
   *cw = 0;
   terminator_type = *c;
-  const unsigned int new_len = len+p-c-1;
+  current_line_.value_len = len+p-c-1;
 
   if (terminator_type == ':')
   {
-    if (!ParseControlFlow(command, c+1, new_len) && !ParseMetaData(command, c+1, new_len))
+    if (!ParseControlFlow() && !ParseMetaData())
       return false;
   }
   else if (terminator_type == ' ')
   {
-    const unsigned int measure = atoi_bms_measure(command, 3);
-    const unsigned int channel = atoi_bms_channel(command+3, 2);
-    if (!ParseNote(measure, channel, c+1, new_len))
+    current_line_.measure = atoi_bms_measure(current_line_.command, 3);
+    current_line_.bms_channel = atoi_bms_channel(current_line_.command+3, 2);
+    if (!ParseNote())
       return false;
   }
   else return false;
@@ -166,10 +182,10 @@ bool ChartLoaderBMS::ParseTrimmedLine(const char* p, unsigned int len)
   return true;
 }
 
-#define CMDCMP(x) (strcmp(command, (x)) == 0)
-bool ChartLoaderBMS::ParseControlFlow(const char* command, const char* value, unsigned int len)
+#define CMDCMP(x) (strcmp(current_line_.command, (x)) == 0)
+bool ChartLoaderBMS::ParseControlFlow()
 {
-  unsigned int cond = atoi_bms_measure(value, len);
+  unsigned int cond = atoi_bms_measure(current_line_.value, current_line_.value_len);
 
   if (CMDCMP("SWITCH"))
   {
@@ -217,13 +233,14 @@ bool ChartLoaderBMS::ParseControlFlow(const char* command, const char* value, un
 }
 #undef CMDCMP
 
-#define CMDCMP(x) (value == (x))
-bool ChartLoaderBMS::ParseMetaData(const char* command, const char* value_, unsigned int len)
+#define CMDCMP(x) (cmd == (x))
+bool ChartLoaderBMS::ParseMetaData()
 {
   // cannot parse between control flow stmt
   if (!chart_context_) return false;
   MetaData& md = chart_context_->GetMetaData();
-  std::string value(value_, len);
+  std::string cmd(current_line_.command);
+  std::string value(current_line_.value, current_line_.value_len);
 
   if (CMDCMP("TITLE")) {
     std::swap(md.title, value);
@@ -289,25 +306,25 @@ bool ChartLoaderBMS::ParseMetaData(const char* command, const char* value_, unsi
     md.time_0beat_offset = atof(value.c_str());
   }
 
-  #define CHKCMD(cmd, len) (strncmp(value_, cmd, len) == 0)
+  #define CHKCMD(cmd_const, len) (strncmp(current_line_.command, cmd_const, len) == 0)
   else if (CHKCMD("BMP",3)) {
-    unsigned int key = atoi_bms_channel(value_ + 3);
+    unsigned int key = atoi_bms_channel(current_line_.value + 3);
     md.GetBGAChannel()->bga[key] = { value, 0,0,0,0, 0,0,0,0 };
   }
   else if (CHKCMD("WAV",3)) {
-    unsigned int key = atoi_bms_channel(value_ + 3);
+    unsigned int key = atoi_bms_channel(current_line_.value + 3);
     md.GetSoundChannel()->fn[key] = value;
   }
   else if (CHKCMD("EXBPM",5) || CHKCMD("BPM",3)) {
     unsigned int key;
-    if (value_[0] == 'B')
-        key = atoi_bms_channel(value_ + 3);
+    if (current_line_.value[0] == 'B')
+        key = atoi_bms_channel(current_line_.value + 3);
     else
-        key = atoi_bms_channel(value_ + 5);
+        key = atoi_bms_channel(current_line_.value + 5);
     md.GetBPMChannel()->bpm[key] = atof( value.c_str() );
   }
   else if (CHKCMD("STOP",4)) {
-    unsigned int key = atoi_bms_channel(value_  + 4);
+    unsigned int key = atoi_bms_channel(current_line_.value  + 4);
     md.GetSTOPChannel()->stop[key] = atoi(value.c_str());  // 1/192nd
   }
   else if (value == "#stp") {
@@ -437,8 +454,15 @@ uint8_t GetNoteColFromBmsChannel(unsigned int bms_channel)
   return channel_remap[channel_mod_16];
 }
 
-bool ChartLoaderBMS::ParseNote(unsigned int measure, unsigned int bms_channel, const char* value, unsigned int len)
+bool ChartLoaderBMS::ParseNote()
 {
+  unsigned int value_u;
+  Note n;
+  const unsigned int measure = current_line_.measure;
+  const unsigned int channel = current_line_.bms_channel;
+  const char* value = current_line_.value;
+  unsigned int len = current_line_.value_len;
+
   // cannot parse between control flow stmt
   if (!chart_context_) return false;
 
@@ -450,16 +474,14 @@ bool ChartLoaderBMS::ParseNote(unsigned int measure, unsigned int bms_channel, c
   }
   if (len == 0) return false;
 
-  unsigned int value_u;
-  Note n;
   memset(&n, 0, sizeof(Note));
   n.pos.type = NotePosTypes::Row;
   n.pos.row.measure = measure;
   n.pos.row.deno = len;
-  n.track.type = GetNoteTypeFromBmsChannel(bms_channel);
-  n.track.subtype = GetNoteSubTypeFromBmsChannel(bms_channel);
-  n.track.lane.note.player = GetNotePlayerFromBmsChannel(bms_channel);
-  n.track.lane.note.col = GetNoteColFromBmsChannel(bms_channel);
+  n.track.type = GetNoteTypeFromBmsChannel(channel);
+  n.track.subtype = GetNoteSubTypeFromBmsChannel(channel);
+  n.track.lane.note.player = GetNotePlayerFromBmsChannel(channel);
+  n.track.lane.note.col = GetNoteColFromBmsChannel(channel);
   for (unsigned int i = 0; i < len; i += 2)
   {
     value_u = atoi_bms_channel(value+i);
