@@ -1,7 +1,7 @@
 #ifndef RPARSER_MIXINGDATA_H
 #define RPARSER_MIXINGDATA_H
 
-#include "common.h"
+#include "Chart.h"
 
 namespace rparser
 {
@@ -27,9 +27,6 @@ struct TempoObject
 
   std::string toString();
 };
-
-struct NotePos;
-struct NotePos::Row;
 
 /*
  * @detail  Calculates beat/time by chart data.

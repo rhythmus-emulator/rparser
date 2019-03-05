@@ -1,4 +1,5 @@
 #include "Song.h"
+#include "Chart.h"
 #include "ChartUtil.h"
 #include "MetaData.h"
 #include "ChartLoader.h"
@@ -37,8 +38,8 @@ const std::string Song::total_readable_ext_ = Song::gen_readable_ext_();
 // ------ class Song ------
 
 Song::Song()
-	: songtype_(SONGTYPE::NONE), error_(ERROR::NONE),
-	tobjs_shared_(0), metadata_shared_(0)
+  : songtype_(SONGTYPE::NONE), error_(ERROR::NONE),
+  tobjs_shared_(0), metadata_shared_(0), resource_(0);
 {
 }
 
@@ -47,12 +48,12 @@ Song::~Song()
 	Close();
 }
 
-void Song::RegisterChart(chart::Chart * c, const std::string& filename)
+void Song::RegisterChart(Chart * c, const std::string& filename)
 {
 	charts_.push_back({ c, filename, filename, false });
 }
 
-bool Song::DeleteChart(const chart::Chart * c)
+bool Song::DeleteChart(const Chart * c)
 {
 	for (auto p = charts_.begin(); p != charts_.end(); ++p) {
 		if (p->c == c) {
@@ -63,7 +64,7 @@ bool Song::DeleteChart(const chart::Chart * c)
 	return false;
 }
 
-bool Song::RenameChart(const chart::Chart* c, const std::string& newfilename)
+bool Song::RenameChart(const Chart* c, const std::string& newfilename)
 {
 	for (auto p = charts_.begin(); p != charts_.end(); ++p) {
 		if (p->c == c) {
@@ -77,7 +78,7 @@ bool Song::RenameChart(const chart::Chart* c, const std::string& newfilename)
 
 bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 {
-  chart::Chart *c;
+  Chart *c;
 
 	// initialize
 	Close();
@@ -87,7 +88,8 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 	// If required, only read chart files.
 	const char * fastread_ext = total_readable_ext_.c_str();
 	if (!fastread) fastread_ext = 0;
-	if (!resource_.Open(path.c_str(), 0, fastread_ext))
+  resource_ = ResourceFactory::Open(path.c_str(), 0 /* filter */, fastread_ext);
+	if (!resource_)
 	{
 		error_ = ERROR::OPEN_NO_FILE;
 		songtype_ = SONGTYPE::NONE;
@@ -95,6 +97,7 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 	}
 
 	// Filter out file from resource, which is feasible to read.
+  // XXX: in case of binary form, need reader.
 	std::map<std::string, const Resource::BinaryData*> chart_files;
 	resource_.FilterFiles(total_readable_ext_.c_str(), chart_files);
 #if 0
@@ -133,7 +136,7 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 	case SONGTYPE::OSU:
 	case SONGTYPE::VOS:
 		metadata_shared_ = new MetaData();
-		tobjs_shared_ = new chart::TempoData();
+		objs_shared_ = new NoteData();
 
 		LoadMetadata();
 
@@ -145,7 +148,7 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 	ChartLoader *cl = CreateChartLoader(songtype);
   for (auto ii : chart_files)
   {
-    c = new chart::Chart(metadata_shared_, tobjs_shared_);
+    c = new Chart(metadata_shared_, objs_shared_);
     if (!cl->Load(ii.second->p, ii.second->len))
     {
       // Error might be occured during chart loading,
@@ -164,20 +167,23 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 
 bool Song::Save()
 {
+  if (!resource_) return false;
+
 	// Only update dirty charts
+  // XXX: in case of binary?
 	for (ChartFile &cf : charts_)
 	{
 		if (cf.is_dirty)
 		{
 			Resource::BinaryData data;
 			// remove previous file and create new file again
-			resource_.Delete(cf.old_filename);
+			resource_->Delete(cf.old_filename);
 			if (!SerializeChart(*cf.c, data))
 			{
 				error_ = ERROR::WRITE_SERIALIZE_CHART;
 				return false;
 			}
-			resource_.AddBinary(cf.new_filename, data.p, data.len, true, false);
+			resource_->AddBinary(cf.new_filename, data.p, data.len, true, false);
 			cf.old_filename = cf.new_filename;
 			cf.is_dirty = false;
 		}
@@ -191,7 +197,7 @@ bool Song::Save()
 	}
 
 	// flush (save to real file)
-	resource_.Flush();
+	resource_->Flush();
 	return true;
 }
 
@@ -215,10 +221,10 @@ bool Song::Close(bool save)
 		delete cf.c;
 	}
 	charts_.clear();
-	resource_.Unload(false);
+  delete resource_;
 	error_ = ERROR::NONE;
 	songtype_ = SONGTYPE::NONE;
-	delete tobjs_shared_;
+	delete objs_shared_;
 	delete metadata_shared_;
 }
 
@@ -251,8 +257,8 @@ bool Song::SaveMetadata()
 bool Song::ChangeSongType(SONGTYPE songtype)
 {
 	MetaData *metadata_common = 0;
-  chart::TempoData *tobjs_common = 0;
-  chart::Chart *new_chart = 0;
+  NoteData *objs_common = 0;
+  Chart *new_chart = 0;
 
 	if (songtype == songtype_)
 		return true;
@@ -263,17 +269,17 @@ bool Song::ChangeSongType(SONGTYPE songtype)
 	case SONGTYPE::OSU:
 	case SONGTYPE::VOS:
 		if (!metadata_shared_) metadata_shared_ = new MetaData();
-		if (!tobjs_shared_) tobjs_shared_ = new chart::TempoData();
+		if (!objs_shared_) objs_shared_ = new NoteData();
 		break;
 	default:
 		if (metadata_shared_) metadata_common = metadata_shared_, metadata_shared_ = 0;
-		if (tobjs_shared_) tobjs_common = tobjs_shared_, tobjs_shared_ = 0;
+		if (objs_shared_) objs_common = objs_shared_, objs_shared_ = 0;
 		break;
 	}
 
   for (ChartFile &cf : charts_)
   {
-    new_chart = new chart::Chart(metadata_shared_, tobjs_shared_);
+    new_chart = new Chart(metadata_shared_, objs_shared_);
     new_chart->swap(*cf.c);
     delete cf.c;
     cf.c = new_chart;
@@ -281,20 +287,20 @@ bool Song::ChangeSongType(SONGTYPE songtype)
 
 	songtype_ = songtype;
 	delete metadata_common;
-	delete tobjs_common;
+	delete objs_common;
 	return true;
 }
 
 void Song::SetPath(const std::string & path)
 {
 	// Set new path for Resource
-	resource_.SetPath(path.c_str());
-	//
+  // TODO:: method for ResourceFolder
+	resource_->SetPath(path.c_str());
 }
 
 const std::string Song::GetPath() const
 {
-	return resource_.GetPath();
+	return resource_->GetPath();
 }
 
 void Song::GetCharts(std::vector<Chart*>& charts)
@@ -311,7 +317,7 @@ const char* Song::GetErrorStr() const
 
 Resource * Song::GetResource()
 {
-	return &resource_;
+	return resource_;
 }
 
 std::string Song::toString() const
@@ -368,6 +374,7 @@ const char* GetSongExtension(SONGTYPE iType)
 		return ii->second;
 }
 
+// XXX: depreciated?
 RESOURCE_TYPE GetSongResourceType(SONGTYPE iType)
 {
 	switch (iType)
@@ -382,7 +389,7 @@ RESOURCE_TYPE GetSongResourceType(SONGTYPE iType)
 	case SONGTYPE::DTX:
 		return RESOURCE_TYPE::ARCHIVE;
 	case SONGTYPE::VOS:
-		return RESOURCE_TYPE::VOSBINARY;
+		return RESOURCE_TYPE::BINARY;
 	}
 	return RESOURCE_TYPE::NONE;
 }

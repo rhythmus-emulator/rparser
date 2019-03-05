@@ -13,10 +13,10 @@ enum class ERROR
 static const char* get_error_msg(ERROR e)
 {
 	static const char **ERROR_MSG =
-	[
+  {
 #include "Error.list"
-	];
-	return ERROR_MSG[e];
+  };
+	return ERROR_MSG[(unsigned)e];
 }
 
 };

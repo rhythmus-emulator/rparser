@@ -12,7 +12,6 @@
 #ifndef RPARSER_SONG_H
 #define RPARSER_SONG_H
 
-#include "Chart.h"
 #include "Resource.h"
 #include "MetaData.h"
 #include "Error.h"
@@ -36,7 +35,7 @@ enum class SONGTYPE {
   BMSARCH,
 };
 
-class chart::Chart;
+class Chart;
 
 /*
  * \brief
@@ -54,30 +53,30 @@ class Song {
 private:
   struct ChartFile
   {
-    chart::Chart* c;
+    Chart* c;
     std::string new_filename;
     std::string old_filename;
     const char hash[32];
     bool is_dirty;
   };
 
-  Resource resource_;
+  Resource *resource_;
   std::vector<ChartFile> charts_;
-  chart::TempoData *tobjs_shared_;
+  NoteData *objs_shared_;
   MetaData *metadata_shared_;
   SONGTYPE songtype_;
   ERROR error_;
 public:
   /* \brief register Chart to Song vector. */
-  void RegisterChart(chart::Chart* c, const std::string& filename);
+  void RegisterChart(Chart* c, const std::string& filename);
 
   /* \brief Delete chart from Song object.
    * \warning You must release Chart object by yourself. */
-  bool DeleteChart(const chart::Chart* c);
+  bool DeleteChart(const Chart* c);
 
-  bool RenameChart(const chart::Chart* c, const std::string& newfilename);
+  bool RenameChart(const Chart* c, const std::string& newfilename);
 
-  void GetCharts(std::vector<chart::Chart*>& charts);
+  void GetCharts(std::vector<Chart*>& charts);
 
   /* \brief
    * Required in special case which metadata is separated with chart file

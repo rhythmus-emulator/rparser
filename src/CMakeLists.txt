@@ -1,7 +1,6 @@
 # prepare necessary source / header
 set (RPARSER_SOURCES
-	"Chart.h"
-	"ChartData.h"
+	"Chart.cpp"
     "ChartLoader.cpp"
     "ChartLoaderBMS.cpp"
     "ChartLoaderVOS.cpp"
@@ -15,7 +14,6 @@ set (RPARSER_SOURCES
 
 set (RPARSER_HEADERS
 	"Chart.h"
-	"ChartData.h"
     "ChartLoader.h"
     "ChartWriter.h"
     "ChartUtil.h"
