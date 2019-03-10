@@ -129,7 +129,8 @@ bool MetaData::SetEncoding(int from_codepage, int to_codepage)
 bool MetaData::SetUtf8Encoding()
 {
   if (DetectEncoding() != E_UTF8)
-    SetEncoding(encoding, E_UTF8);
+    return SetEncoding(encoding, E_UTF8);
+  else return true;
 }
 
 int MetaData::DetectEncoding()

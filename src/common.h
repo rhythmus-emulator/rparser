@@ -9,7 +9,12 @@
 #include <iostream>
 #include <assert.h>
 
-#define ASSERT(x) assert(x)
+#ifdef _DEBUG
+# define ASSERT(x) assert(x)
+#else
+# define ASSERT(x)
+#endif
+
 #define RPARSER_LOG(x) {}
 
 #endif

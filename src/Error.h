@@ -12,7 +12,7 @@ enum class ERROR
 #define ERR(name,msg) msg
 static const char* get_error_msg(ERROR e)
 {
-	static const char **ERROR_MSG =
+	static const char *ERROR_MSG[] =
   {
 #include "Error.list"
   };

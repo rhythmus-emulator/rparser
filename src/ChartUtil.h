@@ -52,7 +52,7 @@ struct ConstSortedNoteObjects
 template <typename A, typename B>
 void SortNoteObjectsByType(A& notedata, B& out)
 {
-  for (const Note& nobj: notedata)
+  for (auto& nobj : notedata)
   {
     if (nobj.track.type == NoteTypes::kTempo)
     {

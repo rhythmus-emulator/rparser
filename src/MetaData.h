@@ -8,8 +8,8 @@
 #ifndef RPARSER_METADATA_H
 #define RPARSER_METADATA_H
 
+#include "Note.h"
 #include "common.h"
-#include "Chart.h"
 
 namespace rparser {
 

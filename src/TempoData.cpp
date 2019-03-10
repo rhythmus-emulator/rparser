@@ -17,7 +17,7 @@ inline double GetDeltaBeatFromTimeInTempoSegment(const TempoObject& tobj, double
   return time_delta_msec * beat_per_msec;
 }
 
-inline double GetBeatFromRowInTempoSegment(const TempoObject& n, const NotePos::Row& row)
+inline double GetBeatFromRowInTempoSegment(const TempoObject& n, const Row& row)
 {
   return n.measure_length_changed_beat_
     + n.measure_length_ * (row.measure - n.measure_idx_ + row.num / (double)row.deno);
@@ -169,7 +169,7 @@ double TempoData::GetBeatFromTime(double time) const
     GetDeltaBeatFromTimeInTempoSegment(tempoobjs_[idx], time - tempoobjs_[idx].time_);
 }
 
-double TempoData::GetBeatFromRow(const NotePos::Row& row) const
+double TempoData::GetBeatFromRow(const Row& row) const
 {
   // binary search to find proper tempoobject segment.
   int min = 0, max = tempoobjs_.size() - 1;
@@ -248,11 +248,11 @@ std::vector<double> TempoData::GetBeatFromTimeArr(const std::vector<double>& sor
   return r_beat;
 }
 
-std::vector<double> TempoData::GetBeatFromRowArr(const std::vector<NotePos::Row>& sorted_row)
+std::vector<double> TempoData::GetBeatFromRowArr(const std::vector<Row>& sorted_row)
 {
   std::vector<double> r_beat;
   int idx = 0;
-  for (const NotePos::Row& row: sorted_row)
+  for (const Row& row: sorted_row)
   {
     // go to next segment if available.
     // -- measure pos might be same, so move as much as possible.
@@ -290,7 +290,7 @@ void TempoData::SeekByBeat(double beat)
   tempoobjs_.push_back(new_tobj);
 }
 
-void TempoData::SeekByRow(const NotePos::Row& row)
+void TempoData::SeekByRow(const Row& row)
 {
   // convert row into beat
   const TempoObject& n = tempoobjs_.back();
@@ -349,6 +349,11 @@ void TempoData::SetDelay(double delay)
 void TempoData::SetWarp(double warp_length_in_beat)
 {
   tempoobjs_.back().warpbeat_ = warp_length_in_beat;
+}
+
+void TempoData::SetTick(uint32_t tick)
+{
+  tempoobjs_.back().tick_ = tick;
 }
 
 void TempoData::SetScrollSpeedChange(double scrollspeed)

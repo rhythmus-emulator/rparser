@@ -41,11 +41,11 @@ public:
 	// Flush all changes into file and reset all dirty flags.
 	// If succeed, return true. else, return false and canceled.
 	// Detailed error message is stored in error_msg_
-  virtual bool Flush();
+  bool Flush();
 
 	// Unload all resource and free allocated memory.
 	// You can save data with setting parameter flush=true.
-  virtual bool Unload(bool flush = true);
+  bool Unload(bool flush = true);
 
 	// Set destination path to save
 	// Don't check existence for given path.
@@ -53,9 +53,24 @@ public:
   void SetExtension(const char* extension);
   const std::string GetPath() const;
   const std::string GetDirectoryPath() const;
+  std::string GetRelativePath(const std::string &orgpath) const;
+  std::string GetAbsolutePath(const std::string &relpath) const;
 	RESOURCE_TYPE GetResourceType() const;
 	const char* GetErrorMsg() const;
 	bool IsLoaded();
+  virtual bool AddBinary(const std::string& relpath, BinaryData& d, bool setdirty=true, bool copy=false);
+  virtual bool AddFile(const std::string &relpath, bool setdirty = true);
+  bool Delete(const std::string &name);
+  bool Rename(const std::string &prev_name, const std::string &new_name);
+  bool IsBinaryDirty(const std::string& key);
+  typedef std::map<std::string, BinaryData>::iterator data_iter;
+  const BinaryData* GetPtr(const std::string &name) const;
+  const char* GetPtr(const std::string &name, int &len) const;
+  void SetFilter(const char** filter_ext);
+  bool CheckFilenameByFilter(const std::string& filename);
+  data_iter data_begin();
+  data_iter data_end();
+  size_t count();
 
 private:
 	std::string path_;
@@ -64,6 +79,9 @@ private:
 	RESOURCE_TYPE resource_type_;
   ERROR error_code_;
   bool is_dirty_;
+  std::map<std::string, BinaryData> datas_;
+  std::map<std::string, bool> data_dirty_flag_;
+  const char **filter_ext_;
 
   virtual bool doOpen();
   virtual bool doFlush();
@@ -84,12 +102,6 @@ class ResourceFolder : public Resource
 public:
   ResourceFolder();
   void SetFilter(const char* filter_ext);
-  void AddBinary(const std::string &name, char *p, unsigned int len, bool setdirty = true, bool copy = false);
-  bool AddFile(const std::string &name, const std::string &filename, bool setdirty = true);
-  bool Rename(const std::string &prev_name, const std::string &new_name);
-  bool Delete(const std::string &name);
-  const BinaryData* GetPtr(const std::string &name) const;
-  const char* GetPtr(const std::string &name, int &len) const;
   // Filter out files
   void FilterFiles(const char* filters,
     std::map<std::string, const BinaryData*>& chart_files);
@@ -97,20 +109,15 @@ public:
 private:
   virtual bool doOpen();
   virtual bool doFlush();
-  virtual bool doUnload();
   static bool WriteBinary(const char* filepath, BinaryData& d);
-
-  std::map<std::string, BinaryData> datas_;
-  std::map<std::string, bool> data_dirty_flag_;
-  std::string filter_ext_;
 };
 
-#ifdef USE_ZLIB
 class ResourceArchive : public ResourceFolder
 {
 public:
   ResourceArchive();
 
+#ifdef USE_ZLIB
 private:
   virtual bool doOpen();
   virtual bool doFlush();
@@ -118,8 +125,8 @@ private:
 
 	bool Load_from_zip(FILE *fp);	// TODO
 	bool WriteZip();	// TODO
-};
 #endif
+};
 
 class ResourceBinary : public Resource
 {
@@ -129,22 +136,17 @@ public:
   // Some file (ex: lr2course, vos) won't behave in form of multiple file.
   // In this case, we use data-ptr reserved for raw format
   // instead of data-key mapping list.
-  void AllocateRawBinary(char *p, unsigned int len, bool copy = false);
-  const BinaryData* GetRawPtr() const;
-  const char* GetRawPtr(int &len) const;
-
+  virtual bool AddBinary(const std::string &key, BinaryData& d, bool setdirty = true, bool copy = false);
+  virtual bool AddFile(const std::string &relpath , bool setdirty = true);
+  BinaryData* GetDataPtr();
 private:
   virtual bool doOpen();
-  virtual bool doFlush();
-  virtual bool doUnload();
-
-  BinaryData data_raw_;
 };
 
 class ResourceFactory
 {
 public:
-  static Resource* Open(const char* path);
+  static Resource* Open(const char* path, const char** filter_ext = 0);
 };
 
 }

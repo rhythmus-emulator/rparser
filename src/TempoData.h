@@ -1,10 +1,14 @@
 #ifndef RPARSER_MIXINGDATA_H
 #define RPARSER_MIXINGDATA_H
 
-#include "Chart.h"
+#include "common.h"
+#include "Note.h"
 
 namespace rparser
 {
+
+class Chart;
+class MetaData;
 
 /* @detail  Segment object affecting chart tempo.
  *          Must be scanned sequentially by beat/time. */
@@ -39,10 +43,10 @@ public:
   TempoData(const Chart& chart);
   double GetTimeFromBeat(double beat) const;
   double GetBeatFromTime(double time) const;
-  double GetBeatFromRow(const NotePos::Row& row) const;
+  double GetBeatFromRow(const Row& row) const;
   std::vector<double> GetTimeFromBeatArr(const std::vector<double>& sorted_beat);
   std::vector<double> GetBeatFromTimeArr(const std::vector<double>& sorted_time);
-  std::vector<double> GetBeatFromRowArr(const std::vector<NotePos::Row>& sorted_row);
+  std::vector<double> GetBeatFromRowArr(const std::vector<Row>& sorted_row);
   double GetMeasureFromBeat(double beat) const ;
   double GetMaxBpm();
   double GetMinBpm();
@@ -56,7 +60,7 @@ private:
   void SetFirstObjectFromMetaData(const MetaData &md);
   void SeekByTime(double time);
   void SeekByBeat(double beat);
-  void SeekByRow(const NotePos::Row& row);
+  void SeekByRow(const Row& row);
   NotePosTypes SeekBySmallerPos(double beat, double time);
   void SetBPMChange(double bpm);
   void SetMeasureLengthChange(double measure_length);

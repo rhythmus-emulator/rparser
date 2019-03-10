@@ -24,10 +24,6 @@
 #include <vector>
 #include <map>
 
-#include <assert.h>
-#define ASSERT assert
-
-
 // pre-declaration for zip_t
 struct zip;
 typedef zip zip_t;

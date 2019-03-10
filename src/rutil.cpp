@@ -24,11 +24,18 @@
 #include <iconv.h>
 #endif
 
+#include <assert.h>
+#ifdef DEBUG
+# define ASSERT(x) assert(x)
+#else
+# define ASSERT(x)
+#endif
+
 namespace rutil {
 
 bool TestUTF8Encoding(const std::string &s)
 {
-  const unsigned char* bytes = static_cast<const unsigned char*>(s.c_str());
+  const unsigned char* bytes = reinterpret_cast<const unsigned char*>(s.c_str());
   int num;
   while (*bytes != 0x00)
   {
@@ -68,7 +75,7 @@ bool TestUTF8Encoding(const std::string &s)
 bool TestJISEncoding(const std::string &s)
 {
   // XXX: not exact method.
-  const unsigned char* bytes = static_cast<const unsigned char*>(s.c_str());
+  const unsigned char* bytes = reinterpret_cast<const unsigned char*>(s.c_str());
   while (*bytes != 0x00)
   {
     if ((*bytes & 0x80) == 0x00)
@@ -88,7 +95,7 @@ bool TestJISEncoding(const std::string &s)
 
 bool TestEUCKREncoding(const std::string &s)
 {
-  const unsigned char* bytes = static_cast<const unsigned char*>(s.c_str());
+  const unsigned char* bytes = reinterpret_cast<const unsigned char*>(s.c_str());
   while (*bytes != 0x00)
   {
     if ((*bytes & 0x80) == 0x00)

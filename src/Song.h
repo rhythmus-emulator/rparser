@@ -32,7 +32,6 @@ enum class SONGTYPE {
   SM,
   DTX,
   OJM,
-  BMSARCH,
 };
 
 class Chart;
@@ -51,21 +50,16 @@ class Chart;
  */
 class Song {
 private:
+  // XXX: need to remake, as chart and file is not 1:1 matching.
   struct ChartFile
   {
     Chart* c;
     std::string new_filename;
     std::string old_filename;
-    const char hash[32];
+    char hash[32];
     bool is_dirty;
   };
 
-  Resource *resource_;
-  std::vector<ChartFile> charts_;
-  NoteData *objs_shared_;
-  MetaData *metadata_shared_;
-  SONGTYPE songtype_;
-  ERROR error_;
 public:
   /* \brief register Chart to Song vector. */
   void RegisterChart(Chart* c, const std::string& filename);
@@ -86,8 +80,6 @@ public:
 
   const char* GetErrorStr() const;
   Resource* GetResource();
-
-
 
   // @description
   // Read song file, and load charts and other metadata.
@@ -114,6 +106,14 @@ public:
 private:
   static const std::string total_readable_ext_;
   static const std::string gen_readable_ext_();
+  bool DetectSongtype();
+
+  Resource * resource_;
+  std::vector<ChartFile> charts_;
+  NoteData *objs_shared_;
+  MetaData *metadata_shared_;
+  SONGTYPE songtype_;
+  ERROR error_;
 
   // in case of need ...
   std::string errormsg_detailed_;

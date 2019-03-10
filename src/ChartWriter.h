@@ -2,20 +2,28 @@
 #ifndef RPARSER_NOTEWRITER_H
 #define RPARSER_NOTEWRITER_H
 
+#include "common.h"
 #include "Chart.h"
+#include "Resource.h"
 
 namespace rparser {
 
 class ChartWriter {
-protected:
-    const Chart *c;
-    int error;
 public:
-    ChartWriter(const Chart *c) : c(c), error(0) {  }
-    virtual int Write() = 0;
+  ChartWriter();
+  bool Serialize(const Chart& c);
+  bool SerializeCommonData(const NoteData& objdata, const MetaData& metadata);
+  typedef std::vector<Resource::BinaryData>::iterator data_iter;
+  data_iter data_begin();
+  data_iter data_end();
+protected:
+  void AddData(Resource::BinaryData& d);
+private:
+  std::vector<Resource::BinaryData> datas_;
+  int error;
 };
 
-int WriteChart(const Chart *c, const std::string &fn);
+ChartWriter* GetChartWriter(SONGTYPE songtype);
 
 }
 
