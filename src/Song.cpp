@@ -140,21 +140,17 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 
   // Load binary into chartloader
 	ChartLoader *cl = CreateChartLoader(songtype);
+  cl->SetChartList(chartlist_);
   for (auto ii = resource_->data_begin(); ii != resource_->data_end(); ++ii)
   {
-    Chart *c = chartlist_->GetChartData(chartlist_->AddNewChart());
-    cl->SetChart(c);
     if (!cl->Load(ii->second.p, ii->second.len))
     {
       // Error might be occured during chart loading,
       // But won't stop loading as there *might* be 
       // So, just skip the wrong chart file and make log.
-      c->Clear();
-      chartlist_->CloseChartData();
       error_ = ERROR::OPEN_INVALID_CHART;
       continue;
     }
-    chartlist_->CloseChartData();
   }
   cl->LoadCommonData(*chartlist_, *resource_);
 	delete cl;
@@ -185,10 +181,13 @@ bool Song::Save()
       error_ = ERROR::WRITE_SERIALIZE_CHART;
       return false;
     }
-    resource_->AddBinary(c->GetFilename(), writer->GetData());
+    if (writer->IsWritable())
+      resource_->AddBinary(writer->GetFilename(), writer->GetData());
     chartlist_->CloseChartData();
   }
-  writer->SerializeCommonData(*chartlist_, *resource_);
+  writer->SerializeCommonData(*chartlist_);
+  if (writer->IsWritable())
+    resource_->AddBinary(writer->GetFilename(), writer->GetData());
 
 	// flush (save to real file) and cleanup
 	resource_->Flush();

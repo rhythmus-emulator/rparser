@@ -13,16 +13,24 @@ namespace rparser {
 
 class Chart;
 
+/**
+ * @params
+ * SetChartList Set chartlist context to load charts into.
+ *              If Chart context is set, then it will be cleared.
+ * SetChart Set chart context to load chart.
+ *          If ChartList context is set, then it will be cleared.
+ */
 class ChartLoader {
 public:
   ChartLoader(): chart_(0), error_(0) {};
-  // @description sometimes chart loading process is dependent with filename ...
+  void SetChartList(ChartListBase *chartlist);
   void SetChart(Chart *c);
   virtual bool Test( const void* p, int iLen ) = 0;
   virtual bool TestName( const char *fn ) = 0;
   virtual bool Load( const void* p, int iLen ) = 0;
-  virtual bool LoadCommonData( ChartListBase& chartlist, const Resource& r );
+  virtual bool LoadCommonData( ChartListBase& chartlist, const Resource& r ) = 0;
 protected:
+  ChartListBase *chartlist_;
   Chart *chart_;
   int error_;
 };
