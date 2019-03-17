@@ -56,11 +56,11 @@ void FixInvalidNote(Chart &c, SONGTYPE songtype, bool delete_invalid_note)
 
   for (auto& note: c.GetNoteData())
   {
-    current_col = note.track.lane.note.col;
+    current_col = note.track.lane.note.lane;
     current_player = note.track.lane.note.player;
-    if (note.track.type != NoteTypes::kNote)
+    if (note.type != NoteTypes::kNote)
       continue;
-    if (note.track.subtype != NoteTypes::kNote)
+    if (note.subtype != NoteTypes::kNote)
       continue;
     // if beat change, invalidate all marked note status
     if (note.pos.beat != current_beat)
@@ -94,13 +94,13 @@ void FixInvalidNote(Chart &c, SONGTYPE songtype, bool delete_invalid_note)
       int new_col = (current_col + i) % track_column_count;
       if (!note_using_lane[current_player][new_col])
       {
-        note.track.lane.note.col = new_col;
+        note.track.lane.note.lane = new_col;
         // in case of longnote, fix them all.
-        Note *ln_note = note.next;
+        SoundNote *ln_note = static_cast<SoundNote*>(note.next);
         while (ln_note)
         {
-          ln_note->track.lane.note.col = new_col;
-        } while (ln_note = ln_note->next)
+          ln_note->track.lane.note.lane = new_col;
+        } while (ln_note = static_cast<SoundNote*>(ln_note->next))
         note_using_lane[current_player][new_col] = &note;
         break;
       }
@@ -229,15 +229,15 @@ void GenerateRandomColumn(int *new_col, const EffectorParam& param)
   ASSERT(lanes_to_randomize == 0);
 }
 
-inline bool CheckNoteValidity(Note& note, const EffectorParam& param)
+inline bool CheckNoteValidity(SoundNote& note, const EffectorParam& param)
 {
-  int current_col = note.track.lane.note.col;
+  int current_col = note.track.lane.note.lane;
   int current_player = note.track.lane.note.player;
-  if (note.track.type != NoteTypes::kNote)
+  if (note.type != NoteTypes::kNote)
     return false;
   if (current_player != param.player)
     return false;
-  ASSERT(note.track.lane.note.col < kMaxSizeLane);
+  ASSERT(note.track.lane.note.lane < kMaxSizeLane);
   return true;
 }
 
@@ -252,7 +252,7 @@ void Random(Chart &c, const EffectorParam& param)
   for (auto& note: c.GetNoteData())
   {
     if (!CheckNoteValidity(note, param)) continue;
-    note.track.lane.note.col = new_col[note.track.lane.note.col];
+    note.track.lane.note.lane = new_col[note.track.lane.note.lane];
   }
 }
 
@@ -274,7 +274,7 @@ void SRandom(Chart &c, const EffectorParam& param)
     }
     // XXX: notes might be duplicated to longnote, making unplayable.
     //      So must fix these notes using some method.
-    note.track.lane.note.col = new_col[note.track.lane.note.col];
+    note.track.lane.note.lane = new_col[note.track.lane.note.lane];
   }
 }
 
@@ -301,7 +301,7 @@ void HRandom(Chart &c, const EffectorParam& param)
       }
     }
 
-    note.track.lane.note.col = new_col[note.track.lane.note.col];
+    note.track.lane.note.lane = new_col[note.track.lane.note.lane];
   }
 }
 
@@ -335,7 +335,7 @@ void RRandom(Chart &c, const EffectorParam& param)
   for (auto& note: c.GetNoteData())
   {
     if (!CheckNoteValidity(note, param)) continue;
-    note.track.lane.note.col = new_col[note.track.lane.note.col];
+    note.track.lane.note.lane = new_col[note.track.lane.note.lane];
   }
 }
 
@@ -360,13 +360,13 @@ void Mirror(Chart &c, const EffectorParam& param)
   for (auto& note: c.GetNoteData())
   {
     if (!CheckNoteValidity(note, param)) continue;
-    note.track.lane.note.col = new_col[note.track.lane.note.col];
+    note.track.lane.note.lane = new_col[note.track.lane.note.lane];
   }
 }
 
 void AllSC(Chart &c, const EffectorParam& param)
 {
-  std::vector<Note*> row_notes;
+  std::vector<SoundNote*> row_notes;
   double current_beat = -1.0;
   int sc_idx = -1;
   for (int i=0; i<param.lanesize; i++)
@@ -390,7 +390,7 @@ void AllSC(Chart &c, const EffectorParam& param)
     {
       current_beat = note.pos.beat;
       if (row_notes.size())
-        row_notes[rand() % row_notes.size()]->track.lane.note.col = sc_idx;
+        row_notes[rand() % row_notes.size()]->track.lane.note.lane = sc_idx;
       row_notes.clear();
     }
 
@@ -398,7 +398,7 @@ void AllSC(Chart &c, const EffectorParam& param)
   }
 
   if (row_notes.size())
-    row_notes[rand() % row_notes.size()]->track.lane.note.col = sc_idx;
+    row_notes[rand() % row_notes.size()]->track.lane.note.lane = sc_idx;
 }
 
 void Flip(Chart &c, const EffectorParam& param)
@@ -417,7 +417,7 @@ void Flip(Chart &c, const EffectorParam& param)
   for (auto& note: c.GetNoteData())
   {
     if (!CheckNoteValidity(note, param)) continue;
-    note.track.lane.note.col = new_col[note.track.lane.note.col];
+    note.track.lane.note.lane = new_col[note.track.lane.note.lane];
   }
 }
 

@@ -105,8 +105,8 @@ MIDISIG GetMidiSignature(const unsigned char **_p, int *delta) {
   return r;
 }
 
-ChartLoaderVOS::ChartLoaderVOS(Chart* c)
-  : ChartLoader(c), p_(0), note_p_(0), midi_p_(0), vos_version_(VOS_UNKNOWN), len_(0) {};
+ChartLoaderVOS::ChartLoaderVOS()
+  : p_(0), note_p_(0), midi_p_(0), vos_version_(VOS_UNKNOWN), len_(0) {};
 
 bool ChartLoaderVOS::Load( const void* p, int len ) {
   p_ = static_cast<const unsigned char*>(p);

@@ -142,7 +142,7 @@ int MetaData::DetectEncoding()
   return encoding;
 }
 
-std::string MetaData::toString()
+std::string MetaData::toString() const
 {
     std::stringstream ss;
     ss << "Title: " << title << std::endl;

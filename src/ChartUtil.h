@@ -49,12 +49,13 @@ struct ConstSortedNoteObjects
   std::vector<const Note*> nobj_by_tempo;
   std::vector<const Note*> nobj_by_row;
 };
+// XXX: restrict note type to kTempo, really?
 template <typename A, typename B>
 void SortNoteObjectsByType(A& notedata, B& out)
 {
   for (auto& nobj : notedata)
   {
-    if (nobj.track.type == NoteTypes::kTempo)
+    if (nobj.type == NoteTypes::kTempo)
     {
       if (nobj.pos.type == NotePosTypes::Beat)
         out.nobj_by_beat.push_back(&nobj);

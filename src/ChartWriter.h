@@ -12,18 +12,16 @@ class ChartWriter {
 public:
   ChartWriter();
   bool Serialize(const Chart& c);
-  bool SerializeCommonData(const NoteData& objdata, const MetaData& metadata);
-  typedef std::vector<Resource::BinaryData>::iterator data_iter;
-  data_iter data_begin();
-  data_iter data_end();
+  bool SerializeCommonData(const ChartListBase& chartlist, Resource& r);
+  Resource::BinaryData& GetData();
 protected:
   void AddData(Resource::BinaryData& d);
 private:
-  std::vector<Resource::BinaryData> datas_;
+  Resource::BinaryData data_cache_;
   int error;
 };
 
-ChartWriter* GetChartWriter(SONGTYPE songtype);
+ChartWriter* CreateChartWriter(SONGTYPE songtype);
 
 }
 

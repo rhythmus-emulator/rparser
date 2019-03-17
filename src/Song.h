@@ -13,11 +13,10 @@
 #define RPARSER_SONG_H
 
 #include "Resource.h"
-#include "MetaData.h"
+#include "Chart.h"
 #include "Error.h"
 
-#include <algorithm>
-#include <sstream>
+#include "common.h"
 #include "rutil.h"
 
 namespace rparser {
@@ -34,94 +33,62 @@ enum class SONGTYPE {
   OJM,
 };
 
-class Chart;
-
-/*
- * \brief
+/**
+ * @brief
  * Contains song chart, metadata and all resource(image, sound).
  *
- * \param resource_
- * \param charts_
- * \param charts_old_filename_ used whether chart filename has changed when saving
- * \param timingdata_global_ in case of a song has global timingdata
- * \param songmeta_global_ in case of a song has global metadata
- * \param songtype_ (not saved) detected chart format of this song
- * \param error_ last error status
+ * @param 
+ * resource_ contains all song objects
+ * chartlist_ contains charts.
+ * songtype_ (not saved) detected chart format of this song
+ * error_ last error status
+ * SetSongType create, or change song type into another type.
+ * GetChartCount get total available chart count
+ * NewChart create new chart
+ * GetChart get chart of idx. return 0 if inavailable.
+ * CloseChart close chart handle of currently editing.
+ * DeleteChart delete chart of idx.
+ * Open read song file (including chart and other metadata, resources.)
+ *      set onlyreadchart true for fast loading.
+ * Save save all changes.
+ *      warning: MUST close chart file before process save.
+ * Close close song file and empty handle.
  */
 class Song {
-private:
-  // XXX: need to remake, as chart and file is not 1:1 matching.
-  struct ChartFile
-  {
-    Chart* c;
-    std::string new_filename;
-    std::string old_filename;
-    char hash[32];
-    bool is_dirty;
-  };
-
 public:
-  /* \brief register Chart to Song vector. */
-  void RegisterChart(Chart* c, const std::string& filename);
+  Song();
+  ~Song();
 
-  /* \brief Delete chart from Song object.
-   * \warning You must release Chart object by yourself. */
-  bool DeleteChart(const Chart* c);
+  size_t GetChartCount();
+  Chart* NewChart();
+  Chart* GetChart(int i);
+  void CloseChart();
+  void DeleteChart(int i);
 
-  bool RenameChart(const Chart* c, const std::string& newfilename);
+  bool SetSongType(SONGTYPE songtype);
 
-  void GetCharts(std::vector<Chart*>& charts);
-
-  /* \brief
-   * Required in special case which metadata is separated with chart file
-   * e.g. osu file format. */
-  bool LoadMetadata();
-  bool SaveMetadata();
-
-  const char* GetErrorStr() const;
-  Resource* GetResource();
-
-  // @description
-  // Read song file, and load charts and other metadata.
-  // Acceptable file path: folder / archive / raw file(not a single chart; special case)
-  bool Open(const std::string &path, bool onlyreadchart=false, SONGTYPE songtype = SONGTYPE::NONE);
-  // @description
-  // save all changes into song file, if available.
+  bool Open(const std::string &path, bool onlyreadchart = false, SONGTYPE songtype = SONGTYPE::NONE);
   bool Save();
-  // @description
-  // clear all current song metadata & resource, close directory.
-  bool Close(bool save=false);
-  bool Rename(const std::string& newPath);
+  bool Close(bool save = false);
 
   void SetPath(const std::string& path);
   const std::string GetPath() const;
+  const char* GetErrorStr() const;
+  Resource* GetResource();
 
-  // @description
-  // Change(convert) song type to other (including file extension)
-  bool ChangeSongType(SONGTYPE songtype);
+  virtual std::string toString(bool detailed=false) const;
 
-  virtual std::string toString() const;
-  Song();
-  ~Song();
 private:
-  static const std::string total_readable_ext_;
-  static const std::string gen_readable_ext_();
-  bool DetectSongtype();
+  SONGTYPE DetectSongtype();
 
-  Resource * resource_;
-  std::vector<ChartFile> charts_;
-  NoteData *objs_shared_;
-  MetaData *metadata_shared_;
+  Resource* resource_;
   SONGTYPE songtype_;
   ERROR error_;
+  ChartListBase* chartlist_;
 
   // in case of need ...
   std::string errormsg_detailed_;
 };
-
-const char* GetChartExtension(SONGTYPE iType);
-const char* GetSongExtension(SONGTYPE iType);
-RESOURCE_TYPE GetSongResourceType(SONGTYPE iType);
 
 }
 

@@ -1,5 +1,4 @@
 #include "Song.h"
-#include "Chart.h"
 #include "ChartUtil.h"
 #include "MetaData.h"
 #include "ChartLoader.h"
@@ -59,8 +58,7 @@ const char** GetSongExtensions()
 }
 
 Song::Song()
-  : songtype_(SONGTYPE::NONE), error_(ERROR::NONE),
-    objs_shared_(0), metadata_shared_(0), resource_(0)
+  : songtype_(SONGTYPE::NONE), error_(ERROR::NONE), resource_(0), chartlist_(0)
 {
 }
 
@@ -69,38 +67,62 @@ Song::~Song()
 	Close();
 }
 
-void Song::RegisterChart(Chart * c, const std::string& filename)
+size_t Song::GetChartCount()
 {
-	charts_.push_back({ c, filename, filename, false });
+  if (!chartlist_) return 0;
+  return chartlist_->size();
 }
 
-bool Song::DeleteChart(const Chart * c)
+Chart* Song::NewChart()
 {
-	for (auto p = charts_.begin(); p != charts_.end(); ++p) {
-		if (p->c == c) {
-			charts_.erase(p);
-			return true;
-		}
-	}
-	return false;
+  if (!chartlist_) return 0;
+  chartlist_->CloseChartData();
+  return chartlist_->GetChartData(chartlist_->AddNewChart());
 }
 
-bool Song::RenameChart(const Chart* c, const std::string& newfilename)
+Chart* Song::GetChart(int i)
 {
-	for (auto p = charts_.begin(); p != charts_.end(); ++p) {
-		if (p->c == c) {
-			p->new_filename = newfilename;
-			p->is_dirty = true;
-			return true;
-		}
-	}
-	return false;
+  if (!chartlist_) return 0;
+  chartlist_->CloseChartData();
+  return chartlist_->GetChartData(i);
+}
+
+void Song::CloseChart()
+{
+  if (!chartlist_) return;
+  chartlist_->CloseChartData();
+  // TODO: if file renamed then should rename filename of resource.
+}
+
+void Song::DeleteChart(int idx)
+{
+  if (!chartlist_) return;
+  chartlist_->DeleteChart(idx);
+}
+
+bool Song::SetSongType(SONGTYPE songtype)
+{
+  if (songtype == songtype_) return true;
+  if (chartlist_) return false; // must close first (XXX: changing function add)
+
+  // create chartlist based on 
+  switch (songtype)
+  {
+  case SONGTYPE::OSU:
+  case SONGTYPE::VOS:
+    chartlist_ = new ChartNoteList();
+    break;
+  default:
+    chartlist_ = new ChartList();
+    break;
+  }
+
+  songtype_ = songtype;
+  return true;
 }
 
 bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 {
-  Chart *c;
-
 	Close();
 
 	// Read file binaries.
@@ -112,48 +134,29 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 		return false;
 	}
 
-#if 0
-  // If no chart than fail.
-	if (chart_files.size() == 0)
-	{
-		error_ = ERROR::OPEN_NO_CHART;
-		songtype_ == SONGTYPE::NONE;
-		return false;
-	}
-#endif
+  // Detect song type and prepare chartlist.
+  if (songtype == SONGTYPE::NONE) SetSongType(DetectSongtype());
+  else SetSongType(songtype_);
 
-  if (songtype == SONGTYPE::NONE) DetectSongtype();
-  else songtype_ = songtype;
-
-  // Load common metadata / shared objects if necessary.
-	switch (songtype_)
-	{
-	case SONGTYPE::OSU:
-	case SONGTYPE::VOS:
-		metadata_shared_ = new MetaData();
-		objs_shared_ = new NoteData();
-		LoadMetadata();
-		break;
-	default:
-		break;
-	}
-
-  // XXX: one file may create multiple charts
+  // Load binary into chartloader
 	ChartLoader *cl = CreateChartLoader(songtype);
   for (auto ii = resource_->data_begin(); ii != resource_->data_end(); ++ii)
   {
-    c = new Chart(metadata_shared_, objs_shared_);
+    Chart *c = chartlist_->GetChartData(chartlist_->AddNewChart());
+    cl->SetChart(c);
     if (!cl->Load(ii->second.p, ii->second.len))
     {
       // Error might be occured during chart loading,
       // But won't stop loading as there *might* be 
       // So, just skip the wrong chart file and make log.
+      c->Clear();
+      chartlist_->CloseChartData();
       error_ = ERROR::OPEN_INVALID_CHART;
-      delete c;
       continue;
     }
-    RegisterChart(c, ii->first);
+    chartlist_->CloseChartData();
   }
+  cl->LoadCommonData(*chartlist_, *resource_);
 	delete cl;
 
 	return true;
@@ -162,8 +165,10 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 bool Song::Save()
 {
   if (!resource_) return false;
+  if (!chartlist_) return false;
+  if (chartlist_->IsChartOpened()) return false;
 
-  ChartWriter* writer = GetChartWriter(songtype_);
+  ChartWriter* writer = CreateChartWriter(songtype_);
   if (!writer)
   {
     error_ = ERROR::WRITE_SERIALIZE_CHART;
@@ -171,32 +176,24 @@ bool Song::Save()
   }
 
   // Put charts and metadata to writer
-	for (ChartFile &cf : charts_)
-	{
-    if (!writer->Serialize(*cf.c))
+  for (int i = 0; i < chartlist_->size(); ++i)
+  {
+    const Chart* c = chartlist_->GetChartData(i);
+    if (!writer->Serialize( *c ))
     {
+      chartlist_->CloseChartData();
       error_ = ERROR::WRITE_SERIALIZE_CHART;
       return false;
     }
-	}
-  writer->SerializeCommonData(*objs_shared_, *metadata_shared_);
-
-  // Write binaries to resource
-  for (auto ii = writer->data_begin(); ii != writer->data_end(); ++ii)
-  {
-    resource_->AddBinary("TODO", *ii);
+    resource_->AddBinary(c->GetFilename(), writer->GetData());
+    chartlist_->CloseChartData();
   }
+  writer->SerializeCommonData(*chartlist_, *resource_);
 
 	// flush (save to real file) and cleanup
 	resource_->Flush();
   delete writer;
 	return true;
-}
-
-bool Song::Rename(const std::string& newPath)
-{
-	// XXX: not implemented yet (do it in Resource class)
-	return false;
 }
 
 bool Song::Close(bool save)
@@ -208,98 +205,32 @@ bool Song::Close(bool save)
 	}
 
 	// release resources and memory.
-	for (ChartFile &cf : charts_)
-	{
-		delete cf.c;
-	}
-	charts_.clear();
+  delete chartlist_;
   delete resource_;
+  chartlist_ = 0;
+  resource_ = 0;
 	error_ = ERROR::NONE;
 	songtype_ = SONGTYPE::NONE;
-	delete objs_shared_;
-	delete metadata_shared_;
 }
 
-bool Song::LoadMetadata()
+SONGTYPE Song::DetectSongtype()
 {
-	assert(songtype_ != SONGTYPE::NONE);
+  SONGTYPE songtype;
 
-	// TODO
-	switch (songtype_) {
-	case SONGTYPE::OSU:
-		return false;
-	}
-	return true;
-}
-
-bool Song::SaveMetadata()
-{
-	assert(songtype_ != SONGTYPE::NONE);
-
-	// TODO
-	switch (songtype_) {
-	case SONGTYPE::OSU:
-		return false;
-	default:
-		break;
-	}
-	return true;
-}
-
-bool Song::DetectSongtype()
-{
   // Try to detect SONGTYPE by name of resource file.
-  songtype_ = GetSongTypeByName(resource_->GetPath());
-  if (songtype_ != SONGTYPE::NONE) return true;
+  songtype = GetSongTypeByName(resource_->GetPath());
+  if (songtype != SONGTYPE::NONE) return songtype;
 
   // If not detected, then try to detect SONGTYPE by file lists.
   for (auto ii = resource_->data_begin(); ii != resource_->data_end(); ++ii)
   {
-    songtype_ = GetSongTypeByName(ii->first);
-    if (songtype_ != SONGTYPE::NONE)
-      return true;
+    songtype = GetSongTypeByName(ii->first);
+    if (songtype != SONGTYPE::NONE)
+      return songtype;
   }
-  return false;
+  return SONGTYPE::NONE;
 }
 
-bool Song::ChangeSongType(SONGTYPE songtype)
-{
-  // XXX: resource type should be also changed ...
-  // XXX: "total integrated interface" necessary -- think about it
-	MetaData *metadata_common = 0;
-  NoteData *objs_common = 0;
-  Chart *new_chart = 0;
-
-	if (songtype == songtype_)
-		return true;
-
-	// check whether global timingdata / metadata is necesssary
-	switch (songtype)
-	{
-	case SONGTYPE::OSU:
-	case SONGTYPE::VOS:
-		if (!metadata_shared_) metadata_shared_ = new MetaData();
-		if (!objs_shared_) objs_shared_ = new NoteData();
-		break;
-	default:
-		if (metadata_shared_) metadata_common = metadata_shared_, metadata_shared_ = 0;
-		if (objs_shared_) objs_common = objs_shared_, objs_shared_ = 0;
-		break;
-	}
-
-  for (ChartFile &cf : charts_)
-  {
-    new_chart = new Chart(metadata_shared_, objs_shared_);
-    new_chart->swap(*cf.c);
-    delete cf.c;
-    cf.c = new_chart;
-  }
-
-	songtype_ = songtype;
-	delete metadata_common;
-	delete objs_common;
-	return true;
-}
 
 void Song::SetPath(const std::string & path)
 {
@@ -313,13 +244,6 @@ const std::string Song::GetPath() const
 	return resource_->GetPath();
 }
 
-void Song::GetCharts(std::vector<Chart*>& charts)
-{
-	charts.clear();
-	for (ChartFile &cf : charts_)
-		charts.push_back(cf.c);
-}
-
 const char* Song::GetErrorStr() const
 {
 	return get_error_msg(error_);
@@ -330,16 +254,25 @@ Resource * Song::GetResource()
 	return resource_;
 }
 
-std::string Song::toString() const
+std::string Song::toString(bool detailed) const
 {
 	std::stringstream ss;
 	ss << "Song path: " << GetPath() << std::endl;
-	ss << "Song type: " << GetChartExtension(songtype_) << std::endl;
-	ss << "Chart count: " << charts_.size() << std::endl << std::endl;
-	for (auto cf : charts_)
-	{
-		ss << cf.c->toString() << std::endl << std::endl;
-	}
+	ss << "Song type: " << GetExtensionBySongType(songtype_) << std::endl;
+  if (chartlist_)
+    ss << "Chart count: " << chartlist_->size() << std::endl << std::endl;
+  else
+    ss << "(Chart list inavailable)" << std::endl;
+  if (detailed && chartlist_)
+  {
+    chartlist_->CloseChartData();
+    for (int i = 0; i < chartlist_->size(); i++)
+    {
+      const Chart *c = chartlist_->GetChartData(i);
+      ss << c->toString() << std::endl;
+      chartlist_->CloseChartData();
+    }
+  }
 	return ss.str();
 }
 

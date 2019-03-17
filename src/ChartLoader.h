@@ -7,23 +7,24 @@
 
 #include "Song.h"
 #include "Chart.h"
+#include "Resource.h"
 
 namespace rparser {
 
 class Chart;
 
 class ChartLoader {
-protected:
-  Chart* chart_;
-  int error_;
-  std::string filename_;
 public:
-  ChartLoader(Chart* c): chart_(c), error_(0) {};
+  ChartLoader(): chart_(0), error_(0) {};
   // @description sometimes chart loading process is dependent with filename ...
-  void SetFilename(const std::string& filename);
+  void SetChart(Chart *c);
   virtual bool Test( const void* p, int iLen ) = 0;
   virtual bool TestName( const char *fn ) = 0;
   virtual bool Load( const void* p, int iLen ) = 0;
+  virtual bool LoadCommonData( ChartListBase& chartlist, const Resource& r );
+protected:
+  Chart *chart_;
+  int error_;
 };
 
 
@@ -50,7 +51,7 @@ private:
   bool ParseMetaData();
   bool ParseNote();
 public:
-  ChartLoaderBMS(Chart* c);
+  ChartLoaderBMS();
   bool Test( const void* p, int iLen );
   bool TestName( const char *fn );
   bool Load( const void* p, int iLen );
@@ -76,7 +77,7 @@ private:
   bool ParseNoteDataV3();
   bool ParseMIDI();
 public:
-  ChartLoaderVOS(Chart* c);
+  ChartLoaderVOS();
   bool Test( const void* p, int iLen );
   bool TestName( const char *fn );
   bool Load( const void* p, int iLen );

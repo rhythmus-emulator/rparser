@@ -7,7 +7,6 @@
 namespace rparser
 {
 
-class Chart;
 class MetaData;
 
 /* @detail  Segment object affecting chart tempo.
@@ -40,28 +39,29 @@ class TempoData
 {
 public:
   TempoData();
-  TempoData(const Chart& chart);
   double GetTimeFromBeat(double beat) const;
   double GetBeatFromTime(double time) const;
   double GetBeatFromRow(const Row& row) const;
-  std::vector<double> GetTimeFromBeatArr(const std::vector<double>& sorted_beat);
-  std::vector<double> GetBeatFromTimeArr(const std::vector<double>& sorted_time);
-  std::vector<double> GetBeatFromRowArr(const std::vector<Row>& sorted_row);
-  double GetMeasureFromBeat(double beat) const ;
-  double GetMaxBpm();
-  double GetMinBpm();
-  bool HasBpmChange();
-  bool HasStop();
-  bool HasWarp();
-  std::string toString();
+  std::vector<double> GetTimeFromBeatArr(const std::vector<double>& sorted_beat) const;
+  std::vector<double> GetBeatFromTimeArr(const std::vector<double>& sorted_time) const;
+  std::vector<double> GetBeatFromRowArr(const std::vector<Row>& sorted_row) const;
+  double GetMeasureFromBeat(double beat) const;
+  double GetMaxBpm() const;
+  double GetMinBpm() const;
+  bool HasBpmChange() const;
+  bool HasStop() const;
+  bool HasWarp() const;
+  std::string toString() const;
   void clear();
   void swap(TempoData& tempodata);
+  NoteData<TempoNote>& GetTempoNoteData();
+  void Invalidate(const MetaData& m);
+
 private:
   void SetFirstObjectFromMetaData(const MetaData &md);
   void SeekByTime(double time);
   void SeekByBeat(double beat);
   void SeekByRow(const Row& row);
-  NotePosTypes SeekBySmallerPos(double beat, double time);
   void SetBPMChange(double bpm);
   void SetMeasureLengthChange(double measure_length);
   void SetSTOP(double stop);
@@ -69,9 +69,11 @@ private:
   void SetWarp(double warp_length_in_beat);
   void SetTick(uint32_t tick);
   void SetScrollSpeedChange(double scrollspeed);
-  double GetDeltaTimeFromLastBeat(double beat_delta);       // return msec time
-  double GetDeltaBeatFromLastTime(double time_delta_msec);
+  double GetTimeFromBeatInLastSegment(double beat_delta) const;       // return msec time
+  double GetBeatFromTimeInLastSegment(double time_delta_msec) const;
+  double GetBeatFromRowInLastSegment(const Row& row) const;
 
+  NoteData<TempoNote> temponotedata_;
   std::vector<TempoObject> tempoobjs_;
 };
 

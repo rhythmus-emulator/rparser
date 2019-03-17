@@ -20,8 +20,7 @@ void ChartLoaderBMS::LineContext::clear()
   bms_channel = 0;
 }
 
-ChartLoaderBMS::ChartLoaderBMS(Chart* c)
-  : ChartLoader(c), chart_context_(c)
+ChartLoaderBMS::ChartLoaderBMS()
 {
 
 }
@@ -457,7 +456,7 @@ uint8_t GetNoteColFromBmsChannel(unsigned int bms_channel)
 bool ChartLoaderBMS::ParseNote()
 {
   unsigned int value_u;
-  Note n;
+  SoundNote n;
   const unsigned int measure = current_line_.measure;
   const unsigned int channel = current_line_.bms_channel;
   const char* value = current_line_.value;
@@ -478,16 +477,16 @@ bool ChartLoaderBMS::ParseNote()
   n.pos.type = NotePosTypes::Row;
   n.pos.row.measure = measure;
   n.pos.row.deno = len;
-  n.track.type = GetNoteTypeFromBmsChannel(channel);
-  n.track.subtype = GetNoteSubTypeFromBmsChannel(channel);
+  n.type = GetNoteTypeFromBmsChannel(channel);
+  n.subtype = GetNoteSubTypeFromBmsChannel(channel);
   n.track.lane.note.player = GetNotePlayerFromBmsChannel(channel);
-  n.track.lane.note.col = GetNoteColFromBmsChannel(channel);
+  n.track.lane.note.lane = GetNoteColFromBmsChannel(channel);
   for (unsigned int i = 0; i < len; i += 2)
   {
     value_u = atoi_bms_channel(value+i);
     if (value_u == 0) continue;
     n.pos.row.num = i;
-    n.value.i = static_cast<int>(value_u);
+    n.value = static_cast<Channel>(value_u);
     // TODO: do process for LNTYPE1/2 chaining.
     chart_context_->GetNoteData().AddNote(n);
   }

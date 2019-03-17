@@ -2,9 +2,6 @@
 
 namespace rparser {
 
-void ChartLoader::SetFilename(const std::string& filename)
-{
-    filename_ = filename;
-}
+void ChartLoader::SetChart(Chart *c) { chart_ = c; }
 
 }

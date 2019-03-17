@@ -137,7 +137,7 @@ public:
 
   int encoding;                   // (internal use) encoding of current metadata.
 
-  std::string toString();
+  std::string toString() const;
   void swap(MetaData &md);
   void clear();
 private:
