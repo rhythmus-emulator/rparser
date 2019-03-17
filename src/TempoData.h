@@ -1,5 +1,5 @@
-#ifndef RPARSER_MIXINGDATA_H
-#define RPARSER_MIXINGDATA_H
+#ifndef RPARSER_TEMPODATA_H
+#define RPARSER_TEMPODATA_H
 
 #include "common.h"
 #include "Note.h"

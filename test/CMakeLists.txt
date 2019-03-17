@@ -19,8 +19,7 @@ include_directories(${RPARSER_INCLUDE_DIR} ${GTEST_HEADERS} ${RUTIL_INCLUDE_DIR}
 add_executable(rparser_test ${RPARSER_TEST_SOURCES} ${RPARSER_TEST_HEADERS})
 
 
-# refer 
-target_link_libraries(rparser_test rutil)
+# refer
 target_link_libraries(rparser_test rparser)
 if (zlib_FOUND AND zip_FOUND)
 target_link_libraries(rparser_test ${ZIP_LIBRARY})

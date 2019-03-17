@@ -1,4 +1,5 @@
-#pragma once
+#ifndef RPARSER_ERROR_H
+#define RPARSER_ERROR_H
 
 #define ERR(name,msg) name
 namespace rparser {
@@ -21,3 +22,5 @@ static const char* get_error_msg(ERROR e)
 
 };
 #undef ERR
+
+#endif

@@ -4,6 +4,17 @@ project(rparser)
 # project common settings
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin/lib")
+if (MSVC)
+	#set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
+	#set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
+	set(CMAKE_CXX_FLAGS_RELEASE "/MT")
+	set(CMAKE_CXX_FLAGS_DEBUG "/MTd")
+endif()
+
+# COMMENT:
+# To make gtest build in MDd,
+# set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+# enable this line.
 
 # setting for common lib / include
 set(LIB_DIR "${CMAKE_SOURCE_DIR}/../prebuilt")

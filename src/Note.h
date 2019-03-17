@@ -23,7 +23,7 @@ struct Row
   uint32_t measure;
   RowPos num;
   RowPos deno;
-} row;
+};
 
 struct NotePos
 {

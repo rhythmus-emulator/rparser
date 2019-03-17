@@ -1,4 +1,5 @@
-#pragma once
+#ifndef RPARSER_CHARTUTIL_H
+#define RPARSER_CHARTUTIL_H
 
 #include "Chart.h"
 #include "Resource.h"
@@ -122,3 +123,5 @@ bool IsHoldNoteAt(double beat, NoteTrack track);
 bool IsTypeEmpty(int type, int subtype = -1);
 bool IsTrackEmpty(NoteTrack track);
 }
+
+#endif
