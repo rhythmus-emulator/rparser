@@ -1,3 +1,5 @@
+project(rparser_lib)
+
 # prepare necessary source / header
 set (RPARSER_SOURCES
 	"Chart.cpp"
@@ -30,21 +32,14 @@ set (RPARSER_HEADERS
 set (RPARSER_INCLUDE_DIR "${CMAKE_CURRENT_LIST_DIR}" PARENT_SCOPE)
 
 
-if (zip_FOUND AND zlib_FOUND)
-	add_definitions(-DUSE_ZLIB)
-else()
-	set(ZIP_INCLUDE_DIR "")
-	set(ZLIB_INCLUDE_DIR "")
-endif()
-
-if (openssl_FOUND)
-	add_definitions(-DUSE_OPENSSL)
-else()
-	set(OPENSSL_INCLUDE_DIR "")
-endif()
-
-
-include_directories(${ZIP_INCLUDE_DIR} ${ZLIB_INCLUDE_DIR} ${OPENSSL_INCLUDE_DIR} ${ICONV_INCLUDE_DIR} ${RUTIL_INCLUDE_DIR})
+include_directories(
+	${LIB_INCLUDE_DIR}
+	${RPARSER_INCLUDE_DIR}
+	${GTEST_HEADERS}
+	${RUTIL_INCLUDE_DIR}
+	${zip_INCLUDE_DIR}
+	${openssl_INCLUDE_DIR}
+	)
 #link_directories(${ZIP_LIB} ${ZLIB_LIB} ${OPENSSL_LIB} ${ICONV_LIB})
 
 

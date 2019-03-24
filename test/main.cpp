@@ -71,7 +71,9 @@ TEST(RUTIL, IO)
 
 TEST(RUTIL, ARCHIVE)
 {
+  using namespace rutil;
 #ifdef USE_ZLIB
+#if 0
   ArchiveDirectory dir;
   std::vector<FileData> fdlist;
   EXPECT_TRUE(dir.Open("bms_sample_anglico.zip"));
@@ -85,6 +87,7 @@ TEST(RUTIL, ARCHIVE)
       break;
     }
   }
+#endif
 #endif
 }
 

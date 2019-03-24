@@ -18,7 +18,7 @@
  //
 #define USE_ICONV
  // to manage binaries easier
-#define ZIP_STATIC
+//#define ZIP_STATIC
 #endif
 
 

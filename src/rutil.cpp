@@ -19,7 +19,7 @@
 # include <zip.h>
 #endif
 
-#ifdef USE_OPENSSL 
+#ifdef USE_OPENSSL
 # include <openssl/md5.h>
 #endif
 
@@ -1048,10 +1048,10 @@ int ArchiveDirectory::Open(const std::string& path)
   {
     zip_stat_index(m_Archive, i, ZIP_FL_UNCHANGED, &zStat);
     std::string fn = zStat.name;
-  if (m_iCodepage)
-  {
-    AttemptEncoding(fn, m_iCodepage);
-  }
+    if (m_iCodepage)
+    {
+      fn = ConvertEncodingToUTF8(fn, m_iCodepage);
+    }
     m_vFilename.push_back(fn);
   }
   return 0;
@@ -1149,7 +1149,7 @@ void ArchiveDirectory::SetCodepage(int iCodepage)
 bool md5(const void* p, int iLen, char* out)
 {
 #ifdef USE_OPENSSL
-  MD5((unsigned char*)p, iLen, out);
+  MD5((unsigned char*)p, iLen, reinterpret_cast<unsigned char*>(out));
   return true;
 #else
   return false;

@@ -88,10 +88,11 @@ private:
   virtual bool doUnload();
 
 protected:
+  Resource(RESOURCE_TYPE restype);
+  void SetResourceType(RESOURCE_TYPE restype);
   static bool Read_from_fp(FILE *fp, BinaryData& d);
   static bool Write_from_fp(FILE *fp, BinaryData& d);
   void ClearStatus();
-  Resource(RESOURCE_TYPE restype);
   void SetError(ERROR error);
   void SetDirty(bool flag = true);
 };

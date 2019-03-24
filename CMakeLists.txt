@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0)
-project(rparser)
+project(rparser_solution)
 
 # project common settings
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
@@ -18,17 +18,34 @@ endif()
 # enable this line.
 
 # setting for common lib / include
-set(LIB_DIR "${CMAKE_SOURCE_DIR}/../prebuilt")
-set(LIB_INCLUDE "${CMAKE_SOURCE_DIR}/../include")
+set(LIB_DIR "${CMAKE_SOURCE_DIR}/../rparser-lib/prebuilt/x86-MT")
+set(LIB_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/../rparser-lib/include")
 if (NOT MSVC)
 	find_package(iconv)
+	find_package(zip PATHS ${LIB_DIR})
+	find_package(zlib PATHS ${LIB_DIR})
+	find_package(openssl PATHS ${LIB_DIR})
 else()
-	set(ICONV_LIB "")
-	set(ICONV_INCLUDE_DIR "")
+	set(iconv_LIB "")
+	set(iconv_INCLUDE_DIR "")
+	set(zlib_FOUND 1)
+	set(zlib_LIBRARY "${LIB_DIR}/zlib.lib")
+	set(zlib_INCLUDE_DIR "")
+	set(zip_FOUND 1)
+	set(zip_LIBRARY "${LIB_DIR}/zip.lib")
+	set(zip_INCLUDE_DIR "")
+	set(openssl_FOUND 1)
+	set(openssl_LIBRARY "${LIB_DIR}/libcryptoMD.lib" "${LIB_DIR}/libsslMD.lib")
+	set(openssl_INCLUDE_DIR "")
 endif ()
-find_package(zip PATHS ${LIB_DIR})
-find_package(zlib PATHS ${LIB_DIR})
-find_package(openssl PATHS ${LIB_DIR})
+
+if (zlib_FOUND AND zip_FOUND)
+	add_definitions(-DUSE_ZLIB)
+endif ()
+
+if (openssl_FOUND)
+	add_definitions(-DUSE_OPENSSL)
+endif ()
 
 # project: library
 add_subdirectory("${PROJECT_SOURCE_DIR}/src")

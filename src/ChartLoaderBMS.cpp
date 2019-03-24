@@ -156,7 +156,7 @@ bool ChartLoaderBMS::ParseCurrentLine()
   if (*c != '#') return false;
   while (*c != ' ' || *c != ':')
   {
-    if (c-p > len || c-p > 256u) break;
+    if (c-p > (int)len || c-p > 256) break;
     *cw = upperchr(*c);
     c++; cw++;
   }
@@ -321,11 +321,11 @@ bool ChartLoaderBMS::ParseMetaData()
         key = atoi_bms_channel(current_line_.value + 3);
     else
         key = atoi_bms_channel(current_line_.value + 5);
-    md.GetBPMChannel()->bpm[key] = atof( value.c_str() );
+    md.GetBPMChannel()->bpm[key] = static_cast<float>(atof( value.c_str() ));
   }
   else if (CHKCMD("STOP",4)) {
     unsigned int key = atoi_bms_channel(current_line_.value  + 4);
-    md.GetSTOPChannel()->stop[key] = atoi(value.c_str());  // 1/192nd
+    md.GetSTOPChannel()->stop[key] = static_cast<float>(atoi(value.c_str()));  // 1/192nd
   }
   else if (value == "#stp") {
     std::string sMeasure, sTime;

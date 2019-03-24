@@ -27,6 +27,11 @@ Resource::~Resource()
 	Unload(false);
 }
 
+void Resource::SetResourceType(RESOURCE_TYPE restype)
+{
+  resource_type_ = restype;
+}
+
 bool Resource::Open(const char * filepath)
 {
   // clear before open
@@ -352,11 +357,11 @@ bool ResourceFolder::doFlush()
 
 #ifdef USE_ZLIB
 
-ResourceArchive::ResourceArchive() {  }
+ResourceArchive::ResourceArchive() { SetResourceType(RESOURCE_TYPE::ARCHIVE); }
 
 bool ResourceArchive::Load_from_zip(FILE * fp)
 {
-	resource_type_ = RESOURCE_TYPE::ARCHIVE;
+  // TODO
 	return false;
 }
 
