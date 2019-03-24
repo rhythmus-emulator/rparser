@@ -4,24 +4,38 @@
 #include <algorithm>
 #include <stack>
 #include <cctype>
+#include <stdarg.h>
+#include <sys/stat.h>
 //#include <dirent.h>
 
+#ifdef WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
+
 #ifdef USE_ZLIB
-#define ZIP_STATIC 1
-#include <zip.h>
+# define ZIP_STATIC 1
+# include <zip.h>
 #endif
 
 #ifdef USE_OPENSSL 
-#include <openssl/md5.h>
+# include <openssl/md5.h>
 #endif
 
 #ifdef WIN32
-#include <windows.h>
-#include <stdarg.h>
+# include <windows.h>
+# include <stdarg.h>
+# undef CreateDirectory
+# undef DeleteFile
+
+# define S_ISREG(m)  (((m) & S_IFMT) == S_IFREG)
+# define S_ISDIR(m)  (((m) & S_IFMT) == S_IFDIR)
+# define S_ISCHR(m)  (((m) & S_IFMT) == S_IFCHR)
 #endif
 
 #ifdef USE_ICONV
-#include <iconv.h>
+# include <iconv.h>
 #endif
 
 #include <assert.h>
@@ -147,8 +161,15 @@ const char* GetCodepageString(int cp)
     return 0;
   }
 }
-int AttemptEncoding(std::string &s, int to_codepage, int from_codepage)
+std::string ConvertEncoding(const std::string &s, int to_codepage, int from_codepage)
 {
+  // Check encoding if necessary
+  if (from_codepage == 0)
+  {
+    from_codepage = DetectEncoding(s);
+    if (!from_codepage) return std::string();
+  }
+
   const char* cp_from_str = GetCodepageString(from_codepage);
   const char* cp_to_str = GetCodepageString(to_codepage);
   if (!cp_from_str || !cp_to_str) return 0;
@@ -189,84 +210,64 @@ int AttemptEncoding(std::string &s, int to_codepage, int from_codepage)
 
   sBuf.resize( sBuf.size()-iOutLeft );
 
-  s = sBuf;
-  return true;
-}
-int AttemptEncoding(std::string &s, int from_codepage)
-{
-  if (from_codepage == 0)
-  {
-    int iSize = 0;
-    iSize = AttemptEncoding(s, E_UTF8, E_SHIFT_JIS);
-    if (iSize) return iSize;
-    iSize = AttemptEncoding(s, E_UTF8, E_EUC_KR);
-    return iSize;
-  }
-  return AttemptEncoding(s, E_UTF8, from_codepage);
+  return sBuf;
 }
 int DecodeTo(std::string &s, int to_codepage)
 {
-  return AttemptEncoding(s, to_codepage, E_UTF8);
+  return ConvertEncoding(s, to_codepage, E_UTF8);
 }
 #else
 // use windows internal function
+UINT GetWindowsCodePage(UINT codepage)
+{
+  switch (codepage)
+  {
+  case E_UTF8:
+    return CP_UTF8;
+  default:
+    return codepage;
+  }
+}
 int DecodeToWStr(const std::string& s, std::wstring& sOut, int from_codepage)
 {
-  int iSize = MultiByteToWideChar( from_codepage, MB_ERR_INVALID_CHARS, s.data(), s.size(), nullptr, 0 );
+  const UINT from_codepage_win = GetWindowsCodePage(from_codepage);
+  int iSize = MultiByteToWideChar(from_codepage_win, MB_ERR_INVALID_CHARS, s.data(), s.size(), nullptr, 0 );
   if( iSize == 0 ) return 0;
   sOut.append( iSize, L' ' );
-  iSize = MultiByteToWideChar( from_codepage, MB_ERR_INVALID_CHARS, s.data(), s.size(), (wchar_t *) sOut.data(), iSize );
+  iSize = MultiByteToWideChar(from_codepage_win, MB_ERR_INVALID_CHARS, s.data(), s.size(), (wchar_t *) sOut.data(), iSize );
   return iSize;
   ASSERT( iSize != 0 );
 }
 int EncodeFromWStr(const std::wstring& s, std::string& sOut, int to_codepage)
 {
-  int utf8size = WideCharToMultiByte(to_codepage, 0, s.data(), s.size(), 0, 0, 0, 0);
+  const UINT to_codepage_win = GetWindowsCodePage(to_codepage);
+  int utf8size = WideCharToMultiByte(to_codepage_win, 0, s.data(), s.size(), 0, 0, 0, 0);
   ASSERT(utf8size);
   sOut.clear();
   sOut.append( utf8size, ' ' );
-  utf8size = WideCharToMultiByte(to_codepage, 0, s.data(), s.size(), (char*)sOut.data(), utf8size, 0, 0);
+  utf8size = WideCharToMultiByte(to_codepage_win, 0, s.data(), s.size(), (char*)sOut.data(), utf8size, 0, 0);
   return utf8size;
 }
-int AttemptEncoding(std::string &s, int to_codepage, int from_codepage)
+std::string ConvertEncoding(const std::string &s, int to_codepage, int from_codepage)
 {
+  // Check encoding if necessary
+  if (from_codepage == 0)
+  {
+    from_codepage = DetectEncoding(s);
+    if (!from_codepage) return std::string();
+  }
+
   // to UTF16
   std::wstring sWstr;
+  int iSize = 0;
   if (DecodeToWStr(s, sWstr, from_codepage) == 0)
     return 0;
 
   // from UTF16
-  return EncodeFromWStr(sWstr, s, to_codepage);
-}
-int AttemptEncoding(std::string &s, int from_codepage)
-{
-  if (from_codepage == 0)
-  {
-    int iSize = 0;
-    iSize = AttemptEncoding(s, 949);
-    if (iSize) return iSize;
-    iSize = AttemptEncoding(s, 932);
-    if (iSize) return iSize;
-    else return 0;
-  }
-  
-  // from_codepage -> UTF16
-  std::wstring sWstr;
-  if (DecodeToWStr(s, sWstr, from_codepage) == 0)
-    return 0;
-
-  // UTF16 -> UTF8
-  return EncodeFromWStr(sWstr, s, E_UTF8);
-}
-int DecodeTo(std::string &s, int to_codepage)
-{
-  // UTF8 -> UTF16
-  std::wstring sWstr;
-  if (DecodeToWStr(s, sWstr, E_UTF8) == 0)
-    return 0;
-
-  // UTF16 -> to_codepage
-  return EncodeFromWStr(sWstr, s, to_codepage);
+  std::string r;
+  iSize = EncodeFromWStr(sWstr, r, to_codepage);
+  if (!iSize) return std::string();
+  else return r;
 }
 FILE* fopen_utf8(const char* fname, const char* mode)
 {
@@ -274,10 +275,14 @@ FILE* fopen_utf8(const char* fname, const char* mode)
   std::string smode(mode);
   std::wstring sWmode;    sWmode.assign(smode.begin(), smode.end());
   DecodeToWStr(fname, sWfn, E_UTF8);
-  FILE* f=0;
+  FILE* f = 0;
   if (_wfopen_s(&f, sWfn.c_str(), sWmode.c_str()) != 0)
     return 0;
   else return f;
+}
+FILE* fopen_utf8(const std::string& fname, const std::string& mode)
+{
+  return fopen_utf8(fname.c_str(), mode.c_str());
 }
 int printf_utf8(const char* fmt, ...)
 {
@@ -288,18 +293,43 @@ int printf_utf8(const char* fmt, ...)
   return vwprintf(sWOut.c_str(), args);
 }
 #endif
-
-bool RemoveFile(const char* fpath)
+std::string ConvertEncodingToUTF8(const std::string &s, int from_codepage)
+{
+  return ConvertEncoding(s, E_UTF8, from_codepage);
+}
+bool IsAccessable(const std::string& fpath)
+{
+#ifdef WIN32
+  std::wstring sWOut;
+  DecodeToWStr(fpath, sWOut, E_UTF8);
+  return _waccess(sWOut.c_str(), 0) == 0;
+#else
+  return access(fpath.c_str(), 0) == 0;
+#endif
+}
+bool IsFile(const std::string& fpath)
+{
+#ifdef WIN32
+  std::wstring wfpath;
+  DecodeToWStr(fpath, wfpath, E_UTF8);
+  struct _stat sb;
+  return (_wstat(wfpath.c_str(), &sb) == 0 && S_ISREG(sb.st_mode));
+#else
+  struct stat sb;
+  return (stat(path.c_str(), &sb) == 0 && S_ISREG(sb.st_mode));
+#endif
+}
+bool DeleteFile(const std::string& fpath)
 {
 #ifdef WIN32
   std::wstring sWfn;
   DecodeToWStr(fpath, sWfn, E_UTF8);
   return (_wremove(sWfn.c_str()) == 0);
 #else
-  return (remove(fpath) == 0);
+  return (remove(fpath.c_str()) == 0);
 #endif
 }
-bool RenameFile(const char* prev_path, const char* new_path)
+bool Rename(const std::string& prev_path, const std::string& new_path)
 {
 #ifdef WIN32
   std::wstring sWpfn, sWnfn;
@@ -307,18 +337,45 @@ bool RenameFile(const char* prev_path, const char* new_path)
   DecodeToWStr(new_path, sWnfn, E_UTF8);
   return (_wrename(sWpfn.c_str(), sWnfn.c_str()) == 0);
 #else
-  return (rename(prev_path, new_path) == 0);
+  return (rename(prev_path.c_str(), new_path.c_str()) == 0);
 #endif
 }
-bool CreateFolder(const char* path)
+std::string ReadFileText(const std::string& path)
 {
-#ifdef WIN32
-  std::wstring wpath;
-  DecodeToWStr(path, wpath, E_UTF8);
-  return (CreateDirectoryW(wpath.c_str(), 0) != 0);
-#else
-  return (mkdir(path, 664) == 0);
-#endif
+  size_t fsize = 0;
+  FILE *fp = fopen_utf8(path, "rb");
+  if (fp)
+  {
+    char *p = (char*)malloc(10241);
+    fsize = fread(p, 1, 10240, fp);
+    fclose(fp);
+    p[fsize] = 0;
+    std::string r(p);
+    free(p);
+    return r;
+  }
+  else return std::string();
+}
+FileData ReadFileData(const std::string& path)
+{
+  FileData fd;
+  size_t fsize = 0;
+  fd.m_iLen = 0;
+  fd.m_iPos = 0;
+  fd.p = 0;
+  FILE *fp = fopen_utf8(path, "rb");
+  if (fp)
+  {
+    fseek(fp, 0, SEEK_END);
+    fsize = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+    fd.m_iLen = fsize;
+    fd.m_iPos = 0;
+    fd.p = (uint8_t*)malloc(fsize);
+    fread(fd.p, 1, fsize, fp);
+    fclose(fp);
+  }
+  return fd;
 }
 
 // seed part ..?
@@ -333,6 +390,11 @@ int GetSeed() { return global_seed; }
 std::string lower(const std::string& s) {
   std::string sOut(s);
   std::transform(sOut.begin(), sOut.end(), sOut.begin(), ::tolower);
+  return sOut;
+}
+std::string upper(const std::string& s) {
+  std::string sOut(s);
+  std::transform(sOut.begin(), sOut.end(), sOut.begin(), ::toupper);
   return sOut;
 }
 bool isspace(char c) { return (c == ' ' || c == '\t' || c == '\r' || c == '\n'); }
@@ -459,26 +521,142 @@ uint32_t ReadLE32(const unsigned char* p)
   return p[0] | (p[1] << 8) | (p[2] << 16) | (p[3] << 24);
 }
 
-#ifdef WIN32
-bool IsDirectory(const std::string & path)
+bool IsDirectory(const std::string& fpath)
 {
-  std::wstring wpath;
-  DecodeToWStr(path, wpath, E_UTF8);
-  DWORD ftyp = GetFileAttributesW(wpath.c_str());
-  if (ftyp == INVALID_FILE_ATTRIBUTES)
-    return false;  //something is wrong with your path!
-
-  if (ftyp & FILE_ATTRIBUTE_DIRECTORY)
-    return true;   // this is a directory!
-
-  return false;    // this is not a directory!
+#ifdef WIN32
+  std::wstring wfpath;
+  DecodeToWStr(fpath, wfpath, E_UTF8);
+  struct _stat sb;
+  return (_wstat(wfpath.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode));
+#else
+  struct stat sb;
+  return (stat(path.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode));
+#endif
 }
 bool CreateDirectory(const std::string& path)
 {
+#ifdef WIN32
   std::wstring wpath;
   DecodeToWStr(path, wpath, E_UTF8);
   return _wmkdir(wpath.c_str()) == 0;
+#else
+  return mkdir(path.c_str(), 0755) == 0;
+#endif
 }
+
+#ifdef WIN32
+bool DeleteDirectory_internal(const std::wstring& path)
+{
+  struct _stat sb;
+  if (_wstat(path.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode))
+  {
+    HANDLE hFind;
+    WIN32_FIND_DATAW FindFileData;
+
+    WCHAR DirPath[MAX_PATH];
+    WCHAR FileName[MAX_PATH];
+
+    wcscpy(DirPath, path.c_str());
+    wcscat(DirPath, L"\\*");
+    wcscpy(FileName, path.c_str());
+    wcscat(FileName, L"\\");
+
+    hFind = FindFirstFileW(DirPath, &FindFileData);
+    if (hFind == INVALID_HANDLE_VALUE) return 0;
+    wcscpy(DirPath, FileName);
+
+    bool bSearch = true;
+    while (bSearch)
+    {
+      if (FindNextFileW(hFind, &FindFileData))
+      {
+        if (!(wcscmp(FindFileData.cFileName, L".") && wcscmp(FindFileData.cFileName, L"..")))
+          continue;
+        wcscpy(FileName, DirPath);
+        wcscat(FileName, FindFileData.cFileName);
+        if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+        {
+          // if directory, recursively delete
+          if (!DeleteDirectory_internal(FileName))
+          {
+            FindClose(hFind);
+            return 0;
+          }
+          RemoveDirectoryW(FileName);
+        }
+        else
+        {
+          // if file, check permission
+          if (FindFileData.dwFileAttributes & FILE_ATTRIBUTE_READONLY)
+          {
+            //_chmod(FileName, _S_IWRITE);
+            return 0;
+          }
+          if (!DeleteFileW(FileName))
+          {
+            FindClose(hFind);
+            return 0;
+          }
+        }
+      }
+      else
+      {
+        if (GetLastError() == ERROR_NO_MORE_FILES)
+          bSearch = false;
+        else
+        {
+          FindClose(hFind);
+          return 0;
+        }
+      }
+    }
+    FindClose(hFind);
+
+    return RemoveDirectoryW(path.c_str()) == TRUE;
+  }
+  else
+  {
+    return false;
+  }
+}
+bool DeleteDirectory(const std::string& path)
+{
+  std::wstring wpath;
+  DecodeToWStr(path, wpath, E_UTF8);
+  return DeleteDirectory_internal(wpath);
+}
+#else
+bool DeleteDirectory(const std::string& path)
+{
+  DIR *dir;
+  struct dirent *entry;
+  char newpath[PATH_MAX];
+
+  if (!path.size()) return false;
+  dir = opendir(path.c_str());
+  if (dir == NULL) {
+    return false;
+  }
+
+  while ((entry = readdir(dir)) != NULL) {
+    if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..")) {
+      snprintf(newpath, (size_t)PATH_MAX, "%s/%s", dirname, entry->d_name);
+      if (entry->d_type == DT_DIR) {
+        if (!DeleteDirectory(newpath)) return false;
+      }
+      else {
+        DeleteFile(newpath);
+      }
+    }
+  }
+  closedir(dir);
+  rmdir(path.c_str());
+
+  return true;
+}
+#endif
+
+#ifdef WIN32
 bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecursive)
 {
   HANDLE hFind = INVALID_HANDLE_VALUE;
@@ -537,18 +715,6 @@ bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecu
   return true;
 }
 #else
-bool IsDirectory(const std::string& path)
-{
-  struct stat st;
-  if(stat(path.c_str(),&st) == 0)
-    if(st.st_mode & S_IFDIR != 0)
-      return true;
-  return false;
-}
-bool CreateDirectory(const std::string& path)
-{
-  return mkdir(path.c_str(), 0755) == 0;
-}
 bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecursive)
 {
   DIR *dp;
@@ -807,6 +973,7 @@ int BasicDirectory::Read(FileData &fd) const
   fd.p = (unsigned char*)malloc(fd.m_iLen);
   ASSERT(fd.p != 0);
   fd.m_iLen = fread(fd.p, 1, fd.m_iLen, fp);
+  fclose(fp);
   return fd.m_iLen;
 }
 
@@ -823,8 +990,11 @@ int BasicDirectory::ReadFiles(std::vector<FileData>& fd) const
       r = 0;
       break;
     }
-    fd.push_back(fdat);
+    fd.push_back(std::move(fdat));
   }
+  // Don't allow FileData left ptr,
+  // as Destroyer will clear it when block is over.
+  fdat.p = 0;
   return r;
 }
 
@@ -1000,6 +1170,7 @@ bool md5_str(const void* p, int iLen, char *out)
       sprintf(buf, "%02x", result[i]);
       out += 2;
     }
+    return true;
   }
   else return false;
 }

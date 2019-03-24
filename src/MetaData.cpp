@@ -11,14 +11,14 @@ bool BmsBpmMetaData::GetBpm(Channel channel, float &out) const
 {
   auto it = bpm.find(channel);
   if (it == bpm.end()) return false;
-  else out = it->second; return true;
+  else out = static_cast<float>(it->second); return true;
 }
 
 bool BmsStopMetaData::GetStop(Channel channel, float &out) const
 {
   auto it = stop.find(channel);
   if (it == stop.end()) return false;
-  else out = it->second; return true;
+  else out = static_cast<float>(it->second); return true;
 }
 
 
@@ -103,7 +103,7 @@ bool MetaData::SetEncoding(int from_codepage, int to_codepage)
 {
   #define META_INT(x)
   #define META_DBL(x)
-  #define META_STR(x) AttemptEncoding(x, to_codepage, from_codepage)
+  #define META_STR(x) x = std::move(ConvertEncoding(x, to_codepage, from_codepage))
   RPARSER_METADATA_LISTS
   #undef META_INT
   #undef META_DBL
@@ -112,15 +112,15 @@ bool MetaData::SetEncoding(int from_codepage, int to_codepage)
   // also do encoding process for all Sound/BGA channels
   for (auto &bga: bga_channel_.bga)
   {
-    AttemptEncoding(bga.second.fn, to_codepage, from_codepage);
+    bga.second.fn = std::move(ConvertEncoding(bga.second.fn, to_codepage, from_codepage));
   }
   for (auto &fn: sound_channel_.fn)
   {
-    AttemptEncoding(fn.second, to_codepage, from_codepage);
+    fn.second = std::move(ConvertEncoding(fn.second, to_codepage, from_codepage));
   }
   for (auto &pair: attrs_)
   {
-    AttemptEncoding(pair.second, to_codepage, from_codepage);
+    pair.second = std::move(ConvertEncoding(pair.second, to_codepage, from_codepage));
   }
 
   return true;

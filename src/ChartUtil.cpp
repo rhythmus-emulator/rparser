@@ -66,9 +66,9 @@ void FixInvalidNote(Chart &c, SONGTYPE songtype, bool delete_invalid_note)
     if (note.pos.beat != current_beat)
     {
       current_beat = note.pos.beat;
-      for (int pi=0 ; pi<player_count ; pi++)
+      for (auto pi=0u ; pi<player_count ; pi++)
       {
-        for (int i=0 ; i<track_column_count ; i++)
+        for (auto i=0u ; i<track_column_count ; i++)
         {
           Note** ncl = &note_using_lane[pi][i];
           if (!(*ncl)->next)
@@ -89,7 +89,7 @@ void FixInvalidNote(Chart &c, SONGTYPE songtype, bool delete_invalid_note)
     // attempt to put note in empty lane.
     // if lane used, then attempt to next (right) lane.
     // if proper lane not found, then note won't edited. (stay in incorrect one)
-    for (int i=0; i<track_column_count; i++)
+    for (auto i=0u; i<track_column_count; i++)
     {
       int new_col = (current_col + i) % track_column_count;
       if (!note_using_lane[current_player][new_col])
@@ -296,7 +296,7 @@ void HRandom(Chart &c, const EffectorParam& param)
       double new_measure = c.GetTempoData().GetMeasureFromBeat(current_beat);
       if ((int)new_measure != current_measure)
       {
-        current_measure = new_measure;
+        current_measure = static_cast<int>(new_measure);
         GenerateRandomColumn(new_col, param);
       }
     }

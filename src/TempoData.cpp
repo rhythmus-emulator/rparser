@@ -63,7 +63,7 @@ void TempoData::Invalidate(const MetaData& m)
   static const NotePosTypes nbtypes[3] = { NotePosTypes::Beat, NotePosTypes::Time, NotePosTypes::Row };
   std::vector<const Note*> nobj_by_beat, nobj_by_tempo, nobj_by_row;
   std::vector<const Note*> *nobjvecs[] = { &nobj_by_beat, &nobj_by_tempo, &nobj_by_row };
-  int nbidx[3];
+  size_t nbidx[3] = { 0, 0, 0 };
   double nbarr[3];
   int cur_nobj_type_idx;
   const TempoNote* cur_nobj;
@@ -249,7 +249,7 @@ double TempoData::GetMeasureFromBeat(double beat) const
 std::vector<double> TempoData::GetTimeFromBeatArr(const std::vector<double>& sorted_beat) const
 {
   std::vector<double> r_time;
-  int idx = 0;
+  size_t idx = 0;
   for (double beat: sorted_beat)
   {
     // go to next segment if available.
@@ -262,7 +262,7 @@ std::vector<double> TempoData::GetTimeFromBeatArr(const std::vector<double>& sor
 std::vector<double> TempoData::GetBeatFromTimeArr(const std::vector<double>& sorted_time) const
 {
   std::vector<double> r_beat;
-  int idx = 0;
+  size_t idx = 0;
   for (double time: sorted_time)
   {
     // go to next segment if available.
@@ -275,7 +275,7 @@ std::vector<double> TempoData::GetBeatFromTimeArr(const std::vector<double>& sor
 std::vector<double> TempoData::GetBeatFromRowArr(const std::vector<Row>& sorted_row) const
 {
   std::vector<double> r_beat;
-  int idx = 0;
+  size_t idx = 0;
   for (const Row& row: sorted_row)
   {
     // go to next segment if available.

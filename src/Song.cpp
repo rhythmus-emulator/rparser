@@ -172,7 +172,7 @@ bool Song::Save()
   }
 
   // Put charts and metadata to writer
-  for (int i = 0; i < chartlist_->size(); ++i)
+  for (auto i = 0; i < chartlist_->size(); ++i)
   {
     const Chart* c = chartlist_->GetChartData(i);
     if (!writer->Serialize( *c ))
@@ -210,6 +210,8 @@ bool Song::Close(bool save)
   resource_ = 0;
 	error_ = ERROR::NONE;
 	songtype_ = SONGTYPE::NONE;
+
+  return true;
 }
 
 SONGTYPE Song::DetectSongtype()
@@ -265,7 +267,7 @@ std::string Song::toString(bool detailed) const
   if (detailed && chartlist_)
   {
     chartlist_->CloseChartData();
-    for (int i = 0; i < chartlist_->size(); i++)
+    for (auto i = 0; i < chartlist_->size(); i++)
     {
       const Chart *c = chartlist_->GetChartData(i);
       ss << c->toString() << std::endl;

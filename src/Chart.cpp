@@ -252,7 +252,7 @@ int ChartList::AddNewChart()
 
 const Chart* ChartList::GetChartData(int idx) const
 {
-  if (idx < 0 || idx >= charts_.size() || cur_edit_idx >= 0) return 0;
+  if (idx < 0 || idx >= (int)charts_.size() || cur_edit_idx >= 0) return 0;
   cur_edit_idx = idx;
   return charts_[idx];
 }
@@ -269,7 +269,7 @@ void ChartList::CloseChartData()
 
 void ChartList::DeleteChart(int idx)
 {
-  if (idx < 0 || idx >= charts_.size() || cur_edit_idx == idx) return;
+  if (idx < 0 || idx >= (int)charts_.size() || cur_edit_idx == idx) return;
   auto ii = charts_.begin() + idx;
   delete *ii;
   charts_.erase(ii);
@@ -288,7 +288,7 @@ void ChartList::AppendChart(Chart* chart)
 
 Chart* ChartList::GetChart(int idx)
 {
-  if (idx < 0 || idx > charts_.size()) return 0;
+  if (idx < 0 || idx > (int)charts_.size()) return 0;
   return charts_[idx];
 }
 
@@ -319,7 +319,7 @@ const Chart* ChartNoteList::GetChartData(int idx) const
 
 Chart* ChartNoteList::GetChartData(int idx)
 {
-  if (idx < 0 || idx >= note_charts_.size() || cur_edit_idx >= 0) return 0;
+  if (idx < 0 || idx >= (int)note_charts_.size() || cur_edit_idx >= 0) return 0;
   // swap note data context and return self object.
   note_charts_[idx].swap(GetNoteData());
   cur_edit_idx = idx;
@@ -338,7 +338,7 @@ void ChartNoteList::CloseChartData()
 
 void ChartNoteList::DeleteChart(int idx)
 {
-  if (idx < 0 || idx >= note_charts_.size() || cur_edit_idx == idx) return;
+  if (idx < 0 || idx >= (int)note_charts_.size() || cur_edit_idx == idx) return;
   note_charts_.erase(note_charts_.begin() + idx);
 }
 

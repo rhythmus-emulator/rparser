@@ -5,6 +5,11 @@
 #ifndef RUTIL_BASIC_H
 #define RUTIL_BASIC_H
 
+#ifdef _WIN32
+# ifndef WIN32
+#  define WIN32
+# endif
+#endif
 
 #ifndef WIN32
  //
@@ -44,9 +49,8 @@ enum EncodingTypes
 // this returns UTF-8 string using specified encoding.
 // if no encoding found then it returns 0 with no string changed.
 // if from_codepage=0, then attempt encoding Shift_JIS / CP949
-int AttemptEncoding(std::string &s, int to_codepage, int from_codepage);
-int AttemptEncoding(std::string &s, int from_codepage=0);
-int DecodeTo(std::string &s, int to_codepage);
+std::string ConvertEncoding(const std::string &s, int to_codepage, int from_codepage = 0);
+std::string ConvertEncodingToUTF8(const std::string &s, int from_codepage = 0);
 int DetectEncoding(const std::string &s);
 #ifdef WIN32
 int DecodeToWStr(const std::string& s, std::wstring& sOut, int from_codepage);
@@ -54,17 +58,6 @@ int EncodeFromWStr(const std::wstring& s, std::string& sOut, int to_codepage);
 #endif
 
 
-// I/O related
-#ifdef WIN32
-FILE* fopen_utf8(const char* fname, const char* mode);
-int printf_utf8(const char* fmt, ...);
-#else
-#define fopen fopen_utf8
-#define printf printf_utf8
-#endif
-bool RemoveFile(const char* fpath);
-bool RenameFile(const char* prev_path, const char* new_path);
-bool CreateFolder(const char* path);
 
 
 
@@ -80,8 +73,8 @@ int GetSeed();
 
 
 // string related
-
 std::string lower(const std::string& s);
+std::string upper(const std::string& s);
 std::string trim(const std::string &s);
 int split(const std::string& str, const char sep, std::vector<std::string>& vsOut);
 int split(const std::string& str, const char sep, std::string &s1, std::string &s2);
@@ -105,14 +98,7 @@ uint32_t ReadLE32(const unsigned char* p);
 
 
 
-// Directory / Archive related
-
-bool IsDirectory(const std::string& path);
-bool CreateDirectory(const std::string& path);
-#define CreateDirectory_RPARSER CreateDirectory
-// <path, isfile>
-typedef std::vector<std::pair<std::string, int>> DirFileList;
-bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecursive=100);
+// I/O, Archive related
 
 class FileData {
 public:
@@ -150,7 +136,7 @@ protected:
   std::vector<std::string> m_vFilename;
   std::vector<std::string> m_vFolder;     // folder of direct ancestor
 public:
-  IDirectory(): error(0) {};
+  IDirectory() : error(0) {};
   virtual int Open(const std::string &path) = 0;
   virtual int Write(const FileData &fd) = 0;
   virtual int Read(FileData &fd) const = 0;
@@ -163,7 +149,7 @@ public:
   // @description read file with smart-file-finding routine
   bool ReadSmart(FileData &fd) const;
 
-  std::vector<std::string> GetFileEntries(const char* ext_filter=0);   // sep with semicolon
+  std::vector<std::string> GetFileEntries(const char* ext_filter = 0);   // sep with semicolon
   std::vector<std::string> GetFolderEntries();
 };
 
@@ -202,6 +188,31 @@ public:
   void SetCodepage(int iCodepage);
 };
 #endif
+
+#ifdef WIN32
+FILE* fopen_utf8(const char* fname, const char* mode);
+FILE* fopen_utf8(const std::string& fname, const std::string& mode);
+int printf_utf8(const char* fmt, ...);
+#else
+#define fopen fopen_utf8
+#define printf printf_utf8
+#endif
+bool IsAccessable(const std::string& path);
+bool IsFile(const std::string& path);
+bool DeleteFile(const std::string& fpath);
+bool Rename(const std::string& prev_path, const std::string& new_path);
+std::string ReadFileText(const std::string& path);
+FileData ReadFileData(const std::string& path);
+
+bool IsDirectory(const std::string& path);
+bool CreateDirectory(const std::string& path);
+bool DeleteDirectory(const std::string& path);
+
+#define CreateDirectory_RPARSER CreateDirectory
+// <path, isfile>
+typedef std::vector<std::pair<std::string, int>> DirFileList;
+bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecursive=100);
+
 
 // if succeed, return true, and write md5 hash to char* out;
 // else, return false.

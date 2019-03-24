@@ -177,7 +177,7 @@ bool Resource::Rename(const std::string & prev_name, const std::string & new_nam
   }
 
   // affects file system instantly.
-  if (!rutil::RenameFile(prev_name.c_str(), new_name.c_str()))
+  if (!rutil::Rename(prev_name.c_str(), new_name.c_str()))
   {
     SetError(ERROR::WRITE_RENAME);
     return false;
@@ -199,7 +199,7 @@ bool Resource::Delete(const std::string & name)
   }
 
   // affects file system directly.
-  if (!rutil::RemoveFile(name.c_str()))
+  if (!rutil::DeleteFile(name.c_str()))
   {
     SetError(ERROR::DELETE_NO_PATH);
     return false;

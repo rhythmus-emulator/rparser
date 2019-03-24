@@ -156,7 +156,7 @@ bool ChartLoaderBMS::ParseCurrentLine()
   if (*c != '#') return false;
   while (*c != ' ' || *c != ':')
   {
-    if (c-p > len || c-p > 256) break;
+    if (c-p > len || c-p > 256u) break;
     *cw = upperchr(*c);
     c++; cw++;
   }
@@ -229,6 +229,7 @@ bool ChartLoaderBMS::ParseControlFlow()
     chart_context_ = 0;
   }
   else return false;
+  return true;
 }
 #undef CMDCMP
 
@@ -333,8 +334,8 @@ bool ChartLoaderBMS::ParseMetaData()
       printf("invalid #STP found, ignore. (%s)\n", value.c_str());
       return false;
     }
-    float fMeasure = atof(sMeasure.c_str());
-    md.GetSTOPChannel()->STP[fMeasure] = atoi(sTime.c_str());
+    float fMeasure = static_cast<float>(atof(sMeasure.c_str()));
+    md.GetSTOPChannel()->STP[fMeasure] = static_cast<float>(atoi(sTime.c_str()));
   }
   // TODO: WAVCMD, EXWAV
   // TODO: MIDIFILE
@@ -381,13 +382,14 @@ int GetNoteTypeFromBmsChannel(unsigned int bms_channel)
              bms_channel >= 0xE1 && bms_channel <= 0xE9)
       return NoteTypes::kNote;
   }
+  return NoteTypes::kNone;
 }
 
 int GetNoteSubTypeFromBmsChannel(unsigned int bms_channel)
 {
   switch (bms_channel)
   {
-  case 1:   // BGM
+  case 1:   // BGM (no subtype)
     return 0;
   case 3:   // BPM change
     return NoteTempoTypes::kBpm;
@@ -429,6 +431,7 @@ int GetNoteSubTypeFromBmsChannel(unsigned int bms_channel)
              bms_channel >= 0xE1 && bms_channel <= 0xE9)
       return NoteSubTypes::kMineNote;
   }
+  return 0;
 }
 
 uint8_t GetNotePlayerFromBmsChannel(unsigned int bms_channel)

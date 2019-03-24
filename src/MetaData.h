@@ -55,13 +55,13 @@ struct BgaMetaData {
 };
 
 struct BmsBpmMetaData {
-  std::map<Channel, int> bpm;	  // #BPM command (key, value)
+  std::map<Channel, float> bpm;	  // #BPM command (key, value)
   bool GetBpm(Channel channel, float &out) const;
 };
 
 struct BmsStopMetaData {
-  std::map<Channel, int> stop;  // #STOP command (key, value)
-  std::map<float, int> STP;	    // #STP command (time, value)
+  std::map<Channel, float> stop;  // #STOP command (key, value)
+  std::map<float, float> STP;	    // #STP command (time, value)
   bool GetStop(Channel channel, float &out) const;
 };
 
