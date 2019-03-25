@@ -4,3 +4,4 @@ build
 bin
 CMakeFiles
 test/lib/
+test/rutil/test

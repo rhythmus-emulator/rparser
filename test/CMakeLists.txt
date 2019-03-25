@@ -7,12 +7,14 @@ set (RPARSER_TEST_HEADERS
     )
 
 set (GTEST_HEADERS
-	"${CMAKE_SOURCE_DIR}/../googletest/googletest/include"
+    "${CMAKE_SOURCE_DIR}/../googletest/googletest/include"
     )
 
 
 # lib: gtest_main
-add_subdirectory("${CMAKE_SOURCE_DIR}/../googletest" "${CMAKE_CURRENT_SOURCE_DIR}/lib")
+add_subdirectory("${CMAKE_SOURCE_DIR}/../googletest"
+                 "${CMAKE_SOURCE_DIR}/build/lib"
+                 EXCLUDE_FROM_ALL)
 
 include_directories(
 	${LIB_INCLUDE_DIR}
@@ -32,7 +34,7 @@ if (ZLIB_FOUND AND ZIP_FOUND)
   target_link_libraries(rparser_test ${ZIP_LIBRARY})
   target_link_libraries(rparser_test ${ZLIB_LIBRARY})
 endif ()
-if (OpenSSL_FOUND)
-  target_link_libraries(rparser_test ${OpenSSL_LIBRARY})
+if (OPENSSL_FOUND)
+  target_link_libraries(rparser_test ${OPENSSL_LIBRARY})
 endif()
 target_link_libraries(rparser_test gtest)

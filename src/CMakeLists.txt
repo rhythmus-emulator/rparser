@@ -43,4 +43,4 @@ include_directories(
 #link_directories(${ZIP_LIB} ${ZLIB_LIB} ${OPENSSL_LIB} ${ICONV_LIB})
 
 
-add_library(rparser ${RPARSER_SOURCES} ${RPARSER_HEADERS})
+add_library(rparser STATIC ${RPARSER_SOURCES} ${RPARSER_HEADERS})
