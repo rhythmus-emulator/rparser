@@ -223,8 +223,8 @@ public:
   }
   typename std::vector<N>::iterator begin() { return notes_.begin(); }
   typename std::vector<N>::iterator end() { return notes_.end(); }
-  typename const std::vector<N>::const_iterator begin() const { return notes_.begin(); }
-  typename const std::vector<N>::const_iterator end() const { return notes_.end(); }
+  const typename std::vector<N>::const_iterator begin() const { return notes_.begin(); }
+  const typename std::vector<N>::const_iterator end() const { return notes_.end(); }
   bool IsEmpty() const { return notes_.size(); }
   std::string toString() const
   {

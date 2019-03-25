@@ -8,6 +8,8 @@
 #include <sstream>
 #include <iostream>
 #include <assert.h>
+#include <stdint.h>
+#include <string.h>
 
 #ifdef _DEBUG
 # define ASSERT(x) assert(x)

@@ -81,13 +81,13 @@ void TempoData::Invalidate(const MetaData& m)
          nbidx[2] < nobj_by_row.size())
   {
     // select tempo note which is in most early timing.
-    if (nbidx[0] >= nobj_by_beat.size()) { nbarr[0] = DBL_MAX; }
+    if (nbidx[0] >= nobj_by_beat.size()) { nbarr[0] = std::numeric_limits<double>::max(); }
     else { nbarr[0] = nobj_by_beat[nbidx[0]]->pos.beat; }
 
-    if (nbidx[1] >= nobj_by_tempo.size()) { nbarr[1] = DBL_MAX; }
+    if (nbidx[1] >= nobj_by_tempo.size()) { nbarr[1] = std::numeric_limits<double>::max(); }
     else { nbarr[1] = GetBeatFromTimeInLastSegment(nobj_by_tempo[nbidx[1]]->pos.time_msec); }
 
-    if (nbidx[2] >= nobj_by_row.size()) { nbarr[2] = DBL_MAX; }
+    if (nbidx[2] >= nobj_by_row.size()) { nbarr[2] = std::numeric_limits<double>::max(); }
     else { nbarr[2] = GetBeatFromRowInLastSegment(nobj_by_row[nbidx[2]]->pos.row); }
 
     cur_nobj_type_idx = GetSmallestIndex(nbarr, 3);

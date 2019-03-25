@@ -77,7 +77,7 @@ double MetaData::GetAttribute(const std::string& key) const
 void MetaData::SetAttribute(const std::string& key, int value)
 {
   char s[100];
-  _itoa(value, s, 10);
+  rutil::itoa(value, s, 10);
   SetAttribute(key ,s);
 }
 
@@ -90,7 +90,7 @@ void MetaData::SetAttribute(const std::string& key, double value)
 {
   // XXX: enough space to assign string?
   char s[100];
-  _gcvt(value, 10, s);
+  rutil::gcvt(value, 10, s);
   SetAttribute(key, s);
 }
 

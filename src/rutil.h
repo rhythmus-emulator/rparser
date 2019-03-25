@@ -189,14 +189,10 @@ public:
 };
 #endif
 
-#ifdef WIN32
 FILE* fopen_utf8(const char* fname, const char* mode);
 FILE* fopen_utf8(const std::string& fname, const std::string& mode);
 int printf_utf8(const char* fmt, ...);
-#else
-#define fopen fopen_utf8
-#define printf printf_utf8
-#endif
+
 bool IsAccessable(const std::string& path);
 bool IsFile(const std::string& path);
 bool DeleteFile(const std::string& fpath);
@@ -220,6 +216,9 @@ bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecu
 bool md5(const void* p, int iLen, char* out);
 // same to md5; returns 32byte string (%02x formatted)
 bool md5_str(const void* p, int iLen, char* out);
+
+char *itoa(int value, char *str, int base);
+char *gcvt(double value, int digits, char *string);
 
 };
 

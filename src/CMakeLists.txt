@@ -2,7 +2,7 @@ project(rparser_lib)
 
 # prepare necessary source / header
 set (RPARSER_SOURCES
-	"Chart.cpp"
+    "Chart.cpp"
     "ChartLoader.cpp"
     "ChartLoaderBMS.cpp"
     "ChartLoaderVOS.cpp"
@@ -12,19 +12,19 @@ set (RPARSER_SOURCES
     "Resource.cpp"
     "Song.cpp"
     "TempoData.cpp"
-	"rutil.cpp")
+    "rutil.cpp")
 
 set (RPARSER_HEADERS
-	"Chart.h"
+    "Chart.h"
     "ChartLoader.h"
     "ChartWriter.h"
     "ChartUtil.h"
     "MetaData.h"
-	"Resource.h"
+    "Resource.h"
     "Song.h"
     "TempoData.h"
     "Error.h"
-	"rutil.h"
+    "rutil.h"
     "common.h")
 
 # declare RPARSER_INCLUDE_DIR variable to parent scope
@@ -37,8 +37,8 @@ include_directories(
 	${RPARSER_INCLUDE_DIR}
 	${GTEST_HEADERS}
 	${RUTIL_INCLUDE_DIR}
-	${zip_INCLUDE_DIR}
-	${openssl_INCLUDE_DIR}
+  ${ZIP_INCLUDE_DIR}
+  ${OpenSSL_INCLUDE_DIR}
 	)
 #link_directories(${ZIP_LIB} ${ZLIB_LIB} ${OPENSSL_LIB} ${ICONV_LIB})
 

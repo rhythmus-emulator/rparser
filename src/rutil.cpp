@@ -5,13 +5,15 @@
 #include <stack>
 #include <cctype>
 #include <stdarg.h>
+#include <string.h>
 #include <sys/stat.h>
-//#include <dirent.h>
 
 #ifdef WIN32
 #include <io.h>
 #else
+#include <dirent.h>
 #include <unistd.h>
+#include <iconv.h>
 #endif
 
 #ifdef USE_ZLIB
@@ -154,7 +156,7 @@ const char* GetCodepageString(int cp)
     return "euc-kr";
   case E_SHIFT_JIS:
     return "shift-jis";
-  case E_UTF8:	// utf-8
+  case E_UTF8:  // utf-8
     return "utf-8";
   default:
     // unsupported
@@ -181,7 +183,7 @@ std::string ConvertEncoding(const std::string &s, int to_codepage, int from_code
   }
 
   /* Copy the string into a char* for iconv */
-  ICONV_CONST char *szTextIn = const_cast<ICONV_CONST char*>( s.data() );
+  const char *szTextIn = const_cast<const char*>( s.data() );
   size_t iInLeft = s.size();
 
   /* Create a new string with enough room for the new conversion */
@@ -190,23 +192,23 @@ std::string ConvertEncoding(const std::string &s, int to_codepage, int from_code
 
   char *sTextOut = const_cast<char*>( sBuf.data() );
   size_t iOutLeft = sBuf.size();
-  size_t size = iconv( converter, &szTextIn, &iInLeft, &sTextOut, &iOutLeft );
+  size_t size = iconv( converter, const_cast<char**>(&szTextIn), &iInLeft, &sTextOut, &iOutLeft );
 
   iconv_close( converter );
 
   if( size == (size_t)(-1) )
   {
-    return false; /* Returned an error */
+    return std::string(); /* Returned an error */
   }
 
   if( iInLeft != 0 )
   {
     printf("iconv(%s to %s) for \"%s\": whole buffer not converted",cp_from_str, cp_to_str, s.c_str());
-    return false;
+    return std::string();
   }
 
   if( sBuf.size() == iOutLeft )
-    return false; /* Conversion failed */
+    return std::string(); /* Conversion failed */
 
   sBuf.resize( sBuf.size()-iOutLeft );
 
@@ -214,7 +216,22 @@ std::string ConvertEncoding(const std::string &s, int to_codepage, int from_code
 }
 int DecodeTo(std::string &s, int to_codepage)
 {
-  return ConvertEncoding(s, to_codepage, E_UTF8);
+  s = ConvertEncoding(s, to_codepage, E_UTF8);
+  return s.size() > 0;
+}
+FILE* fopen_utf8(const char* fname, const char* mode)
+{
+  return fopen(fname, mode);
+}
+FILE* fopen_utf8(const std::string& fname, const std::string& mode)
+{
+  return fopen(fname.c_str(), mode.c_str());
+}
+int printf_utf8(const char* fmt, ...)
+{
+  va_list args;
+  va_start (args, fmt);
+  return vprintf(fmt, args);
 }
 #else
 // use windows internal function
@@ -316,7 +333,7 @@ bool IsFile(const std::string& fpath)
   return (_wstat(wfpath.c_str(), &sb) == 0 && S_ISREG(sb.st_mode));
 #else
   struct stat sb;
-  return (stat(path.c_str(), &sb) == 0 && S_ISREG(sb.st_mode));
+  return (stat(fpath.c_str(), &sb) == 0 && S_ISREG(sb.st_mode));
 #endif
 }
 bool DeleteFile(const std::string& fpath)
@@ -343,7 +360,7 @@ bool Rename(const std::string& prev_path, const std::string& new_path)
 std::string ReadFileText(const std::string& path)
 {
   size_t fsize = 0;
-  FILE *fp = fopen_utf8(path, "rb");
+  FILE *fp = fopen_utf8(path.c_str(), "rb");
   if (fp)
   {
     char *p = (char*)malloc(10241);
@@ -363,7 +380,7 @@ FileData ReadFileData(const std::string& path)
   fd.m_iLen = 0;
   fd.m_iPos = 0;
   fd.p = 0;
-  FILE *fp = fopen_utf8(path, "rb");
+  FILE *fp = fopen_utf8(path.c_str(), "rb");
   if (fp)
   {
     fseek(fp, 0, SEEK_END);
@@ -453,7 +470,7 @@ std::string CleanPath(const std::string& path)
     if (c == '\\')
       c = '/';
     //else if (c == '¥')
-    //	c = '/';
+    //  c = '/';
     r.push_back(c);
   }
   return r;
@@ -500,8 +517,8 @@ std::string GetPathJoin(const std::string& s1, const std::string s2)
 
 bool CheckExtension(const std::string& path, const std::string &filter)
 {
-  const std::string&& ext = GetExtension(path);
-  const std::string&& ext_lower = lower(ext);
+  const std::string&& ext = std::move(GetExtension(path));
+  const std::string&& ext_lower = std::move(lower(ext));
   std::vector<std::string> filter_exts;
   split(filter, ';', filter_exts);
   auto it = std::find(filter_exts.begin(), filter_exts.end(), ext_lower);
@@ -530,7 +547,7 @@ bool IsDirectory(const std::string& fpath)
   return (_wstat(wfpath.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode));
 #else
   struct stat sb;
-  return (stat(path.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode));
+  return (stat(fpath.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode));
 #endif
 }
 bool CreateDirectory(const std::string& path)
@@ -640,7 +657,7 @@ bool DeleteDirectory(const std::string& path)
 
   while ((entry = readdir(dir)) != NULL) {
     if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..")) {
-      snprintf(newpath, (size_t)PATH_MAX, "%s/%s", dirname, entry->d_name);
+      snprintf(newpath, (size_t)PATH_MAX, "%s/%s", path.c_str(), entry->d_name);
       if (entry->d_type == DT_DIR) {
         if (!DeleteDirectory(newpath)) return false;
       }
@@ -662,8 +679,8 @@ bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecu
   HANDLE hFind = INVALID_HANDLE_VALUE;
   WIN32_FIND_DATAW ffd;
   std::wstring spec, wpath, mask=L"*";
-  std::stack<std::wstring> directories;	// currently going-to-search directories
-  std::stack<std::wstring> dir_name;		// name for current directories
+  std::stack<std::wstring> directories; // currently going-to-search directories
+  std::stack<std::wstring> dir_name;    // name for current directories
   std::wstring curr_dir_name;
 
   DecodeToWStr(path, wpath, E_UTF8);
@@ -719,8 +736,8 @@ bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecu
 {
   DIR *dp;
   struct dirent *dirp;
-  std::vector<std::string> directories;
-  std::vector<std::string> dir_name;
+  std::stack<std::string> directories;
+  std::stack<std::string> dir_name;
 
   directories.push(path);
   dir_name.push("");
@@ -747,7 +764,7 @@ bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecu
       }
       else if (dirp->d_type == DT_REG)
       {
-        vFiles.push_back(std::pair<std::string, int>(curr_dir_name + string(dirp->d_name), 1));
+        vFiles.push_back(std::pair<std::string, int>(curr_dir_name + std::string(dirp->d_name), 1));
       }
     }
     closedir(dp);
@@ -854,6 +871,8 @@ bool IDirectory::ReadSmart(FileData &fd) const
     return Read(fd)>0;
   
   // second split ext, and find similar files(ext)
+  // TODO too bad code, need to remake.
+#if 0
   std::string sExt, sFileNameNoExt;
   sExt = lower(GetExtension(fd.fn, &sFileNameNoExt));
   if (sExt == ".wav" ||
@@ -898,6 +917,7 @@ bool IDirectory::ReadSmart(FileData &fd) const
     else return false;
     return Read(fd)>0;
   }
+#endif
 
   return false;
 }
@@ -940,11 +960,11 @@ int BasicDirectory::Open(const std::string &path)
   GetDirectoryFiles(path, vFiles, m_iRecursiveDepth);
   for (auto& entry: vFiles)
   {
-    if (entry.second == 1)	// file
+    if (entry.second == 1)  // file
     {
       m_vFilename.push_back(entry.first);
     }
-    else	// folder
+    else  // folder
     {
       m_vFolder.push_back(entry.first);
     }
@@ -1174,5 +1194,72 @@ bool md5_str(const void* p, int iLen, char *out)
   }
   else return false;
 }
+
+#ifdef WIN32
+char *itoa(int value, char *str, int base)
+{
+  return _itoa(value, str, base);
+}
+
+char *gcvt(double value, int digits, char *string)
+{
+  return _gcvt(value, digits, string);
+}
+#else
+char *itoa(int value, char *str, int base)
+{
+  int sum = value;
+  int i = 0;
+  int ilen = 0;
+  int digit;
+  char s;
+  do
+  {
+    digit = sum % base;
+    if (digit < 0xA)
+      str[i++] = '0' + digit;
+    else
+      str[i++] = 'A' + digit - 0xA;
+    sum /= base;
+  } while (sum/* && (i < (len - 1))*/);
+  //if (i == (len - 1) && sum)
+  //  return -1;
+  str[i] = '\0';
+  ilen = i;
+  for (i=0; i<ilen/2; i++)
+  {
+    s = str[i];
+    str[ilen-1-i] = str[i];
+    str[ilen-1-i] = s;
+  }
+  return 0;
+}
+
+char *gcvt(double value, int ndigits, char *buf)
+{
+  char *p = buf;
+
+  sprintf (buf, "%-#.*g", ndigits, value);
+
+  /* It seems they expect us to return .XXXX instead of 0.XXXX  */
+  if (*p == '-')
+    p++;
+  if (*p == '0' && p[1] == '.')
+    memmove (p, p + 1, strlen (p + 1) + 1);
+
+  /* They want Xe-YY, not X.e-YY, and XXXX instead of XXXX.  */
+  p = strchr (buf, 'e');
+  if (!p)
+  {
+    p = buf + strlen (buf);
+    /* They don't want trailing zeroes.  */
+    while (p[-1] == '0' && p > buf + 2)
+      *--p = '\0';
+  }
+  if (p > buf && p[-1] == '.')
+    memmove (p - 1, p, strlen (p) + 1);
+  return buf;
+}
+#endif
 
 }

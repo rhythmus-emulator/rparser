@@ -19,8 +19,8 @@ include_directories(
 	${RPARSER_INCLUDE_DIR}
 	${GTEST_HEADERS}
 	${RUTIL_INCLUDE_DIR}
-	${zip_INCLUDE_DIR}
-	${openssl_INCLUDE_DIR}
+  ${ZIP_INCLUDE_DIR}
+  ${OpenSSL_INCLUDE_DIR}
 	)
 
 # executable file
@@ -28,11 +28,11 @@ add_executable(rparser_test ${RPARSER_TEST_SOURCES} ${RPARSER_TEST_HEADERS})
 
 # refer
 target_link_libraries(rparser_test rparser)
-if (zlib_FOUND AND zip_FOUND)
-target_link_libraries(rparser_test ${zip_LIBRARY})
-target_link_libraries(rparser_test ${zlib_LIBRARY})
+if (ZLIB_FOUND AND ZIP_FOUND)
+  target_link_libraries(rparser_test ${ZIP_LIBRARY})
+  target_link_libraries(rparser_test ${ZLIB_LIBRARY})
 endif ()
-if (openssl_FOUND)
-target_link_libraries(rparser_test ${openssl_LIBRARY})
+if (OpenSSL_FOUND)
+  target_link_libraries(rparser_test ${OpenSSL_LIBRARY})
 endif()
 target_link_libraries(rparser_test gtest)
