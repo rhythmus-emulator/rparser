@@ -785,6 +785,7 @@ FileData::FileData(const std::string& fn)
 {
   FileData();
   this->fn = fn;
+  p = 0;
 }
 
 // only for seeking purpose
@@ -793,12 +794,6 @@ FileData::FileData(uint8_t *p, uint32_t iLen)
   this->p = p;
   m_iLen = iLen;
   m_iPos = 0;
-}
-
-FileData::~FileData()
-{
-  if (p) free(p);
-  p = 0;
 }
 
 std::string FileData::GetFilename() { return fn; }
@@ -864,11 +859,11 @@ bool FileData::IsEOF() { return m_iPos == m_iLen; };
 
 // ------ class IDirectory ------
 
-bool IDirectory::ReadSmart(FileData &fd) const
+bool IDirectory::GetSmart(FileData &fd) const
 {
   // first do search with specified name
-  if (IN_ARRAY(m_vFilename, fd.fn))
-    return Read(fd)>0;
+  const FileData* pt_fd = Get(fd.fn);
+  if (!pt_fd) return false;
   
   // second split ext, and find similar files(ext)
   // TODO too bad code, need to remake.
@@ -922,13 +917,6 @@ bool IDirectory::ReadSmart(FileData &fd) const
   return false;
 }
 
-int IDirectory::Read(const std::string fpath, FileData &fd) const
-{
-  fd.p = 0;
-  fd.fn = fpath;
-  return Read(fd);
-}
-
 std::vector<std::string> IDirectory::GetFileEntries(const char* ext_filter)
 {
   if (!ext_filter) return m_vFilename;
@@ -952,6 +940,54 @@ std::vector<std::string> IDirectory::GetFolderEntries()
 
 // ------ class BasicDirectory ------
 
+IDirectory::IDirectory() : error(0) {}
+
+IDirectory::~IDirectory() { Close(); }
+
+int IDirectory::ReadAll()
+{
+  for (auto& fd: filelist_)
+  {
+    if (Read(fd) != 0)
+      return 1;
+  }
+  return 0;
+}
+
+FileData* IDirectory::Get(const std::string& filename)
+{
+  for (auto& fd: filelist_)
+  {
+    if (fd.GetFilename() == filename) return &fd;
+  }
+  return 0;
+}
+
+const FileData* IDirectory::Get(const std::string& filename) const
+{
+  return const_cast<FileData*>(Get(filename));
+}
+
+int IDirectory::Close()
+{
+  for (auto& fd: filelist_)
+  {
+    if (fd.p) free(fd.p);
+  }
+  filelist_.clear();
+  return Cleanup();
+}
+
+size_t IDirectory::size()
+{
+  return filelist_.size();
+}
+
+int IDirectory::Cleanup()
+{
+  return 1;
+}
+
 int BasicDirectory::Open(const std::string &path)
 {
   if (!IsDirectory(path)) return -1;
@@ -963,6 +999,7 @@ int BasicDirectory::Open(const std::string &path)
     if (entry.second == 1)  // file
     {
       m_vFilename.push_back(entry.first);
+      filelist_.push_back(FileData(entry.first));
     }
     else  // folder
     {
@@ -982,7 +1019,7 @@ int BasicDirectory::Write(const FileData &fd)
   return r;
 }
 
-int BasicDirectory::Read(FileData &fd) const
+int BasicDirectory::Read(FileData &fd)
 {
   std::string sFullpath = GetPathJoin(m_sPath, fd.fn);
   FILE *fp = fopen_utf8(sFullpath.c_str(), "rb");
@@ -997,27 +1034,6 @@ int BasicDirectory::Read(FileData &fd) const
   return fd.m_iLen;
 }
 
-int BasicDirectory::ReadFiles(std::vector<FileData>& fd) const
-{
-  FileData fdat;
-  int r = m_vFilename.size();
-  for (auto &fn : m_vFilename)
-  {
-    fdat.fn = fn;
-    fdat.p = 0;
-    if (!Read(fdat))
-    {
-      r = 0;
-      break;
-    }
-    fd.push_back(std::move(fdat));
-  }
-  // Don't allow FileData left ptr,
-  // as Destroyer will clear it when block is over.
-  fdat.p = 0;
-  return r;
-}
-
 int BasicDirectory::Flush()
 {
   // do nothing
@@ -1029,7 +1045,7 @@ int BasicDirectory::Create(const std::string& path)
   return CreateDirectory_RPARSER(path);
 }
 
-int BasicDirectory::Close()
+int BasicDirectory::Cleanup()
 {
   // do nothing
   return 0;
@@ -1077,7 +1093,7 @@ int ArchiveDirectory::Open(const std::string& path)
   return 0;
 }
 
-int ArchiveDirectory::Read(FileData &fd) const
+int ArchiveDirectory::Read(FileData &fd)
 {
   ASSERT(fd.p == 0 && m_Archive);
   zip_file_t *zfp = zip_fopen(m_Archive, fd.fn.c_str(), ZIP_FL_UNCHANGED);
@@ -1095,35 +1111,28 @@ int ArchiveDirectory::Read(FileData &fd) const
   return fd.m_iLen;
 }
 
-int ArchiveDirectory::ReadFiles(std::vector<FileData>& fd) const
-{
-  // not implemented
-  ASSERT(0);
-  return 0;
-}
-
 int ArchiveDirectory::Write(const FileData &fd)
 {
-    ASSERT(m_Archive);
-    zip_source_t *s;
-    s = zip_source_buffer(m_Archive, fd.p, fd.m_iLen, 0);
-    if (!s)
-    {
-        printf("Zip source buffer creation failed!\n");
-        return -1;
-    }
-    error = zip_file_add(m_Archive, fd.fn.c_str(), s, ZIP_FL_ENC_UTF_8 | ZIP_FL_OVERWRITE);
-    zip_source_free(s);
-    if (error)
-    {
-        printf("Zip file appending failed! (code %d)\n", error);
-    }
-    return fd.m_iLen;
+  ASSERT(m_Archive);
+  zip_source_t *s;
+  s = zip_source_buffer(m_Archive, fd.p, fd.m_iLen, 0);
+  if (!s)
+  {
+    printf("Zip source buffer creation failed!\n");
+    return -1;
+  }
+  error = zip_file_add(m_Archive, fd.fn.c_str(), s, ZIP_FL_ENC_UTF_8 | ZIP_FL_OVERWRITE);
+  zip_source_free(s);
+  if (error)
+  {
+    printf("Zip file appending failed! (code %d)\n", error);
+  }
+  return fd.m_iLen;
 }
 
 int ArchiveDirectory::Flush()
 {
-    // COMMENT is there more effcient way?
+  // COMMENT is there more effcient way?
   zip_close(m_Archive);
   m_Archive = 0;
   return Open(m_sPath);
@@ -1132,26 +1141,26 @@ int ArchiveDirectory::Flush()
 
 int ArchiveDirectory::Create(const std::string& path)
 {
-    Close();
-    m_Archive = zip_open(path.c_str(), ZIP_CREATE | ZIP_EXCL, &error);
-    if (error)
-    {
-        zip_error_t zerror;
-        zip_error_init_with_code(&zerror, error);
-        printf("Zip Creating Error occured - code %d\nstr (%s)\n", error, zip_error_strerror(&zerror));
-        zip_error_fini(&zerror);
-        return error;
-    }
-    return 0;
+  Close();
+  m_Archive = zip_open(path.c_str(), ZIP_CREATE | ZIP_EXCL, &error);
+  if (error)
+  {
+    zip_error_t zerror;
+    zip_error_init_with_code(&zerror, error);
+    printf("Zip Creating Error occured - code %d\nstr (%s)\n", error, zip_error_strerror(&zerror));
+    zip_error_fini(&zerror);
+    return error;
+  }
+  return 0;
 }
 
-int ArchiveDirectory::Close()
+int ArchiveDirectory::Cleanup()
 {
-    if (m_Archive)
-    {
-        return zip_close(m_Archive);
-    }
-    return 0;
+  if (m_Archive)
+  {
+    return zip_close(m_Archive);
+  }
+  return 0;
 }
 
 int ArchiveDirectory::Test(const std::string& path)

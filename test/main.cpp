@@ -62,9 +62,9 @@ TEST(RUTIL, IO)
   EXPECT_TRUE (IsDirectory(BASE_DIR + "rutil/test/test3"));
   // Directory list test
   BasicDirectory dir;
-  std::vector<FileData> fdlist;
   EXPECT_TRUE(dir.Open(BASE_DIR + "rutil/test/test3") == 0);
-  EXPECT_TRUE(dir.ReadFiles(fdlist) == 1);
+  dir.ReadAll();
+  EXPECT_EQ(1, dir.size());
   // delete test
   EXPECT_TRUE(DeleteDirectory(BASE_DIR + "rutil/test"));
 }

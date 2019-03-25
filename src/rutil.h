@@ -110,7 +110,6 @@ public:
 public:
   FileData();
   FileData(uint8_t *p, uint32_t iLen);
-  ~FileData();
   FileData(const std::string& fn);
 
   std::string GetFilename();
@@ -135,38 +134,44 @@ protected:
   std::string m_sPath;
   std::vector<std::string> m_vFilename;
   std::vector<std::string> m_vFolder;     // folder of direct ancestor
+  std::vector<FileData> filelist_;
 public:
-  IDirectory() : error(0) {};
+  IDirectory();
+  virtual ~IDirectory();
   virtual int Open(const std::string &path) = 0;
   virtual int Write(const FileData &fd) = 0;
-  virtual int Read(FileData &fd) const = 0;
-  virtual int Read(const std::string fpath, FileData &fd) const;
   virtual int Flush() = 0;
-  virtual int ReadFiles(std::vector<FileData>& fd) const = 0;
-  virtual int Close() = 0;
+  virtual int Read(FileData &fd) = 0;
+  virtual int ReadAll();
+  virtual FileData* Get(const std::string& filename);
+  virtual const FileData* Get(const std::string& filename) const;
   virtual int Create(const std::string &path) = 0;
+  virtual int Close();
+  virtual size_t size();
 
   // @description read file with smart-file-finding routine
-  bool ReadSmart(FileData &fd) const;
+  bool GetSmart(FileData &fd) const;
 
   std::vector<std::string> GetFileEntries(const char* ext_filter = 0);   // sep with semicolon
   std::vector<std::string> GetFolderEntries();
+private:
+  virtual int Cleanup();
 };
 
 class BasicDirectory : public IDirectory {
   int m_iRecursiveDepth;          // directory recursive depth (in BasicFolder)
 public:
-  int Open(const std::string &path);
-  int Write(const FileData &fd);
-  int Read(FileData &fd) const;
-  int ReadFiles(std::vector<FileData>& fd) const;
-  int Flush();
-  int Create(const std::string& path);
-  int Close();
+  virtual int Open(const std::string &path);
+  virtual int Write(const FileData &fd);
+  virtual int Read(FileData &fd);
+  virtual int Flush();
+  virtual int Create(const std::string& path);
   void SetRecursiveDepth(int iRecursiveDepth);
   static int Test(const std::string &path);
 
   BasicDirectory() : m_iRecursiveDepth(100) {}
+private:
+  virtual int Cleanup();
 };
 
 #ifdef USE_ZLIB
@@ -175,17 +180,17 @@ private:
   int m_iCodepage;    // encoding of original archive file
   zip_t *m_Archive;
 public:
-  int Open(const std::string &path);
-  int Write(const FileData &fd);
-  int Read(FileData &fd) const;
-  int ReadFiles(std::vector<FileData>& fd) const;
-  int Flush();
-  int Create(const std::string& path);
-  int Close();
+  virtual int Open(const std::string &path);
+  virtual int Write(const FileData &fd);
+  virtual int Read(FileData &fd);
+  virtual int Flush();
+  virtual int Create(const std::string& path);
   static int Test(const std::string &path);
   ArchiveDirectory() : m_Archive(0), m_iCodepage(0) {}
   ~ArchiveDirectory() { Close(); }
   void SetCodepage(int iCodepage);
+private:
+  virtual int Cleanup();
 };
 #endif
 
