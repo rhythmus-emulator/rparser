@@ -116,6 +116,7 @@ public:
   uint32_t GetFileSize();
   uint32_t GetPos();
   void SetPos(uint32_t iPos);
+  const uint8_t* GetPtr() const;
   uint8_t* GetPtr();
 
   // reading
@@ -132,7 +133,6 @@ class IDirectory {
 protected:
   int error;
   std::string m_sPath;
-  std::vector<std::string> m_vFilename;
   std::vector<std::string> m_vFolder;     // folder of direct ancestor
   std::vector<FileData> filelist_;
 public:
@@ -148,6 +148,7 @@ public:
   virtual int Create(const std::string &path) = 0;
   virtual int Close();
   virtual size_t size();
+  void CreateEmptyFile(const std::string& filename) throw();
 
   // @description read file with smart-file-finding routine
   bool GetSmart(FileData &fd) const;

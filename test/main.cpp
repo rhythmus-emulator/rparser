@@ -42,18 +42,15 @@ TEST(RUTIL, IO)
   // TODO: seek, read ptr returning.
   // TODO: test with jap file separator.
   fp = fopen_utf8(BASE_DIR + u8"rutil\\가나다라唖あえいお.txt", "r");
-  EXPECT_TRUE(fp);
-  if (fp) fclose(fp);
+  ASSERT_TRUE(fp);
+  fclose(fp);
   // create, rename, exists test
   EXPECT_TRUE(CreateDirectory(BASE_DIR + "rutil/test"));
   EXPECT_TRUE(CreateDirectory(BASE_DIR + "rutil/test/test2"));
   fp = fopen_utf8(BASE_DIR + "rutil/test/test2/a.txt", "w");
-  EXPECT_TRUE(fp);
-  if (fp)
-  {
-    fwrite("asdf", 1, 4, fp);
-    fclose(fp);
-  }
+  ASSERT_TRUE(fp);
+  fwrite("asdf", 1, 4, fp);
+  fclose(fp);
   EXPECT_TRUE (IsDirectory(BASE_DIR + "rutil/test/test2"));
   EXPECT_FALSE(IsDirectory(BASE_DIR + "rutil/test/test2/a.txt"));
   EXPECT_FALSE(IsFile(BASE_DIR + "rutil/test/test2"));
@@ -73,21 +70,13 @@ TEST(RUTIL, ARCHIVE)
 {
   using namespace rutil;
 #ifdef USE_ZLIB
-#if 0
   ArchiveDirectory dir;
-  std::vector<FileData> fdlist;
-  EXPECT_TRUE(dir.Open("bms_sample_anglico.zip"));
-  EXPECT_TRUE(dir.ReadFiles(fdlist) == 7);
-  // TODO: fix it to DirectoryReader and Directory struct.
-  for (FileData& fd : fdlist)
-  {
-    if (fd.GetFilename() == "back_980.bmp")
-    {
-      EXPECT_TRUE(memcmp(fd.GetPtr(), "BM") == 0);
-      break;
-    }
-  }
-#endif
+  ASSERT_TRUE(dir.Open(BASE_DIR + "bms_sample_angelico.zip") == 0);
+  dir.ReadAll();
+  EXPECT_EQ(7, dir.size());
+  const FileData* fd = dir.Get("back_980.bmp");
+  ASSERT_TRUE(fd);
+  EXPECT_TRUE(memcmp(fd->GetPtr(), "BM", 2) == 0);
 #endif
 }
 

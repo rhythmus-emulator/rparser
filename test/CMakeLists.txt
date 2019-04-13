@@ -1,5 +1,8 @@
 project(rparser_test)
 
+# COMMENT:
+# Should set "debug --> working directory" if you want to debug program using visual studio.
+
 set (RPARSER_TEST_SOURCES
     "main.cpp")
 

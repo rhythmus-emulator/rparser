@@ -800,6 +800,7 @@ std::string FileData::GetFilename() { return fn; }
 uint32_t FileData::GetFileSize() { return m_iLen; }
 uint32_t FileData::GetPos() { return m_iPos; }
 void FileData::SetPos(uint32_t iPos) { m_iPos = iPos; }
+const uint8_t* FileData::GetPtr() const { return p; }
 uint8_t* FileData::GetPtr() { return p; }
 
 int FileData::SeekSet(uint32_t p)
@@ -917,18 +918,28 @@ bool IDirectory::GetSmart(FileData &fd) const
   return false;
 }
 
+void IDirectory::CreateEmptyFile(const std::string& filename) throw()
+{
+  filelist_.emplace_back(FileData(filename));
+}
+
 std::vector<std::string> IDirectory::GetFileEntries(const char* ext_filter)
 {
-  if (!ext_filter) return m_vFilename;
-
   std::vector<std::string> exts;
   std::vector<std::string> vsOut;
   split(ext_filter,';',exts);
-  for (auto &fn: m_vFilename)
+  for (auto &fd: filelist_)
   {
-    std::string sExt = GetExtension(fn);
-    if (IN_ARRAY(exts, sExt))
-      vsOut.push_back(fn);
+    if (ext_filter)
+    {
+      std::string sExt = GetExtension(fd.GetFilename());
+      if (IN_ARRAY(exts, sExt))
+        vsOut.push_back(fd.GetFilename());
+    }
+    else
+    {
+      vsOut.push_back(fd.GetFilename());
+    }
   }
   return vsOut;
 }
@@ -948,7 +959,7 @@ int IDirectory::ReadAll()
 {
   for (auto& fd: filelist_)
   {
-    if (Read(fd) != 0)
+    if (Read(fd) == 0)
       return 1;
   }
   return 0;
@@ -998,7 +1009,6 @@ int BasicDirectory::Open(const std::string &path)
   {
     if (entry.second == 1)  // file
     {
-      m_vFilename.push_back(entry.first);
       filelist_.push_back(FileData(entry.first));
     }
     else  // folder
@@ -1088,7 +1098,7 @@ int ArchiveDirectory::Open(const std::string& path)
     {
       fn = ConvertEncodingToUTF8(fn, m_iCodepage);
     }
-    m_vFilename.push_back(fn);
+    CreateEmptyFile(fn);
   }
   return 0;
 }
