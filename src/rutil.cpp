@@ -174,12 +174,12 @@ std::string ConvertEncoding(const std::string &s, int to_codepage, int from_code
 
   const char* cp_from_str = GetCodepageString(from_codepage);
   const char* cp_to_str = GetCodepageString(to_codepage);
-  if (!cp_from_str || !cp_to_str) return 0;
+  if (!cp_from_str || !cp_to_str) return std::string();
 
   iconv_t converter = iconv_open( cp_to_str, cp_from_str );
   if( converter == (iconv_t) -1 )
   {
-    return 0;
+    return std::string();
   }
 
   /* Copy the string into a char* for iconv */
@@ -278,7 +278,7 @@ std::string ConvertEncoding(const std::string &s, int to_codepage, int from_code
   std::wstring sWstr;
   int iSize = 0;
   if (DecodeToWStr(s, sWstr, from_codepage) == 0)
-    return 0;
+    return std::string();
 
   // from UTF16
   std::string r;
