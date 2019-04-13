@@ -17,12 +17,12 @@ add_subdirectory("${CMAKE_SOURCE_DIR}/../googletest"
                  EXCLUDE_FROM_ALL)
 
 include_directories(
-	${LIB_INCLUDE_DIR}
-	${RPARSER_INCLUDE_DIR}
-	${GTEST_HEADERS}
-	${RUTIL_INCLUDE_DIR}
-  ${ZIP_INCLUDE_DIR}
-  ${OpenSSL_INCLUDE_DIR}
+    ${LIB_INCLUDE_DIR}
+    ${RPARSER_INCLUDE_DIR}
+    ${GTEST_HEADERS}
+    ${RUTIL_INCLUDE_DIR}
+    ${ZIP_INCLUDE_DIR}
+    ${OpenSSL_INCLUDE_DIR}
 	)
 
 # executable file

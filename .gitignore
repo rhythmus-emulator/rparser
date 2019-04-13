@@ -2,7 +2,10 @@
 .vs
 *.swp
 build
-bin
+bin/
+lib/
+bin_*/
+lib_*/
 CMakeFiles
 test/lib/
 test/rutil/test
