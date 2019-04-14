@@ -7,7 +7,7 @@
 
 #include "Song.h"
 #include "Chart.h"
-#include "Resource.h"
+#include "Directory.h"
 
 namespace rparser {
 
@@ -28,7 +28,7 @@ public:
   virtual bool Test( const void* p, int iLen ) = 0;
   virtual bool TestName( const char *fn ) = 0;
   virtual bool Load( const void* p, int iLen ) = 0;
-  virtual bool LoadCommonData( ChartListBase& chartlist, const Resource& r ) = 0;
+  virtual bool LoadCommonData( ChartListBase& chartlist, const Directory& dir ) = 0;
 protected:
   ChartListBase *chartlist_;
   Chart *chart_;

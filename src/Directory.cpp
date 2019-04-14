@@ -1,38 +1,48 @@
-#include "Resource.h"
+#include "Directory.h"
 #include "common.h"
 
 namespace rparser
 {
 
-inline void _allocate_binarydata(Resource::BinaryData &d, unsigned int len)
+inline void _allocate_binarydata(Directory::BinaryData &d, unsigned int len)
 {
 	d.len = len;
 	d.p = (char*)malloc(len);
 }
 
-Resource::Resource() : Resource(RESOURCE_TYPE::NONE)
+Directory::Directory() : Directory(DIRECTORY_TYPE::NONE)
 {
 }
 
-Resource::Resource(RESOURCE_TYPE restype) :
+Directory::Directory(DIRECTORY_TYPE restype) :
   error_code_(ERROR::NONE),
   is_dirty_(false),
-  resource_type_(restype),
+  directory_type_(restype),
+  directory_(0),
   filter_ext_(0)
 {
+  switch (restype)
+  {
+  case DIRECTORY_TYPE::FOLDER:
+    directory_ = new rutil::BasicDirectory();
+    break;
+  case DIRECTORY_TYPE::ARCHIVE:
+    directory_ = new rutil::ArchiveDirectory();
+    break;
+  }
 }
 
-Resource::~Resource()
+Directory::~Directory()
 {
 	Unload(false);
 }
 
-void Resource::SetResourceType(RESOURCE_TYPE restype)
+void Directory::SetDirectoryType(DIRECTORY_TYPE restype)
 {
-  resource_type_ = restype;
+  directory_type_ = restype;
 }
 
-bool Resource::Open(const char * filepath)
+bool Directory::Open(const char * filepath)
 {
   // clear before open
   Unload(false);
@@ -41,12 +51,12 @@ bool Resource::Open(const char * filepath)
   return doOpen();
 };
 
-bool Resource::Flush()
+bool Directory::Flush()
 {
   return doFlush();
 }
 
-bool Resource::Unload(bool flush)
+bool Directory::Unload(bool flush)
 {
   // if necessary, flush data
   if (flush && !doFlush())
@@ -66,23 +76,23 @@ bool Resource::Unload(bool flush)
   return doUnload();
 }
 
-bool Resource::doOpen()
+bool Directory::doOpen()
 {
   SetError(ERROR::UNKNOWN);
   return false;
 };
 
-bool Resource::doFlush()
+bool Directory::doFlush()
 {
   return false;
 }
 
-bool Resource::doUnload()
+bool Directory::doUnload()
 {
   return true;
 }
 
-void Resource::ClearStatus()
+void Directory::ClearStatus()
 {
   is_dirty_ = false;
   path_.clear();
@@ -91,55 +101,55 @@ void Resource::ClearStatus()
   filter_ext_ = 0;
 }
 
-void Resource::SetPath(const char * filepath)
+void Directory::SetPath(const char * filepath)
 {
   path_ = rutil::CleanPath(filepath);
   dirpath_ = rutil::GetDirectory(path_);
   file_ext_ = rutil::lower(rutil::GetExtension(path_));
 }
 
-const std::string Resource::GetPath() const
+const std::string Directory::GetPath() const
 {
   return path_;
 }
 
-const std::string Resource::GetDirectoryPath() const
+const std::string Directory::GetDirectoryPath() const
 {
   return dirpath_;
 }
 
-std::string Resource::GetRelativePath(const std::string &orgpath) const
+std::string Directory::GetRelativePath(const std::string &orgpath) const
 {
   return orgpath.substr(dirpath_.size() + 1);
 }
 
-std::string Resource::GetAbsolutePath(const std::string &relpath) const
+std::string Directory::GetAbsolutePath(const std::string &relpath) const
 {
   return dirpath_ + "\\" + relpath;
 }
 
-void Resource::SetExtension(const char * extension)
+void Directory::SetExtension(const char * extension)
 {
   path_ = rutil::ChangeExtension(path_, extension);
   file_ext_ = extension;
 }
 
-RESOURCE_TYPE Resource::GetResourceType() const
+DIRECTORY_TYPE Directory::GetDirectoryType() const
 {
-  return resource_type_;
+  return directory_type_;
 }
 
-const char * Resource::GetErrorMsg() const
+const char * Directory::GetErrorMsg() const
 {
   return get_error_msg(error_code_);
 }
 
-bool Resource::IsLoaded()
+bool Directory::IsLoaded()
 {
-  return (resource_type_ != RESOURCE_TYPE::NONE);
+  return (directory_type_ != DIRECTORY_TYPE::NONE);
 }
 
-bool Resource::AddBinary(const std::string& key, BinaryData& d_, bool setdirty, bool copy)
+bool Directory::AddBinary(const std::string& key, BinaryData& d_, bool setdirty, bool copy)
 {
   if (copy)
   {
@@ -156,7 +166,7 @@ bool Resource::AddBinary(const std::string& key, BinaryData& d_, bool setdirty, 
   return true;
 }
 
-bool Resource::AddFile(const std::string &relpath, bool setdirty)
+bool Directory::AddFile(const std::string &relpath, bool setdirty)
 {
   const std::string path = GetAbsolutePath(relpath);
   FILE *fp = rutil::fopen_utf8(path.c_str(), "rb");
@@ -172,7 +182,7 @@ bool Resource::AddFile(const std::string &relpath, bool setdirty)
   return true;
 }
 
-bool Resource::Rename(const std::string & prev_name, const std::string & new_name)
+bool Directory::Rename(const std::string & prev_name, const std::string & new_name)
 {
   auto it = datas_.find(prev_name);
   if (it == datas_.end())
@@ -194,7 +204,7 @@ bool Resource::Rename(const std::string & prev_name, const std::string & new_nam
   return true;
 }
 
-bool Resource::Delete(const std::string & name)
+bool Directory::Delete(const std::string & name)
 {
   auto it = datas_.find(name);
   if (it == datas_.end())
@@ -214,7 +224,7 @@ bool Resource::Delete(const std::string & name)
   return true;
 }
 
-const Resource::BinaryData * Resource::GetPtr(const std::string & name) const
+const Directory::BinaryData * Directory::GetPtr(const std::string & name) const
 {
   auto ii = datas_.find(name);
   if (ii == datas_.end())
@@ -223,19 +233,19 @@ const Resource::BinaryData * Resource::GetPtr(const std::string & name) const
     return &ii->second;
 }
 
-const char * Resource::GetPtr(const std::string & name, int & len) const
+const char * Directory::GetPtr(const std::string & name, int & len) const
 {
-  const Resource::BinaryData* d = GetPtr(name);
+  const Directory::BinaryData* d = GetPtr(name);
   len = d->len;
   return d->p;
 }
 
-void Resource::SetFilter(const char** filter_ext)
+void Directory::SetFilter(const char** filter_ext)
 {
   filter_ext_ = filter_ext;
 }
 
-bool Resource::CheckFilenameByFilter(const std::string& filename)
+bool Directory::CheckFilenameByFilter(const std::string& filename)
 {
   std::string ext = filename.substr(filename.find_last_of('.') + 1);
   const char **exts = filter_ext_;
@@ -247,32 +257,32 @@ bool Resource::CheckFilenameByFilter(const std::string& filename)
   return false;
 }
 
-bool Resource::IsBinaryDirty(const std::string &key)
+bool Directory::IsBinaryDirty(const std::string &key)
 {
   return data_dirty_flag_[key];
 }
 
-Resource::data_iter Resource::data_begin()
+Directory::data_iter Directory::data_begin()
 {
   return datas_.begin();
 }
 
-Resource::data_iter Resource::data_end()
+Directory::data_iter Directory::data_end()
 {
   return datas_.end();
 }
 
-void Resource::SetError(ERROR error)
+void Directory::SetError(ERROR error)
 {
   error_code_ = error;
 }
 
-void Resource::SetDirty(bool flag)
+void Directory::SetDirty(bool flag)
 {
   is_dirty_ = flag;
 }
 
-bool Resource::Read_from_fp(FILE *fp, BinaryData &d)
+bool Directory::Read_from_fp(FILE *fp, BinaryData &d)
 {
   ASSERT(fp);
   fseek(fp, 0, SEEK_END);
@@ -284,7 +294,7 @@ bool Resource::Read_from_fp(FILE *fp, BinaryData &d)
   return true;
 }
 
-bool Resource::Write_from_fp(FILE *fp, BinaryData &d)
+bool Directory::Write_from_fp(FILE *fp, BinaryData &d)
 {
   ASSERT(fp);
   if (fwrite(d.p, d.len, 1, fp) != d.len)
@@ -292,9 +302,9 @@ bool Resource::Write_from_fp(FILE *fp, BinaryData &d)
   return true;
 }
 
-ResourceFolder::ResourceFolder() : Resource(RESOURCE_TYPE::FOLDER) {}
+DirectoryFolder::DirectoryFolder() : Directory(DIRECTORY_TYPE::FOLDER) {}
 
-bool ResourceFolder::doOpen()
+bool DirectoryFolder::doOpen()
 {
   const char* filepath = GetPath().c_str();
   const char* dirpath = GetDirectoryPath().c_str();
@@ -327,7 +337,7 @@ bool ResourceFolder::doOpen()
   return true;
 }
 
-bool ResourceFolder::WriteBinary(const char* filepath, BinaryData& d)
+bool DirectoryFolder::WriteBinary(const char* filepath, BinaryData& d)
 {
   FILE *f = rutil::fopen_utf8(filepath, "wb");
   if (!f) return false;
@@ -336,7 +346,7 @@ bool ResourceFolder::WriteBinary(const char* filepath, BinaryData& d)
   return r;
 }
 
-bool ResourceFolder::doFlush()
+bool DirectoryFolder::doFlush()
 {
   bool s = true;
   for (auto ii = data_begin(); ii != data_end(); ++ii)
@@ -357,15 +367,15 @@ bool ResourceFolder::doFlush()
 
 #ifdef USE_ZLIB
 
-ResourceArchive::ResourceArchive() { SetResourceType(RESOURCE_TYPE::ARCHIVE); }
+DirectoryArchive::DirectoryArchive() { SetDirectoryType(DIRECTORY_TYPE::ARCHIVE); }
 
-bool ResourceArchive::Load_from_zip(FILE * fp)
+bool DirectoryArchive::Load_from_zip(FILE * fp)
 {
   // TODO
 	return false;
 }
 
-bool ResourceArchive::WriteZip()
+bool DirectoryArchive::WriteZip()
 {
 	// TODO
 	return false;
@@ -373,47 +383,47 @@ bool ResourceArchive::WriteZip()
 
 #else
 
-ResourceArchive::ResourceArchive() {  }
+DirectoryArchive::DirectoryArchive() {  }
 
 #endif
 
-ResourceBinary::ResourceBinary()
-  : Resource(RESOURCE_TYPE::BINARY)
+DirectoryBinary::DirectoryBinary()
+  : Directory(DIRECTORY_TYPE::BINARY)
 {
 }
 
-bool ResourceBinary::doOpen()
+bool DirectoryBinary::doOpen()
 {
   SetPath(GetPath().c_str());
-  return Resource::AddFile(GetRelativePath(GetPath()), false);
+  return Directory::AddFile(GetRelativePath(GetPath()), false);
 }
 
-Resource::BinaryData* ResourceBinary::GetDataPtr()
+Directory::BinaryData* DirectoryBinary::GetDataPtr()
 {
   return &data_begin()->second;
 }
 
-bool ResourceBinary::AddBinary(const std::string &key, BinaryData& d, bool setdirty, bool copy)
+bool DirectoryBinary::AddBinary(const std::string &key, BinaryData& d, bool setdirty, bool copy)
 {
   // only allow single file
-  if (count() == 0) return Resource::AddBinary(key, d, setdirty, copy);
+  if (count() == 0) return Directory::AddBinary(key, d, setdirty, copy);
   return false;
 }
 
-bool ResourceBinary::AddFile(const std::string &relpath, bool setdirty)
+bool DirectoryBinary::AddFile(const std::string &relpath, bool setdirty)
 {
   // only allow single file
-  if (count() == 0) return Resource::AddFile(relpath, setdirty);
+  if (count() == 0) return Directory::AddFile(relpath, setdirty);
   else  return false;
 }
 
-Resource* ResourceFactory::Open(const char* path, const char** filter_ext)
+Directory* DirectoryFactory::Open(const char* path, const char** filter_ext)
 {
-  Resource* r;
+  Directory* r;
   std::string ext = rutil::lower(rutil::GetExtension(path));
-  if (ext == "zip") r = new ResourceArchive();
-  else if (rutil::IsDirectory(path)) r = new ResourceFolder();
-  else r = new ResourceBinary();
+  if (ext == "zip") r = new DirectoryArchive();
+  else if (rutil::IsDirectory(path)) r = new DirectoryFolder();
+  else r = new DirectoryBinary();
   r->SetFilter(filter_ext);
   return r;
 }

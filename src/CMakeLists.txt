@@ -9,7 +9,7 @@ set (RPARSER_SOURCES
     "ChartWriter.cpp"
     "ChartUtil.cpp"
     "MetaData.cpp"
-    "Resource.cpp"
+    "Directory.cpp"
     "Song.cpp"
     "TempoData.cpp"
     "rutil.cpp")
@@ -20,7 +20,7 @@ set (RPARSER_HEADERS
     "ChartWriter.h"
     "ChartUtil.h"
     "MetaData.h"
-    "Resource.h"
+    "Directory.h"
     "Song.h"
     "TempoData.h"
     "Error.h"

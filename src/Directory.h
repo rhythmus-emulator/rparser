@@ -3,8 +3,8 @@
  * 
  */
 
-#ifndef RPARSER_RESOURCE_H
-#define RPARSER_RESOURCE_H
+#ifndef RPARSER_DIRECTORY_H
+#define RPARSER_DIRECTORY_H
 
 #include "rutil.h"
 #include "Error.h"
@@ -12,7 +12,7 @@
 namespace rparser
 {
 
-enum class RESOURCE_TYPE
+enum class DIRECTORY_TYPE
 {
 	NONE,
 	FOLDER,
@@ -20,11 +20,11 @@ enum class RESOURCE_TYPE
 	BINARY,
 };
 
-class Resource
+class Directory
 {
 public:
-	Resource();
-	~Resource();
+	Directory();
+	~Directory();
 
 	struct BinaryData {
 		char *p;
@@ -43,7 +43,7 @@ public:
 	// Detailed error message is stored in error_msg_
   bool Flush();
 
-	// Unload all resource and free allocated memory.
+	// Unload all Directory and free allocated memory.
 	// You can save data with setting parameter flush=true.
   bool Unload(bool flush = true);
 
@@ -55,7 +55,7 @@ public:
   const std::string GetDirectoryPath() const;
   std::string GetRelativePath(const std::string &orgpath) const;
   std::string GetAbsolutePath(const std::string &relpath) const;
-	RESOURCE_TYPE GetResourceType() const;
+	DIRECTORY_TYPE GetDirectoryType() const;
 	const char* GetErrorMsg() const;
 	bool IsLoaded();
   virtual bool AddBinary(const std::string& relpath, BinaryData& d, bool setdirty=true, bool copy=false);
@@ -73,10 +73,11 @@ public:
   size_t count();
 
 private:
+  rutil::IDirectory* directory_;
 	std::string path_;
 	std::string dirpath_;
 	std::string file_ext_;
-	RESOURCE_TYPE resource_type_;
+  DIRECTORY_TYPE directory_type_;
   ERROR error_code_;
   bool is_dirty_;
   std::map<std::string, BinaryData> datas_;
@@ -88,8 +89,8 @@ private:
   virtual bool doUnload();
 
 protected:
-  Resource(RESOURCE_TYPE restype);
-  void SetResourceType(RESOURCE_TYPE restype);
+  Directory(DIRECTORY_TYPE restype);
+  void SetDirectoryType(DIRECTORY_TYPE restype);
   static bool Read_from_fp(FILE *fp, BinaryData& d);
   static bool Write_from_fp(FILE *fp, BinaryData& d);
   void ClearStatus();
@@ -98,10 +99,10 @@ protected:
 };
 
 
-class ResourceFolder : public Resource
+class DirectoryFolder : public Directory
 {
 public:
-  ResourceFolder();
+  DirectoryFolder();
   void SetFilter(const char* filter_ext);
   // Filter out files
   void FilterFiles(const char* filters,
@@ -113,10 +114,10 @@ private:
   static bool WriteBinary(const char* filepath, BinaryData& d);
 };
 
-class ResourceArchive : public ResourceFolder
+class DirectoryArchive : public DirectoryFolder
 {
 public:
-  ResourceArchive();
+  DirectoryArchive();
 
 #ifdef USE_ZLIB
 private:
@@ -129,10 +130,10 @@ private:
 #endif
 };
 
-class ResourceBinary : public Resource
+class DirectoryBinary : public Directory
 {
 public:
-  ResourceBinary();
+  DirectoryBinary();
 
   // Some file (ex: lr2course, vos) won't behave in form of multiple file.
   // In this case, we use data-ptr reserved for raw format
@@ -144,10 +145,10 @@ private:
   virtual bool doOpen();
 };
 
-class ResourceFactory
+class DirectoryFactory
 {
 public:
-  static Resource* Open(const char* path, const char** filter_ext = 0);
+  static Directory* Open(const char* path, const char** filter_ext = 0);
 };
 
 }

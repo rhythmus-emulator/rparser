@@ -58,7 +58,7 @@ const char** GetSongExtensions()
 }
 
 Song::Song()
-  : songtype_(SONGTYPE::NONE), error_(ERROR::NONE), resource_(0), chartlist_(0)
+  : songtype_(SONGTYPE::NONE), error_(ERROR::NONE), directory_(0), chartlist_(0)
 {
 }
 
@@ -126,8 +126,8 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 	Close();
 
 	// Read file binaries.
-  resource_ = ResourceFactory::Open(path.c_str(), fastread ? GetSongExtensions() : 0);
-	if (!resource_)
+  directory_ = DirectoryFactory::Open(path.c_str(), fastread ? GetSongExtensions() : 0);
+	if (!directory_)
 	{
 		error_ = ERROR::OPEN_NO_FILE;
 		songtype_ = SONGTYPE::NONE;
@@ -141,7 +141,7 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
   // Load binary into chartloader
 	ChartLoader *cl = CreateChartLoader(songtype);
   cl->SetChartList(chartlist_);
-  for (auto ii = resource_->data_begin(); ii != resource_->data_end(); ++ii)
+  for (auto ii = directory_->data_begin(); ii != directory_->data_end(); ++ii)
   {
     if (!cl->Load(ii->second.p, ii->second.len))
     {
@@ -152,7 +152,7 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
       continue;
     }
   }
-  cl->LoadCommonData(*chartlist_, *resource_);
+  cl->LoadCommonData(*chartlist_, *directory_);
 	delete cl;
 
 	return true;
@@ -160,7 +160,7 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 
 bool Song::Save()
 {
-  if (!resource_) return false;
+  if (!directory_) return false;
   if (!chartlist_) return false;
   if (chartlist_->IsChartOpened()) return false;
 
@@ -182,15 +182,15 @@ bool Song::Save()
       return false;
     }
     if (writer->IsWritable())
-      resource_->AddBinary(writer->GetFilename(), writer->GetData());
+      directory_->AddBinary(writer->GetFilename(), writer->GetData());
     chartlist_->CloseChartData();
   }
   writer->SerializeCommonData(*chartlist_);
   if (writer->IsWritable())
-    resource_->AddBinary(writer->GetFilename(), writer->GetData());
+    directory_->AddBinary(writer->GetFilename(), writer->GetData());
 
 	// flush (save to real file) and cleanup
-	resource_->Flush();
+  directory_->Flush();
   delete writer;
 	return true;
 }
@@ -205,9 +205,9 @@ bool Song::Close(bool save)
 
 	// release resources and memory.
   delete chartlist_;
-  delete resource_;
+  delete directory_;
   chartlist_ = 0;
-  resource_ = 0;
+  directory_ = 0;
 	error_ = ERROR::NONE;
 	songtype_ = SONGTYPE::NONE;
 
@@ -219,11 +219,11 @@ SONGTYPE Song::DetectSongtype()
   SONGTYPE songtype;
 
   // Try to detect SONGTYPE by name of resource file.
-  songtype = GetSongTypeByName(resource_->GetPath());
+  songtype = GetSongTypeByName(directory_->GetPath());
   if (songtype != SONGTYPE::NONE) return songtype;
 
   // If not detected, then try to detect SONGTYPE by file lists.
-  for (auto ii = resource_->data_begin(); ii != resource_->data_end(); ++ii)
+  for (auto ii = directory_->data_begin(); ii != directory_->data_end(); ++ii)
   {
     songtype = GetSongTypeByName(ii->first);
     if (songtype != SONGTYPE::NONE)
@@ -237,12 +237,12 @@ void Song::SetPath(const std::string & path)
 {
 	// Set new path for Resource
   // TODO:: method for ResourceFolder
-	resource_->SetPath(path.c_str());
+  directory_->SetPath(path.c_str());
 }
 
 const std::string Song::GetPath() const
 {
-	return resource_->GetPath();
+	return directory_->GetPath();
 }
 
 const char* Song::GetErrorStr() const
@@ -250,9 +250,9 @@ const char* Song::GetErrorStr() const
 	return get_error_msg(error_);
 }
 
-Resource * Song::GetResource()
+Directory * Song::GetDirectory()
 {
-	return resource_;
+	return directory_;
 }
 
 std::string Song::toString(bool detailed) const

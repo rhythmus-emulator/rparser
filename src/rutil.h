@@ -135,6 +135,7 @@ protected:
   std::string m_sPath;
   std::vector<std::string> m_vFolder;     // folder of direct ancestor
   std::vector<FileData> filelist_;
+  void CreateEmptyFile(const std::string& filename) throw();
 public:
   IDirectory();
   virtual ~IDirectory();
@@ -148,7 +149,6 @@ public:
   virtual int Create(const std::string &path) = 0;
   virtual int Close();
   virtual size_t size();
-  void CreateEmptyFile(const std::string& filename) throw();
 
   // @description read file with smart-file-finding routine
   bool GetSmart(FileData &fd) const;

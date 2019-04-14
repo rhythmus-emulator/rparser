@@ -12,7 +12,7 @@
 #ifndef RPARSER_SONG_H
 #define RPARSER_SONG_H
 
-#include "Resource.h"
+#include "Directory.h"
 #include "Chart.h"
 #include "Error.h"
 
@@ -74,14 +74,14 @@ public:
   void SetPath(const std::string& path);
   const std::string GetPath() const;
   const char* GetErrorStr() const;
-  Resource* GetResource();
+  Directory* GetDirectory();
 
   virtual std::string toString(bool detailed=false) const;
 
 private:
   SONGTYPE DetectSongtype();
 
-  Resource* resource_;
+  Directory* directory_;
   SONGTYPE songtype_;
   ERROR error_;
   ChartListBase* chartlist_;
