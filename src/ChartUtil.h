@@ -2,7 +2,6 @@
 #define RPARSER_CHARTUTIL_H
 
 #include "Chart.h"
-#include "Resource.h"
 
 namespace rparser
 {

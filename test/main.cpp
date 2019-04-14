@@ -80,6 +80,28 @@ TEST(RUTIL, ARCHIVE)
 #endif
 }
 
+TEST(RPARSER, DIRECTORY)
+{
+  using namespace rparser;
+  Directory* d;
+
+  d = DirectoryFactory::Open(BASE_DIR + "chart_sample");
+  ASSERT_TRUE(d);
+  EXPECT_TRUE(DIRECTORY_TYPE::FOLDER, d->GetDirectoryType());
+  d.Close();
+  d.Clear();
+  delete d;
+  d = nullptr;
+
+  d = DirectoryFactory::Open(BASE_DIR + "bms_sample_angelico.zip");
+  ASSERT_TRUE(d);
+  EXPECT_TRUE(DIRECTORY_TYPE::FOLDER, d->GetDirectoryType());
+  d.Close();
+  d.Clear();
+  delete d;
+  d = nullptr;
+}
+
 TEST(RPARSER, TEMPODATA)
 {
   // TODO
@@ -91,11 +113,6 @@ TEST(RPARSER, NOTEDATA)
 }
 
 TEST(RPARSER, CHARTLIST)
-{
-  // TODO
-}
-
-TEST(RPARSER, RESOURCE)
 {
   // TODO
 }

@@ -104,17 +104,17 @@ class FileData {
 public:
   std::string fn;
   uint8_t *p;
-  uint32_t m_iLen;
-  uint32_t m_iPos;
+  uint32_t len;
+  uint32_t pos;
 
 public:
   FileData();
   FileData(uint8_t *p, uint32_t iLen);
   FileData(const std::string& fn);
 
-  std::string GetFilename();
-  uint32_t GetFileSize();
-  uint32_t GetPos();
+  std::string GetFilename() const;
+  uint32_t GetFileSize() const;
+  uint32_t GetPos() const;
   void SetPos(uint32_t iPos);
   const uint8_t* GetPtr() const;
   uint8_t* GetPtr();
@@ -127,6 +127,7 @@ public:
   uint32_t ReadLE32();
   uint32_t Read(uint8_t *out, uint32_t len);
   bool IsEOF();
+  bool IsEmpty();
 };
 
 class IDirectory {
@@ -205,6 +206,7 @@ bool DeleteFile(const std::string& fpath);
 bool Rename(const std::string& prev_path, const std::string& new_path);
 std::string ReadFileText(const std::string& path);
 FileData ReadFileData(const std::string& path);
+bool WriteFileData(const FileData& fd);
 
 bool IsDirectory(const std::string& path);
 bool CreateDirectory(const std::string& path);

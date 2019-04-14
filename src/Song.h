@@ -69,9 +69,9 @@ public:
 
   bool Open(const std::string &path, bool onlyreadchart = false, SONGTYPE songtype = SONGTYPE::NONE);
   bool Save();
+  bool SaveAs(const std::string& newpath);
   bool Close(bool save = false);
 
-  void SetPath(const std::string& path);
   const std::string GetPath() const;
   const char* GetErrorStr() const;
   Directory* GetDirectory();

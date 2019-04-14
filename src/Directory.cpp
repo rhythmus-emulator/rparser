@@ -4,12 +4,6 @@
 namespace rparser
 {
 
-inline void _allocate_binarydata(Directory::BinaryData &d, unsigned int len)
-{
-	d.len = len;
-	d.p = (char*)malloc(len);
-}
-
 Directory::Directory() : Directory(DIRECTORY_TYPE::NONE)
 {
 }
@@ -34,7 +28,7 @@ Directory::Directory(DIRECTORY_TYPE restype) :
 
 Directory::~Directory()
 {
-	Unload(false);
+	Clear(false);
 }
 
 void Directory::SetDirectoryType(DIRECTORY_TYPE restype)
@@ -45,35 +39,102 @@ void Directory::SetDirectoryType(DIRECTORY_TYPE restype)
 bool Directory::Open(const char * filepath)
 {
   // clear before open
-  Unload(false);
+  Clear(false);
 
   SetPath(filepath);
   return doOpen();
 };
 
-bool Directory::Flush()
+bool Directory::Save()
 {
-  return doFlush();
+  if (IsReadOnly())
+    return false;
+
+  if (!doWritePrepare()) return false;
+
+  bool s = true;
+  for (auto &fds : *this)
+  {
+    // continue if file is not dirty.
+    if (!fds.is_dirty)
+      continue;
+
+    s &= doWrite(fds.d);
+
+    fds.is_dirty = false;
+  }
+  return s;
 }
 
-bool Directory::Unload(bool flush)
+bool Directory::SaveAs(const std::string& filepath)
 {
-  // if necessary, flush data
-  if (flush && !doFlush())
+  // XXX: should save previous path?
+  SetPath(filepath.c_str());
+  if (!doCreate(filepath))
+    return false;
+
+  // read all file before save to other directory
+  // and set dirty flag to force save all files.
+  if (!ReadAll()) return false;
+  for (auto &fds : *this) fds.is_dirty = true;
+
+  return Save();
+}
+
+bool Directory::Clear(bool flush)
+{
+  if (!Close(flush))
+    return false;
+
+  // release allocated memory and reset flag
+  for (auto &ii : files_)
+  {
+    free(ii.d.p);
+  }
+
+  files_.clear();
+
+  return true;
+}
+
+bool Directory::Close(bool flush)
+{
+  // just leave cache
+  if (flush && !Save())
     return false;
 
   ClearStatus();
 
-  // release allocated memory and reset flag
-  for (auto ii : datas_)
-  {
-    free(ii.second.p);
-  }
+  return doClose();
+}
 
-  datas_.clear();
-  data_dirty_flag_.clear();
+bool Directory::IsReadOnly()
+{
+  return true;
+}
 
-  return doUnload();
+/*
+ * do... functions DO real file system workaround.
+ */
+
+bool Directory::doRead(FileData &fd)
+{
+  return false;
+};
+
+bool Directory::doWritePrepare()
+{
+  return false;
+}
+
+bool Directory::doWrite(FileData &d)
+{
+  return false;
+}
+
+bool Directory::doRename(FileData &fd, const std::string& newname)
+{
+  return false;
 }
 
 bool Directory::doOpen()
@@ -82,14 +143,20 @@ bool Directory::doOpen()
   return false;
 };
 
-bool Directory::doFlush()
+bool Directory::doClose()
+{
+  // nothing to do with unloading in basic unload module
+  return true;
+}
+
+bool Directory::doDelete(const FileData& fd)
 {
   return false;
 }
 
-bool Directory::doUnload()
+bool Directory::doCreate(const std::string& newpath)
 {
-  return true;
+  return false;
 }
 
 void Directory::ClearStatus()
@@ -149,95 +216,72 @@ bool Directory::IsLoaded()
   return (directory_type_ != DIRECTORY_TYPE::NONE);
 }
 
-bool Directory::AddBinary(const std::string& key, BinaryData& d_, bool setdirty, bool copy)
+bool Directory::AddFileData(FileData& d_, bool setdirty, bool copy)
 {
+  if (IsReadOnly())
+    return false;
+
   if (copy)
   {
-    BinaryData d;
+    FileData d;
     d.len = d_.len;
-    d.p = (char*)malloc(d_.len);
-    datas_[key] = d;
+    d.p = (uint8_t*)malloc(d_.len);
+    d.fn = d_.fn;
+    files_.emplace_back(FileDataSegment{ d, setdirty });
   }
   else {
-    datas_[key] = d_;
+    files_.emplace_back(FileDataSegment{ d_, setdirty });
   }
-  data_dirty_flag_[key] = setdirty;
   SetDirty(setdirty);
   return true;
 }
 
 bool Directory::AddFile(const std::string &relpath, bool setdirty)
 {
+  if (IsReadOnly())
+    return false;
+
   const std::string path = GetAbsolutePath(relpath);
-  FILE *fp = rutil::fopen_utf8(path.c_str(), "rb");
-  if (!fp)
+  FileData d = rutil::ReadFileData(path);
+  if (d.len == 0)
   {
-    SetError(ERROR::OPEN_NO_FILE);
+    SetError(ERROR::OPEN_INVALID_FILE);
     return false;
   }
-  BinaryData d;
-  Read_from_fp(fp, d);
-  fclose(fp);
-  AddBinary(relpath, d, setdirty);
+  d.fn = relpath;
+  AddFileData(d, setdirty);
   return true;
 }
 
-bool Directory::Rename(const std::string & prev_name, const std::string & new_name)
+const Directory::FileDataSegment* Directory::GetSegment(const std::string& name) const
 {
-  auto it = datas_.find(prev_name);
-  if (it == datas_.end())
-  {
-    SetError(ERROR::WRITE_NO_PATH);
-    return false;
-  }
-
-  // affects file system instantly.
-  if (!rutil::Rename(prev_name.c_str(), new_name.c_str()))
-  {
-    SetError(ERROR::WRITE_RENAME);
-    return false;
-  }
-
-  BinaryData d = it->second;
-  datas_[new_name] = d;
-  datas_.erase(it);
-  return true;
+  return const_cast<Directory*>(this)->GetSegment(name);
 }
 
-bool Directory::Delete(const std::string & name)
+Directory::FileDataSegment* Directory::GetSegment(const std::string& name)
 {
-  auto it = datas_.find(name);
-  if (it == datas_.end())
+  for (auto &fds : *this)
   {
-    SetError(ERROR::WRITE_NO_PATH);
-    return false;
+    if (fds.d.GetFilename() == name)
+      return &fds;
   }
-
-  // affects file system directly.
-  if (!rutil::DeleteFile(name.c_str()))
-  {
-    SetError(ERROR::DELETE_NO_PATH);
-    return false;
-  }
-
-  datas_.erase(it);
-  return true;
+  return 0;
 }
 
-const Directory::BinaryData * Directory::GetPtr(const std::string & name) const
+const rutil::FileData * Directory::Get(const std::string & name) const
 {
-  auto ii = datas_.find(name);
-  if (ii == datas_.end())
+  const auto *ii = GetSegment(name);
+  if (ii == 0)
     return 0;
   else
-    return &ii->second;
+    return &ii->d;
 }
 
-const char * Directory::GetPtr(const std::string & name, int & len) const
+const uint8_t * Directory::Get(const std::string & name, int & len) const
 {
-  const Directory::BinaryData* d = GetPtr(name);
+  const rutil::FileData* d = Get(name);
   len = d->len;
-  return d->p;
+  return d->GetPtr();
 }
 
 void Directory::SetFilter(const char** filter_ext)
@@ -257,19 +301,96 @@ bool Directory::CheckFilenameByFilter(const std::string& filename)
   return false;
 }
 
-bool Directory::IsBinaryDirty(const std::string &key)
+bool Directory::ReadAll()
 {
-  return data_dirty_flag_[key];
+  if (IsReadOnly())
+    return false;
+
+  bool r = true;
+  for (auto &fds : *this)
+  {
+    r |= Read(fds.d);
+  }
+  return r;
 }
 
-Directory::data_iter Directory::data_begin()
+bool Directory::Read(FileData &d)
 {
-  return datas_.begin();
+  if (IsReadOnly())
+    return false;
+
+  return doRead(d);
 }
 
-Directory::data_iter Directory::data_end()
+bool Directory::Delete(const std::string & name)
 {
-  return datas_.end();
+  if (IsReadOnly())
+    return false;
+
+  auto *fds = GetSegment(name);
+  if (!fds)
+  {
+    SetError(ERROR::WRITE_NO_PATH);
+    return false;
+  }
+
+  // affects file system instantly.
+  if (!doDelete(fds->d))
+  {
+    SetError(ERROR::DELETE_NO_PATH);
+    return false;
+  }
+
+  files_.erase(files_.begin() + std::distance(files_.data(), fds));
+  return true;
+}
+
+bool Directory::Rename(const std::string& prev_name, const std::string& new_name)
+{
+  if (IsReadOnly())
+    return false;
+
+  auto *fds = GetSegment(prev_name);
+  if (!fds)
+  {
+    SetError(ERROR::OPEN_NO_FILE);
+    return false;
+  }
+
+  // affects file system instantly.
+  if (!doRename(fds->d, new_name))
+  {
+    SetError(ERROR::WRITE_RENAME);
+    return false;
+  }
+
+  fds->d.fn = new_name;
+  return true;
+}
+
+Directory::data_iter Directory::begin() throw()
+{
+  return files_.begin();
+}
+
+Directory::data_iter Directory::end() throw()
+{
+  return files_.end();
+}
+
+const Directory::data_constiter Directory::begin() const throw()
+{
+  return files_.cbegin();
+}
+
+const Directory::data_constiter Directory::end() const throw()
+{
+  return files_.cend();
+}
+
+size_t Directory::count() const throw()
+{
+  return files_.size();
 }
 
 void Directory::SetError(ERROR error)
@@ -282,27 +403,19 @@ void Directory::SetDirty(bool flag)
   is_dirty_ = flag;
 }
 
-bool Directory::Read_from_fp(FILE *fp, BinaryData &d)
+void Directory::CreateEmptyFileData(const std::string& filename)
 {
-  ASSERT(fp);
-  fseek(fp, 0, SEEK_END);
-  d.len = ftell(fp);
-  rewind(fp);
-  ASSERT(d.p == 0);
-  d.p = (char*)malloc(d.len);
-  fread(d.p, 1, d.len, fp);
-  return true;
-}
-
-bool Directory::Write_from_fp(FILE *fp, BinaryData &d)
-{
-  ASSERT(fp);
-  if (fwrite(d.p, d.len, 1, fp) != d.len)
-    return false;
-  return true;
+  FileData fd;
+  fd.fn = filename;
+  AddFileData(fd, false, false);
 }
 
 DirectoryFolder::DirectoryFolder() : Directory(DIRECTORY_TYPE::FOLDER) {}
+
+bool DirectoryFolder::IsReadOnly()
+{
+  return false;
+}
 
 bool DirectoryFolder::doOpen()
 {
@@ -318,95 +431,219 @@ bool DirectoryFolder::doOpen()
   {
     // check extension
     if (CheckFilenameByFilter(ii.first)) continue;
-
-    // fetch file pointer
-    FILE *fp = rutil::fopen_utf8((std::string(dirpath) + std::string(ii.first)).c_str(), "rb");
-    if (!fp)
-    {
-      SetError(ERROR::OPEN_INVALID_FILE);
-      return false;
-    }
-
-    BinaryData d;
-    Read_from_fp(fp, d);
-    fclose(fp);
-
-    AddBinary(ii.first, d);
+    CreateEmptyFileData(ii.first);
   }
 
   return true;
 }
 
-bool DirectoryFolder::WriteBinary(const char* filepath, BinaryData& d)
+bool DirectoryFolder::doRead(FileData &d)
 {
-  FILE *f = rutil::fopen_utf8(filepath, "wb");
-  if (!f) return false;
-  bool r = (fwrite(d.p, d.len, 1, f) != d.len);
-  fclose(f);
-  return r;
+  if (!d.IsEmpty()) return true;
+  const std::string fullpath(std::string(GetDirectoryPath()) + "/" + std::string(d.GetFilename()));
+  d = rutil::ReadFileData(fullpath);
+  if (d.IsEmpty())
+  {
+    SetError(ERROR::OPEN_INVALID_FILE);
+    return false;
+  }
+  return true;
 }
 
-bool DirectoryFolder::doFlush()
+bool DirectoryFolder::doRename(FileData &fd, const std::string& newname)
 {
-  bool s = true;
-  for (auto ii = data_begin(); ii != data_end(); ++ii)
+  const std::string fullpath(std::string(GetDirectoryPath()) + "/" + newname);
+  if (!rutil::Rename(fd.fn, fullpath))
   {
-    // continue if file is not dirty.
-    if (!IsBinaryDirty(ii->first))
-      continue;
-    // TODO: make correct path (combination of folder and file path)
-    s = WriteBinary(ii->first.c_str(), ii->second);
-    if (!s)
-    {
-      SetError(ERROR::WRITE_NO_PATH);
-      break;
-    }
+    SetError(ERROR::WRITE_RENAME);
+    return false;
   }
-  return s;
+  return true;
+}
+
+bool DirectoryFolder::doDelete(const FileData& fd)
+{
+  const std::string fullpath(GetDirectoryPath() + "/" + fd.fn);
+  if (!rutil::DeleteFile(fullpath.c_str()))
+  {
+    SetError(ERROR::DELETE_NO_PATH);
+    return false;
+  }
+  return true;
+}
+
+bool DirectoryFolder::doCreate(const std::string& newpath)
+{
+  // check folder is valid and attempt to create
+  const std::string dirpath(GetDirectoryPath());
+  if (!rutil::IsDirectory(dirpath) && !rutil::CreateDirectory(dirpath))
+  {
+    SetError(ERROR::WRITE_NO_PATH);
+    return false;
+  }
+  return true;
+}
+
+bool DirectoryFolder::doWritePrepare()
+{
+  return true;
+}
+
+bool DirectoryFolder::doWrite(FileData& fd)
+{
+  // make full path before save data
+  FileData tmpfd = fd;
+  tmpfd.fn = GetDirectoryPath() + "/" + tmpfd.fn;
+  if (!rutil::WriteFileData(tmpfd))
+  {
+    SetError(ERROR::WRITE_NO_PATH);
+    return false;
+  }
+  return true;
+}
+
+void DirectoryArchive::SetCodepage(int codepage)
+{
+  codepage_ = codepage;
 }
 
 #ifdef USE_ZLIB
 
-DirectoryArchive::DirectoryArchive() { SetDirectoryType(DIRECTORY_TYPE::ARCHIVE); }
+DirectoryArchive::DirectoryArchive() : codepage_(0), archive_(0), zip_error_(0)
+{ SetDirectoryType(DIRECTORY_TYPE::ARCHIVE); }
 
-bool DirectoryArchive::Load_from_zip(FILE * fp)
+bool DirectoryArchive::IsReadOnly()
 {
-  // TODO
-	return false;
+  return archive_ == 0;
 }
 
-bool DirectoryArchive::WriteZip()
+bool DirectoryArchive::doOpen()
 {
-	// TODO
-	return false;
+  Close();
+  archive_ = zip_open(GetDirectoryPath().c_str(), ZIP_RDONLY, &zip_error_);
+  if (zip_error_)
+  {
+    zip_error_t zerror;
+    zip_error_init_with_code(&zerror, zip_error_);
+    printf("Zip Reading Error occured - code %d\nstr (%s)\n", zip_error_, zip_error_strerror(&zerror));
+    zip_error_fini(&zerror);
+    return zip_error_;
+  }
+  // get all file lists from zip, with encoding
+  zip_int64_t iEntries = zip_get_num_entries(archive_, ZIP_FL_UNCHANGED);
+  struct zip_stat zStat;
+  for (int i = 0; i<iEntries; i++)
+  {
+    zip_stat_index(archive_, i, ZIP_FL_UNCHANGED, &zStat);
+    std::string fn = zStat.name;
+    if (codepage_)
+    {
+      fn = rutil::ConvertEncodingToUTF8(fn, codepage_);
+    }
+    CreateEmptyFileData(fn);
+  }
+  return true;
+}
+
+bool DirectoryArchive::doClose()
+{
+  zip_close(archive_);
+  archive_ = 0;
+  return true;
+}
+
+bool DirectoryArchive::doWritePrepare()
+{
+  return true;
+}
+
+bool DirectoryArchive::doWrite(FileData &fd)
+{
+  zip_source_t *s;
+  s = zip_source_buffer(archive_, fd.p, fd.len, 0);
+  if (!s)
+  {
+    printf("Zip source buffer creation failed!\n");
+    return false;
+  }
+  zip_error_ = zip_file_add(archive_, fd.fn.c_str(), s, ZIP_FL_ENC_UTF_8 | ZIP_FL_OVERWRITE);
+  zip_source_free(s);
+  if (zip_error_)
+  {
+    printf("Zip file appending failed! (code %d)\n", zip_error_);
+    return false;
+  }
+  return true;
+}
+
+bool DirectoryArchive::doRename(FileData &fd, const std::string& newname)
+{
+  // TODO zip element rename
+  return false;
+}
+
+bool DirectoryArchive::doRead(FileData &fd)
+{
+  if (IsReadOnly())
+    return false;
+
+  zip_file_t *zfp = zip_fopen(archive_, fd.fn.c_str(), ZIP_FL_UNCHANGED);
+  if (!zfp)
+  {
+    printf("Failed to read file(%s) from zip\n", fd.fn.c_str());
+    return false;
+  }
+  struct zip_stat zStat;
+  zip_stat(archive_, fd.fn.c_str(), 0, &zStat);
+  fd.len = zStat.size;
+  fd.p = (unsigned char*)malloc(fd.len);
+  zip_fread(zfp, (void*)fd.p, fd.len);
+  zip_fclose(zfp);
+  return true;
+}
+
+bool DirectoryArchive::doDelete(const FileData& fd)
+{
+  // TODO: Delete object from archive
+  return true;
+}
+
+bool DirectoryArchive::doCreate(const std::string& newpath)
+{
+  // TODO: create new zip 'object'.
+  return true;
 }
 
 #else
 
 DirectoryArchive::DirectoryArchive() {  }
 
+bool DirectoryArchive::IsReadOnly()
+{
+  return true;
+}
+
 #endif
 
 DirectoryBinary::DirectoryBinary()
-  : Directory(DIRECTORY_TYPE::BINARY)
 {
+  SetDirectoryType(DIRECTORY_TYPE::BINARY);
 }
 
-bool DirectoryBinary::doOpen()
+bool DirectoryBinary::IsReadOnly()
 {
-  SetPath(GetPath().c_str());
-  return Directory::AddFile(GetRelativePath(GetPath()), false);
+  return false;
 }
 
-Directory::BinaryData* DirectoryBinary::GetDataPtr()
+rutil::FileData* DirectoryBinary::GetDataPtr()
 {
-  return &data_begin()->second;
+  return &begin()->d;
 }
 
-bool DirectoryBinary::AddBinary(const std::string &key, BinaryData& d, bool setdirty, bool copy)
+bool DirectoryBinary::AddFileData(FileData& d, bool setdirty, bool copy)
 {
   // only allow single file
-  if (count() == 0) return Directory::AddBinary(key, d, setdirty, copy);
+  if (count() == 0) return Directory::AddFileData(d, setdirty, copy);
   return false;
 }
 
@@ -417,7 +654,7 @@ bool DirectoryBinary::AddFile(const std::string &relpath, bool setdirty)
   else  return false;
 }
 
-Directory* DirectoryFactory::Open(const char* path, const char** filter_ext)
+Directory* DirectoryFactory::Open(const std::string& path, const char** filter_ext)
 {
   Directory* r;
   std::string ext = rutil::lower(rutil::GetExtension(path));

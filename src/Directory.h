@@ -9,8 +9,15 @@
 #include "rutil.h"
 #include "Error.h"
 
+#ifdef USE_ZLIB
+# define ZIP_STATIC 1
+# include <zip.h>
+#endif
+
 namespace rparser
 {
+
+using FileData = rutil::FileData;
 
 enum class DIRECTORY_TYPE
 {
@@ -26,10 +33,11 @@ public:
 	Directory();
 	~Directory();
 
-	struct BinaryData {
-		char *p;
-		unsigned int len;
-	};
+  struct FileDataSegment
+  {
+    FileData d;
+    bool is_dirty;
+  };
 
 	// Open file in specific encoding (in case of archive file, e.g. zip).
 	// encoding set to 0 means library will automatically find encoding.
@@ -41,16 +49,20 @@ public:
 	// Flush all changes into file and reset all dirty flags.
 	// If succeed, return true. else, return false and canceled.
 	// Detailed error message is stored in error_msg_
-  bool Flush();
+  bool Save();
+  bool SaveAs(const std::string& newpath);
 
-	// Unload all Directory and free allocated memory.
+	// Unload all Directory and allocated memory.
 	// You can save data with setting parameter flush=true.
-  bool Unload(bool flush = true);
+  bool Clear(bool flush = true);
+  // Just close directory handle.
+  bool Close(bool flush = true);
+  // if Closed, then readonly state.
+  virtual bool IsReadOnly();
+
 
 	// Set destination path to save
 	// Don't check existence for given path.
-	void SetPath(const char* filepath);
-  void SetExtension(const char* extension);
   const std::string GetPath() const;
   const std::string GetDirectoryPath() const;
   std::string GetRelativePath(const std::string &orgpath) const;
@@ -58,19 +70,28 @@ public:
 	DIRECTORY_TYPE GetDirectoryType() const;
 	const char* GetErrorMsg() const;
 	bool IsLoaded();
-  virtual bool AddBinary(const std::string& relpath, BinaryData& d, bool setdirty=true, bool copy=false);
+  // TODO:
+  // Lock while Add/Delete/Renaming object (addr may changed due to vector realloc)
+  virtual bool AddFileData(FileData& d, bool setdirty=true, bool copy=false);
   virtual bool AddFile(const std::string &relpath, bool setdirty = true);
   bool Delete(const std::string &name);
   bool Rename(const std::string &prev_name, const std::string &new_name);
-  bool IsBinaryDirty(const std::string& key);
-  typedef std::map<std::string, BinaryData>::iterator data_iter;
-  const BinaryData* GetPtr(const std::string &name) const;
-  const char* GetPtr(const std::string &name, int &len) const;
+  bool ReadAll();
+  bool Read(FileData &d);
   void SetFilter(const char** filter_ext);
   bool CheckFilenameByFilter(const std::string& filename);
-  data_iter data_begin();
-  data_iter data_end();
-  size_t count();
+
+  typedef std::vector<FileDataSegment>::iterator data_iter;
+  typedef std::vector<FileDataSegment>::const_iterator data_constiter;
+  const FileDataSegment* GetSegment(const std::string& name) const;
+  FileDataSegment* GetSegment(const std::string& name);
+  const FileData* Get(const std::string &name) const;
+  const uint8_t* Get(const std::string &name, int &len) const;
+  data_iter begin();
+  data_iter end();
+  const data_constiter begin() const;
+  const data_constiter end() const;
+  size_t count() const;
 
 private:
   rutil::IDirectory* directory_;
@@ -80,22 +101,28 @@ private:
   DIRECTORY_TYPE directory_type_;
   ERROR error_code_;
   bool is_dirty_;
-  std::map<std::string, BinaryData> datas_;
-  std::map<std::string, bool> data_dirty_flag_;
   const char **filter_ext_;
 
+  virtual bool doRead(FileData &d);
+  virtual bool doWritePrepare();
+  virtual bool doWrite(FileData &d);
+  virtual bool doRename(FileData &fd, const std::string& newname);
   virtual bool doOpen();
-  virtual bool doFlush();
-  virtual bool doUnload();
+  virtual bool doClose();
+  virtual bool doDelete(const FileData& fd);
+  virtual bool doCreate(const std::string& newpath);
+
+  void SetPath(const char* filepath);
+  void SetExtension(const char* extension);
 
 protected:
+  std::vector<FileDataSegment> files_;
   Directory(DIRECTORY_TYPE restype);
   void SetDirectoryType(DIRECTORY_TYPE restype);
-  static bool Read_from_fp(FILE *fp, BinaryData& d);
-  static bool Write_from_fp(FILE *fp, BinaryData& d);
   void ClearStatus();
   void SetError(ERROR error);
   void SetDirty(bool flag = true);
+  void CreateEmptyFileData(const std::string& filename);
 };
 
 
@@ -103,52 +130,60 @@ class DirectoryFolder : public Directory
 {
 public:
   DirectoryFolder();
-  void SetFilter(const char* filter_ext);
-  // Filter out files
-  void FilterFiles(const char* filters,
-    std::map<std::string, const BinaryData*>& chart_files);
+  virtual bool IsReadOnly();
 
 private:
+  virtual bool doRead(FileData &d);
+  virtual bool doWritePrepare();
+  virtual bool doWrite(FileData &d);
+  virtual bool doRename(FileData &fd, const std::string& newname);
   virtual bool doOpen();
-  virtual bool doFlush();
-  static bool WriteBinary(const char* filepath, BinaryData& d);
+  virtual bool doDelete(const FileData& fd);
+  virtual bool doCreate(const std::string& newpath);
 };
 
 class DirectoryArchive : public DirectoryFolder
 {
 public:
   DirectoryArchive();
+  void SetCodepage(int codepage);
+  virtual bool IsReadOnly();
 
 #ifdef USE_ZLIB
 private:
+  virtual bool doRead(FileData &d);
+  virtual bool doWritePrepare();
+  virtual bool doWrite(FileData &d);
+  virtual bool doRename(FileData &fd, const std::string& newname);
   virtual bool doOpen();
-  virtual bool doFlush();
-  virtual bool doUnload();
+  virtual bool doClose();
+  virtual bool doDelete(const FileData& fd);
+  virtual bool doCreate(const std::string& newpath);
 
-	bool Load_from_zip(FILE *fp);	// TODO
-	bool WriteZip();	// TODO
+  int codepage_;
+  zip_t *archive_;
+  int zip_error_;
 #endif
 };
 
-class DirectoryBinary : public Directory
+class DirectoryBinary : public DirectoryFolder
 {
 public:
   DirectoryBinary();
+  virtual bool IsReadOnly();
 
   // Some file (ex: lr2course, vos) won't behave in form of multiple file.
   // In this case, we use data-ptr reserved for raw format
   // instead of data-key mapping list.
-  virtual bool AddBinary(const std::string &key, BinaryData& d, bool setdirty = true, bool copy = false);
+  virtual bool AddFileData(FileData& d, bool setdirty = true, bool copy = false);
   virtual bool AddFile(const std::string &relpath , bool setdirty = true);
-  BinaryData* GetDataPtr();
-private:
-  virtual bool doOpen();
+  FileData* GetDataPtr();
 };
 
 class DirectoryFactory
 {
 public:
-  static Directory* Open(const char* path, const char** filter_ext = 0);
+  static Directory* Open(const std::string& path, const char** filter_ext = 0);
 };
 
 }

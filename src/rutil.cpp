@@ -377,8 +377,8 @@ FileData ReadFileData(const std::string& path)
 {
   FileData fd;
   size_t fsize = 0;
-  fd.m_iLen = 0;
-  fd.m_iPos = 0;
+  fd.len = 0;
+  fd.pos = 0;
   fd.p = 0;
   FILE *fp = fopen_utf8(path.c_str(), "rb");
   if (fp)
@@ -386,13 +386,25 @@ FileData ReadFileData(const std::string& path)
     fseek(fp, 0, SEEK_END);
     fsize = ftell(fp);
     fseek(fp, 0, SEEK_SET);
-    fd.m_iLen = fsize;
-    fd.m_iPos = 0;
+    fd.len = fsize;
+    fd.pos = 0;
     fd.p = (uint8_t*)malloc(fsize);
     fread(fd.p, 1, fsize, fp);
     fclose(fp);
   }
   return fd;
+}
+
+bool WriteFileData(const FileData& fd)
+{
+  FILE *fp = fopen_utf8(fd.fn.c_str(), "wb");
+  bool r = false;
+  if (fp)
+  {
+    r = (fd.len == fwrite(fd.p, fd.len, 1, fp));
+    fclose(fp);
+  }
+  else return r;
 }
 
 // seed part ..?
@@ -777,8 +789,8 @@ bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecu
 FileData::FileData()
 {
   p = 0;
-  m_iLen = 0;
-  m_iPos = 0;
+  len = 0;
+  pos = 0;
 }
 
 FileData::FileData(const std::string& fn)
@@ -792,14 +804,14 @@ FileData::FileData(const std::string& fn)
 FileData::FileData(uint8_t *p, uint32_t iLen)
 {
   this->p = p;
-  m_iLen = iLen;
-  m_iPos = 0;
+  len = iLen;
+  pos = 0;
 }
 
-std::string FileData::GetFilename() { return fn; }
-uint32_t FileData::GetFileSize() { return m_iLen; }
-uint32_t FileData::GetPos() { return m_iPos; }
-void FileData::SetPos(uint32_t iPos) { m_iPos = iPos; }
+std::string FileData::GetFilename() const { return fn; }
+uint32_t FileData::GetFileSize() const { return len; }
+uint32_t FileData::GetPos() const { return pos; }
+void FileData::SetPos(uint32_t iPos) { pos = iPos; }
 const uint8_t* FileData::GetPtr() const { return p; }
 uint8_t* FileData::GetPtr() { return p; }
 
@@ -822,41 +834,43 @@ int FileData::Seek(uint32_t p, int mode)
   switch (mode)
   {
   case SEEK_CUR:
-    iNewPos = m_iPos + p;
+    iNewPos = pos + p;
     break;
   case SEEK_END:
-    iNewPos = m_iLen - p;
+    iNewPos = len - p;
     break;
   case SEEK_SET:
     iNewPos = p;
     break;
   }
   //if (m_iPos < 0) m_iPos = 0;
-  if (iNewPos > m_iLen) return -1;
-  else m_iPos = iNewPos;
+  if (iNewPos > len) return -1;
+  else pos = iNewPos;
   return 0;
 }
 
 uint32_t FileData::ReadLE32()
 {
-  uint32_t v = rutil::ReadLE32(p + m_iPos);
+  uint32_t v = rutil::ReadLE32(p + pos);
   SeekCur(4);
-  if (m_iPos > m_iLen) m_iPos = m_iLen;
+  if (pos > len) pos = len;
   return v;
 }
 
 uint32_t FileData::Read(uint8_t *out, uint32_t len)
 {
   uint32_t copysize = len;
-  if (m_iPos + len > m_iLen)
+  if (pos + len > len)
   {
-    copysize = m_iLen - m_iPos;
+    copysize = len - pos;
   }
-  memcpy(out, p + m_iPos, copysize);
+  memcpy(out, p + pos, copysize);
   return copysize;
 }
 
-bool FileData::IsEOF() { return m_iPos == m_iLen; };
+bool FileData::IsEOF() { return pos == len; };
+
+bool FileData::IsEmpty() { return p == 0; };
 
 // ------ class IDirectory ------
 
@@ -1024,7 +1038,7 @@ int BasicDirectory::Write(const FileData &fd)
   std::string sFullpath = GetPathJoin(m_sPath, fd.fn);
   FILE *fp = fopen_utf8(sFullpath.c_str(), "wb");
   if (!fp) return 0;
-  int r = fwrite(fd.p, 1, fd.m_iLen, fp);
+  int r = fwrite(fd.p, 1, fd.len, fp);
   fclose(fp);
   return r;
 }
@@ -1035,13 +1049,13 @@ int BasicDirectory::Read(FileData &fd)
   FILE *fp = fopen_utf8(sFullpath.c_str(), "rb");
   if (!fp) return 0;
   fseek(fp, 0, SEEK_END);
-  fd.m_iLen = ftell(fp);
+  fd.len = ftell(fp);
   fseek(fp, 0, SEEK_SET);
-  fd.p = (unsigned char*)malloc(fd.m_iLen);
+  fd.p = (unsigned char*)malloc(fd.len);
   ASSERT(fd.p != 0);
-  fd.m_iLen = fread(fd.p, 1, fd.m_iLen, fp);
+  fd.len = fread(fd.p, 1, fd.len, fp);
   fclose(fp);
-  return fd.m_iLen;
+  return fd.len;
 }
 
 int BasicDirectory::Flush()
@@ -1114,18 +1128,18 @@ int ArchiveDirectory::Read(FileData &fd)
   }
   struct zip_stat zStat;
   zip_stat(m_Archive, fd.fn.c_str(), 0, &zStat);
-  fd.m_iLen = zStat.size;
-  fd.p = (unsigned char*)malloc(fd.m_iLen);
-  zip_fread(zfp, (void*)fd.p, fd.m_iLen);
+  fd.len = zStat.size;
+  fd.p = (unsigned char*)malloc(fd.len);
+  zip_fread(zfp, (void*)fd.p, fd.len);
   zip_fclose(zfp);
-  return fd.m_iLen;
+  return fd.len;
 }
 
 int ArchiveDirectory::Write(const FileData &fd)
 {
   ASSERT(m_Archive);
   zip_source_t *s;
-  s = zip_source_buffer(m_Archive, fd.p, fd.m_iLen, 0);
+  s = zip_source_buffer(m_Archive, fd.p, fd.len, 0);
   if (!s)
   {
     printf("Zip source buffer creation failed!\n");
@@ -1137,7 +1151,7 @@ int ArchiveDirectory::Write(const FileData &fd)
   {
     printf("Zip file appending failed! (code %d)\n", error);
   }
-  return fd.m_iLen;
+  return fd.len;
 }
 
 int ArchiveDirectory::Flush()
