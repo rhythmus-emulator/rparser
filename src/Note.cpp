@@ -74,28 +74,22 @@ const char **pNoteSubtypeStr[] = {
   kNoteSpecialTypesStr,
 };
 
-std::vector<Note>::iterator NoteData::begin() { return notes_.begin(); }
-std::vector<Note>::iterator NoteData::end() { return notes_.end(); }
-const std::vector<Note>::const_iterator NoteData::begin() const { return notes_.begin(); }
-const std::vector<Note>::const_iterator NoteData::end() const { return notes_.end(); }
-
 std::string Note::toString() const
 {
   std::stringstream ss;
   std::string sType, sSubtype;
-  sType = kNoteTypesStr[track.type];
-  sSubtype = pNoteSubtypeStr[track.type][track.subtype];
+  sType = kNoteTypesStr[type];
+  sSubtype = pNoteSubtypeStr[type][subtype];
   ss << "[Object Note]\n";
   ss << "type/subtype: " << sType << "," << sSubtype;
-  ss << "Value (int): " << value.i << std::endl;
-  ss << "Value (float): " << value.f << std::endl;
   ss << "Beat: " << pos.beat << std::endl;
   ss << "Row: " << pos.row.measure << " " << pos.row.num << "/" << pos.row.deno << std::endl;
   ss << "Time: " << pos.time_msec << std::endl;
+  ss << getValueAsString() << std::endl;
   return ss.str();
 }
 
-bool NotePos::operator==(const NotePos &other) const
+bool NotePos::operator==(const NotePos &other) const noexcept
 {
   if (type != other.type) return false;
   switch (type)
@@ -109,19 +103,61 @@ bool NotePos::operator==(const NotePos &other) const
     return time_msec == other.time_msec;
   default:
     ASSERT(0);
+    return false;
   }
 }
 
-bool Note::operator<(const Note &other) const
+bool Note::operator<(const Note &other) const noexcept
 {
   return pos.beat < other.pos.beat;
 }
 
-bool Note::operator==(const Note &other) const
+bool Note::operator==(const Note &other) const noexcept
 {
-  return
-    pos == other.pos &&
-    value.i == other.value.i;
+  return pos == other.pos;
+}
+
+std::string SoundNote::getValueAsString() const
+{
+  std::stringstream ss;
+  ss << "Track (note - player, lane): " << track.lane.note.player << "," << track.lane.note.lane << std::endl;
+  ss << "Track (touch - x, y): " << track.lane.touch.x << "," << track.lane.touch.y << std::endl;
+  ss << "Volume: " << volume << std::endl;
+  ss << "Pitch: " << pitch << std::endl;
+  ss << "Restart (sound) ?: " << restart << std::endl;
+  return ss.str();
+}
+
+bool SoundNote::operator==(const SoundNote &other) const noexcept
+{
+  return pos == other.pos && value == other.value;
+}
+
+std::string BgaNote::getValueAsString() const
+{
+  std::stringstream ss;
+  ss << "Value (channel): " << value << std::endl;
+  return ss.str();
+}
+
+bool BgaNote::operator==(const BgaNote &other) const noexcept
+{
+  return pos == other.pos && value == other.value;
+}
+
+std::string TempoNote::getValueAsString() const
+{
+  std::stringstream ss;
+  ss << "Value (float): " << value.f << std::endl;
+  ss << "Value (int): " << value.i << std::endl;
+  return ss.str();
+}
+
+bool TempoNote::operator==(const TempoNote &other) const noexcept
+{
+  return pos == other.pos &&
+         value.i == other.value.i &&
+         value.f == other.value.f;
 }
 
 }

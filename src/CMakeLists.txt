@@ -11,6 +11,7 @@ set (RPARSER_SOURCES
     "MetaData.cpp"
     "Directory.cpp"
     "Song.cpp"
+	"Note.cpp"
     "TempoData.cpp"
     "rutil.cpp")
 
@@ -23,6 +24,7 @@ set (RPARSER_HEADERS
     "Directory.h"
     "Song.h"
     "TempoData.h"
+	"Note.h"
     "Error.h"
     "rutil.h"
     "common.h")
@@ -33,12 +35,12 @@ set (RPARSER_INCLUDE_DIR "${CMAKE_CURRENT_LIST_DIR}" PARENT_SCOPE)
 
 
 include_directories(
-	${LIB_INCLUDE_DIR}
-	${RPARSER_INCLUDE_DIR}
-	${GTEST_HEADERS}
-	${RUTIL_INCLUDE_DIR}
-  ${ZIP_INCLUDE_DIR}
-  ${OpenSSL_INCLUDE_DIR}
+    ${LIB_INCLUDE_DIR}
+    ${RPARSER_INCLUDE_DIR}
+    ${GTEST_HEADERS}
+    ${RUTIL_INCLUDE_DIR}
+    ${ZIP_INCLUDE_DIR}
+    ${OpenSSL_INCLUDE_DIR}
 	)
 #link_directories(${ZIP_LIB} ${ZLIB_LIB} ${OPENSSL_LIB} ${ICONV_LIB})
 

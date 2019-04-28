@@ -103,7 +103,10 @@ TEST(RPARSER, DIRECTORY_BINARY)
 
 TEST(RPARSER, TEMPODATA)
 {
-  // TODO
+  TempoData td;
+  EXPECT_EQ(120, td.GetMinBpm());
+  EXPECT_EQ(120, td.GetMaxBpm());
+  EXPECT_FALSE(td.HasBpmChange());
 }
 
 TEST(RPARSER, NOTEDATA)

@@ -32,7 +32,7 @@ struct NotePos
   double time_msec;
   double beat;
 
-  bool operator==(const NotePos &other) const;
+  bool operator==(const NotePos &other) const noexcept;
 };
 
 typedef struct
@@ -55,9 +55,11 @@ public:
   Note *prev;
   Note *next;
 
-  bool operator<(const Note &other) const;
-  bool operator==(const Note &other) const;
+  bool operator<(const Note &other) const noexcept;
+  bool operator==(const Note &other) const noexcept;
   std::string toString() const;
+private:
+  virtual std::string getValueAsString() const = 0;
 };
 
 /**
@@ -80,6 +82,9 @@ public:
   int32_t pitch;
   // @description bmson attribute. (loop)
   bool restart;
+  bool operator==(const SoundNote &other) const noexcept;
+private:
+  virtual std::string getValueAsString() const;
 };
 
 /**
@@ -90,6 +95,9 @@ class BgaNote : public Note
 {
 public:
   Channel value;
+  bool operator==(const BgaNote &other) const noexcept;
+private:
+  virtual std::string getValueAsString() const;
 };
 
 /**
@@ -104,6 +112,9 @@ public:
     float f;
     int32_t i;
   } value;
+  bool operator==(const TempoNote &other) const noexcept;
+private:
+  virtual std::string getValueAsString() const;
 };
 
 /** @detail Soundable/Renderable, or tappable object. */
