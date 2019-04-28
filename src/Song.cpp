@@ -126,13 +126,14 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 	Close();
 
 	// Read file binaries.
-  directory_ = DirectoryFactory::Open(path.c_str(), fastread ? GetSongExtensions() : 0);
-	if (!directory_)
-	{
+  DirectoryFactory &df = DirectoryFactory::Create(path);
+  if (!df.Open())
+  {
 		error_ = ERROR::OPEN_NO_FILE;
 		songtype_ = SONGTYPE::NONE;
 		return false;
 	}
+  directory_ = df.GetDirectory();
 
   // Detect song type and prepare chartlist.
   if (songtype == SONGTYPE::NONE) SetSongType(DetectSongtype());

@@ -57,49 +57,48 @@ TEST(RUTIL, IO)
   EXPECT_TRUE (IsFile(BASE_DIR + "rutil/test/test2/a.txt"));
   EXPECT_TRUE (Rename(BASE_DIR + "rutil/test/test2", BASE_DIR + "rutil/test/test3"));
   EXPECT_TRUE (IsDirectory(BASE_DIR + "rutil/test/test3"));
-  // Directory list test
-  BasicDirectory dir;
-  EXPECT_TRUE(dir.Open(BASE_DIR + "rutil/test/test3") == 0);
-  dir.ReadAll();
-  EXPECT_EQ(1, dir.size());
+  // TODO Directory list test
   // delete test
   EXPECT_TRUE(DeleteDirectory(BASE_DIR + "rutil/test"));
 }
 
-TEST(RUTIL, ARCHIVE)
-{
-  using namespace rutil;
-#ifdef USE_ZLIB
-  ArchiveDirectory dir;
-  ASSERT_TRUE(dir.Open(BASE_DIR + "bms_sample_angelico.zip") == 0);
-  dir.ReadAll();
-  EXPECT_EQ(7, dir.size());
-  const FileData* fd = dir.Get("back_980.bmp");
-  ASSERT_TRUE(fd);
-  EXPECT_TRUE(memcmp(fd->GetPtr(), "BM", 2) == 0);
-#endif
-}
-
-TEST(RPARSER, DIRECTORY)
+TEST(RPARSER, DIRECTORY_FOLDER)
 {
   using namespace rparser;
-  Directory* d;
+  const std::string fpath(BASE_DIR + "chart_sample");
+  DirectoryFactory &df = DirectoryFactory::Create(fpath);
+  ASSERT_TRUE(df.Open());
+  Directory &d = *df.GetDirectory();
+  EXPECT_EQ(DIRECTORY_TYPE::FOLDER, d.GetDirectoryType());
+  EXPECT_EQ(8, d.count());
+  d.Clear();
+}
 
-  d = DirectoryFactory::Open(BASE_DIR + "chart_sample");
-  ASSERT_TRUE(d);
-  EXPECT_TRUE(DIRECTORY_TYPE::FOLDER, d->GetDirectoryType());
+TEST(RPARSER, DIRECTORY_ARCHIVE)
+{
+  using namespace rparser;
+  const std::string fpath(BASE_DIR + "bms_sample_angelico.zip");
+  DirectoryFactory &df = DirectoryFactory::Create(fpath);
+  ASSERT_TRUE(df.Open());
+  Directory &d = *df.GetDirectory();
+  EXPECT_EQ(DIRECTORY_TYPE::ARCHIVE, d.GetDirectoryType());
+  EXPECT_EQ(7, d.count());
+  d.Close();
+  EXPECT_FALSE(d.ReadAll());
+  d.Clear();
+}
+
+TEST(RPARSER, DIRECTORY_BINARY)
+{
+  using namespace rparser;
+  const std::string fpath(BASE_DIR + "chart_sample/1.vos");
+  DirectoryFactory &df = DirectoryFactory::Create(fpath);
+  ASSERT_TRUE(df.Open());
+  Directory &d = *df.GetDirectory();
+  EXPECT_EQ(DIRECTORY_TYPE::BINARY, d.GetDirectoryType());
+  EXPECT_EQ(1, d.count());
   d.Close();
   d.Clear();
-  delete d;
-  d = nullptr;
-
-  d = DirectoryFactory::Open(BASE_DIR + "bms_sample_angelico.zip");
-  ASSERT_TRUE(d);
-  EXPECT_TRUE(DIRECTORY_TYPE::FOLDER, d->GetDirectoryType());
-  d.Close();
-  d.Clear();
-  delete d;
-  d = nullptr;
 }
 
 TEST(RPARSER, TEMPODATA)

@@ -44,7 +44,7 @@ public:
 	// opened file name automatically converted into UTF8, even in windows.
 	// filter_ext is filtering extension to be stored in memory.
 	// if filter_ext set to 0, then all file is read.
-	bool Open(const char* filepath);
+	bool Open(const std::string& filepath);
 
 	// Flush all changes into file and reset all dirty flags.
 	// If succeed, return true. else, return false and canceled.
@@ -63,8 +63,8 @@ public:
 
 	// Set destination path to save
 	// Don't check existence for given path.
-  const std::string GetPath() const;
-  const std::string GetDirectoryPath() const;
+  const std::string &GetPath() const;
+  const std::string &GetDirectoryPath() const;
   std::string GetRelativePath(const std::string &orgpath) const;
   std::string GetAbsolutePath(const std::string &relpath) const;
 	DIRECTORY_TYPE GetDirectoryType() const;
@@ -94,7 +94,6 @@ public:
   size_t count() const;
 
 private:
-  rutil::IDirectory* directory_;
 	std::string path_;
 	std::string dirpath_;
 	std::string file_ext_;
@@ -178,12 +177,24 @@ public:
   virtual bool AddFileData(FileData& d, bool setdirty = true, bool copy = false);
   virtual bool AddFile(const std::string &relpath , bool setdirty = true);
   FileData* GetDataPtr();
+
+private:
+  virtual bool doOpen();
 };
 
 class DirectoryFactory
 {
 public:
-  static Directory* Open(const std::string& path, const char** filter_ext = 0);
+  static DirectoryFactory& Create(const std::string& path);
+  Directory* GetDirectory();
+  DirectoryFactory& SetFilter(const char** filter_ext);
+  bool Open();
+  ~DirectoryFactory();
+private:
+  DirectoryFactory(const std::string& path);
+  const std::string path_;
+  Directory* directory_;
+  bool is_directory_fetched_;
 };
 
 }

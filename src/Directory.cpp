@@ -12,18 +12,8 @@ Directory::Directory(DIRECTORY_TYPE restype) :
   error_code_(ERROR::NONE),
   is_dirty_(false),
   directory_type_(restype),
-  directory_(0),
   filter_ext_(0)
 {
-  switch (restype)
-  {
-  case DIRECTORY_TYPE::FOLDER:
-    directory_ = new rutil::BasicDirectory();
-    break;
-  case DIRECTORY_TYPE::ARCHIVE:
-    directory_ = new rutil::ArchiveDirectory();
-    break;
-  }
 }
 
 Directory::~Directory()
@@ -36,12 +26,12 @@ void Directory::SetDirectoryType(DIRECTORY_TYPE restype)
   directory_type_ = restype;
 }
 
-bool Directory::Open(const char * filepath)
+bool Directory::Open(const std::string& filepath)
 {
   // clear before open
   Clear(false);
 
-  SetPath(filepath);
+  SetPath(filepath.c_str());
   return doOpen();
 };
 
@@ -175,12 +165,12 @@ void Directory::SetPath(const char * filepath)
   file_ext_ = rutil::lower(rutil::GetExtension(path_));
 }
 
-const std::string Directory::GetPath() const
+const std::string& Directory::GetPath() const
 {
   return path_;
 }
 
-const std::string Directory::GetDirectoryPath() const
+const std::string& Directory::GetDirectoryPath() const
 {
   return dirpath_;
 }
@@ -419,14 +409,11 @@ bool DirectoryFolder::IsReadOnly()
 
 bool DirectoryFolder::doOpen()
 {
-  const char* filepath = GetPath().c_str();
-  const char* dirpath = GetDirectoryPath().c_str();
-
-  if (!rutil::IsDirectory(filepath))
+  if (!rutil::IsDirectory(GetPath()))
     return false;
 
   rutil::DirFileList files;
-  rutil::GetDirectoryFiles(filepath, files);
+  rutil::GetDirectoryFiles(GetPath(), files);
   for (auto ii : files)
   {
     // check extension
@@ -520,7 +507,7 @@ bool DirectoryArchive::IsReadOnly()
 bool DirectoryArchive::doOpen()
 {
   Close();
-  archive_ = zip_open(GetDirectoryPath().c_str(), ZIP_RDONLY, &zip_error_);
+  archive_ = zip_open(GetPath().c_str(), ZIP_RDONLY, &zip_error_);
   if (zip_error_)
   {
     zip_error_t zerror;
@@ -654,15 +641,52 @@ bool DirectoryBinary::AddFile(const std::string &relpath, bool setdirty)
   else  return false;
 }
 
-Directory* DirectoryFactory::Open(const std::string& path, const char** filter_ext)
+bool DirectoryBinary::doOpen()
 {
-  Directory* r;
+  if (!rutil::IsFile(GetPath()))
+    return false;
+  CreateEmptyFileData(GetPath());
+  return true;
+}
+
+
+
+DirectoryFactory& DirectoryFactory::Create(const std::string& path)
+{
+  DirectoryFactory *df = new DirectoryFactory(path);
+  return *df;
+}
+
+DirectoryFactory::DirectoryFactory(const std::string& path)
+  : path_(path), directory_(nullptr), is_directory_fetched_(false)
+{
   std::string ext = rutil::lower(rutil::GetExtension(path));
-  if (ext == "zip") r = new DirectoryArchive();
-  else if (rutil::IsDirectory(path)) r = new DirectoryFolder();
-  else r = new DirectoryBinary();
-  r->SetFilter(filter_ext);
-  return r;
+  if (ext == "zip") directory_ = new DirectoryArchive();
+  else if (rutil::IsDirectory(path)) directory_ = new DirectoryFolder();
+  else directory_ = new DirectoryBinary();
+}
+
+DirectoryFactory::~DirectoryFactory()
+{
+  if (!is_directory_fetched_)
+    delete directory_;
+}
+
+Directory* DirectoryFactory::GetDirectory()
+{
+  is_directory_fetched_ = true;
+  return directory_;
+}
+
+DirectoryFactory& DirectoryFactory::SetFilter(const char** filter_ext)
+{
+  directory_->SetFilter(filter_ext);
+  return *this;
+}
+
+bool DirectoryFactory::Open()
+{
+  return directory_->Open(path_);
 }
 
 }
