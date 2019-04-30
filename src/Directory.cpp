@@ -243,22 +243,32 @@ bool Directory::AddFile(const std::string &relpath, bool setdirty)
   return true;
 }
 
-const Directory::FileDataSegment* Directory::GetSegment(const std::string& name) const
+const Directory::FileDataSegment* Directory::GetSegment(const std::string& name, bool use_alternative_search) const
 {
   return const_cast<Directory*>(this)->GetSegment(name);
 }
 
-Directory::FileDataSegment* Directory::GetSegment(const std::string& name)
+Directory::FileDataSegment* Directory::GetSegment(const std::string& name, bool use_alternative_search)
 {
   for (auto &fds : *this)
   {
     if (fds.d.GetFilename() == name)
       return &fds;
   }
+  // Alternative search = search file without extension if file is not found.
+  if (use_alternative_search)
+  {
+    const std::string filenameonly(std::move(rutil::GetFilename(name)));
+    for (auto &fds : *this)
+    {
+      if (rutil::GetFilename(fds.d.GetFilename()) == filenameonly)
+        return &fds;
+    }
+  }
   return 0;
 }
 
-const rutil::FileData * Directory::Get(const std::string & name) const
+const rutil::FileData * Directory::Get(const std::string & name, bool use_alternative_search) const
 {
   const auto *ii = GetSegment(name);
   if (ii == 0)
@@ -267,7 +277,7 @@ const rutil::FileData * Directory::Get(const std::string & name) const
     return &ii->d;
 }
 
-const uint8_t * Directory::Get(const std::string & name, int & len) const
+const uint8_t * Directory::Get(const std::string & name, int & len, bool use_alternative_search) const
 {
   const rutil::FileData* d = Get(name);
   len = d->len;

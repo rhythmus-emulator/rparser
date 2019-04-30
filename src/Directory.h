@@ -83,10 +83,10 @@ public:
 
   typedef std::vector<FileDataSegment>::iterator data_iter;
   typedef std::vector<FileDataSegment>::const_iterator data_constiter;
-  const FileDataSegment* GetSegment(const std::string& name) const;
-  FileDataSegment* GetSegment(const std::string& name);
-  const FileData* Get(const std::string &name) const;
-  const uint8_t* Get(const std::string &name, int &len) const;
+  const FileDataSegment* GetSegment(const std::string& name, bool use_alternative_search = false) const;
+  FileDataSegment* GetSegment(const std::string& name, bool use_alternative_search = false);
+  const FileData* Get(const std::string &name, bool use_alternative_search = false) const;
+  const uint8_t* Get(const std::string &name, int &len, bool use_alternative_search = false) const;
   data_iter begin();
   data_iter end();
   const data_constiter begin() const;
