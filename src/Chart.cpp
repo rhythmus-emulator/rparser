@@ -23,7 +23,7 @@ Chart::Chart(const Chart &nd)
   }
   for (const auto& stmt : nd.stmtdata_)
   {
-    stmtdata_.push_back(ConditionStatement(stmt));
+    stmtdata_.push_back(ConditionalChart(stmt));
   }
   tempodata_ = std::move(TempoData(nd.tempodata_));
 }
@@ -49,14 +49,25 @@ void Chart::Clear()
   metadata_.clear();
 }
 
-void Chart::AppendStmt(ConditionStatement& stmt)
+ConditionalChart* Chart::CreateStmt(int value, bool israndom, bool isswitchstmt)
+{
+  stmtdata_.emplace_back(ConditionalChart(value, israndom, isswitchstmt));
+  return GetLastStmt();
+}
+
+ConditionalChart* Chart::GetLastStmt()
+{
+  return &stmtdata_.back();
+}
+
+void Chart::AppendStmt(ConditionalChart& stmt)
 {
   stmtdata_.push_back(stmt);
 }
 
 void Chart::EvaluateStmt(int seed)
 {
-  for (const ConditionStatement& stmt : stmtdata_)
+  for (const ConditionalChart& stmt : stmtdata_)
   {
     Chart *c = stmt.EvaluateSentence(seed);
     if (c)
@@ -197,12 +208,12 @@ void Chart::SetFilename(std::string& filename)
   filename_ = filename;
 }
 
-void ConditionStatement::AddSentence(unsigned int cond, Chart* chartdata)
+void ConditionalChart::AddSentence(unsigned int cond, Chart* chartdata)
 {
   sentences_[cond] = chartdata;
 }
 
-Chart* ConditionStatement::EvaluateSentence(int seed) const
+Chart* ConditionalChart::EvaluateSentence(int seed) const
 {
   unsigned int cur_seed = seed;
   if (cur_seed < 0)
@@ -215,13 +226,35 @@ Chart* ConditionStatement::EvaluateSentence(int seed) const
   return it->second;
 }
 
-ConditionStatement::ConditionStatement(int value, bool israndom, bool isswitchstmt)
+size_t ConditionalChart::GetSentenceCount()
+{
+  return sentences_.size();
+}
+
+Chart* ConditionalChart::CreateSentence(unsigned int cond)
+{
+  auto ii = sentences_.find(cond);
+  if (ii == sentences_.end())
+    sentences_.emplace(cond, new Chart());
+  return sentences_[cond];
+}
+
+ConditionalChart::ConditionalChart(int value, bool israndom, bool isswitchstmt)
   : value_(value), israndom_(israndom), isswitchstmt_(isswitchstmt)
 {
   assert(value_ > 0);
 }
 
-ConditionStatement::~ConditionStatement()
+ConditionalChart::ConditionalChart(const ConditionalChart& cs)
+  : value_(cs.value_), israndom_(cs.israndom_), isswitchstmt_(cs.isswitchstmt_)
+{
+  for (auto p : cs.sentences_)
+  {
+    sentences_[p.first] = new Chart(*p.second);
+  }
+}
+
+ConditionalChart::~ConditionalChart()
 {
   for (auto& p : sentences_)
   {

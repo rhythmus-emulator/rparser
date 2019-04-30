@@ -40,7 +40,7 @@ class ChartLoaderBMS : public ChartLoader {
 private:
   Chart* chart_context_;
   std::vector<Chart*> chart_context_stack_;
-  ConditionStatement* condstmt_;
+  ConditionalChart* condstmt_;
   struct LineContext {
     const char* stmt;
     unsigned int stmt_len;

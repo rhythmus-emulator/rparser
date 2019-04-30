@@ -13,7 +13,7 @@
 namespace rparser
 {
 
-class ConditionStatement;
+class ConditionalChart;
 
 /*
  * @detail
@@ -45,9 +45,9 @@ public:
   
   void Clear();
 
-  ConditionStatement* CreateStmt(int value, bool israndom, bool isswitchstmt);
-  ConditionStatement* GetLastStmt();
-  void AppendStmt(ConditionStatement& stmt);
+  ConditionalChart* CreateStmt(int value, bool israndom, bool isswitchstmt);
+  ConditionalChart* GetLastStmt();
+  void AppendStmt(ConditionalChart& stmt);
   // evaluate all stmt and generate objects (process control flow)
   void EvaluateStmt(int seed = -1);
 
@@ -70,7 +70,7 @@ private:
   NoteData<BgaNote> bgadata_;
   MetaData metadata_;
   TempoData tempodata_;
-  std::vector<ConditionStatement> stmtdata_;
+  std::vector<ConditionalChart> stmtdata_;
   std::string hash_;
   std::string filename_;
 };
@@ -79,7 +79,7 @@ private:
  * @detail
  * Conditional Flow Statements for BMS file type
  */
-class ConditionStatement
+class ConditionalChart
 {
 public:
   void AddSentence(unsigned int cond, Chart* chartdata);
@@ -87,9 +87,9 @@ public:
   size_t GetSentenceCount();
   Chart* CreateSentence(unsigned int cond);
 
-  ConditionStatement(int value, bool israndom, bool isswitchstmt);
-  ConditionStatement(const ConditionStatement& cs);
-  ~ConditionStatement();
+  ConditionalChart(int value, bool israndom, bool isswitchstmt);
+  ConditionalChart(const ConditionalChart& cs);
+  ~ConditionalChart();
 private:
   mutable int value_;
   bool israndom_;
@@ -117,7 +117,7 @@ private:
 class ChartListBase
 {
 public:
-  virtual ~ChartListBase() = 0;
+  virtual ~ChartListBase() = default;
   virtual size_t size() = 0;
   virtual int AddNewChart() = 0;
   virtual const Chart* GetChartData(int idx) const = 0;
@@ -126,6 +126,8 @@ public:
   virtual void DeleteChart(int idx) = 0;
   virtual bool IsChartOpened() = 0;
   virtual void UpdateTempoData() = 0;
+protected:
+  ChartListBase() = default;
 };
 
 /**

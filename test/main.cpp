@@ -103,10 +103,17 @@ TEST(RPARSER, DIRECTORY_BINARY)
 
 TEST(RPARSER, TEMPODATA)
 {
-  TempoData td;
+  Chart c;
+  TempoData &td = c.GetTempoData();
+
+  // default value check
   EXPECT_EQ(120, td.GetMinBpm());
   EXPECT_EQ(120, td.GetMaxBpm());
   EXPECT_FALSE(td.HasBpmChange());
+  EXPECT_FALSE(td.HasStop());
+  EXPECT_FALSE(td.HasWarp());
+
+  // add some data
 }
 
 TEST(RPARSER, NOTEDATA)
