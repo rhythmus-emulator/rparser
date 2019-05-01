@@ -8,13 +8,15 @@ namespace rparser
 inline double GetTimeFromBeatInTempoSegment(const TempoObject& tobj, double beat)
 {
   const double msec_per_beat = 60.0 * 1000 / tobj.bpm_;
-  return tobj.time_ + (beat - tobj.beat_) * msec_per_beat;
+  return tobj.time_ + tobj.stoptime_ + (tobj.beat_ == beat ? 0 : tobj.delaytime_) + (beat - tobj.beat_) * msec_per_beat;
 }
 
 inline double GetBeatFromTimeInTempoSegment(const TempoObject& tobj, double time_msec)
 {
   const double beat_per_msec = tobj.bpm_ / 60 / 1000;
-  return tobj.beat_ + (time_msec - tobj.time_) * beat_per_msec;
+  const double time_delta = time_msec - tobj.time_ - (tobj.stoptime_ + tobj.delaytime_);
+  if (time_delta < 0) return tobj.beat_;
+  return tobj.beat_ + time_delta * beat_per_msec;
 }
 
 inline double GetBeatFromRowInTempoSegment(const TempoObject& n, const Row& row)
@@ -28,12 +30,14 @@ TempoObject::TempoObject()
   measure_length_changed_beat_(0), measure_length_(4), measure_idx_(0),
   stoptime_(0), delaytime_(0), warpbeat_(0), scrollspeed_(1), tick_(1) {}
 
-TempoObject::TempoObject(const TempoObject& o)
-: bpm_(o.bpm_), beat_(o.beat_), time_(o.time_),
-  measure_length_changed_beat_(o.measure_length_changed_beat_),
-  measure_length_(o.measure_length_), measure_idx_(0),
-  stoptime_(0), delaytime_(0), warpbeat_(0),  // cleared when copied
-  scrollspeed_(o.scrollspeed_), tick_(o.tick_) {}
+// called when TempoObject is copied for new block (e.g. Seek methods)
+// As new object segment won't have same STOP/DELAY/WARP by default.
+void TempoObject::clearForCopiedSegment()
+{
+  stoptime_ = 0;
+  delaytime_ = 0;
+  warpbeat_ = 0;
+}
 
 std::string TempoObject::toString()
 {
@@ -44,8 +48,7 @@ std::string TempoObject::toString()
 
 TempoData::TempoData()
 {
-  // Dummy object to avoid crashing
-  tempoobjs_.push_back(TempoObject());
+  clear();
 }
 
 int GetSmallestIndex(double arr[], int size)
@@ -162,8 +165,7 @@ double TempoData::GetTimeFromBeat(double beat) const
       l = m + 1;
     }
   }
-  return tempoobjs_[idx].time_ +
-    GetTimeFromBeatInTempoSegment(tempoobjs_[idx], beat);
+  return GetTimeFromBeatInTempoSegment(tempoobjs_[idx], beat);
 }
 
 double TempoData::GetBeatFromTime(double time) const
@@ -189,8 +191,7 @@ double TempoData::GetBeatFromTime(double time) const
       l = m + 1;
     }
   }
-  return tempoobjs_[idx].beat_ +
-    GetBeatFromTimeInTempoSegment(tempoobjs_[idx], time - tempoobjs_[idx].time_);
+  return GetBeatFromTimeInTempoSegment(tempoobjs_[idx], time);
 }
 
 double TempoData::GetBeatFromRow(const Row& row) const
@@ -298,6 +299,7 @@ void TempoData::SeekByTime(double time)
   if (time == tempoobjs_.back().time_) return;
   double beat = GetBeatFromTimeInLastSegment(time);
   TempoObject new_tobj(tempoobjs_.back());
+  new_tobj.clearForCopiedSegment();
   new_tobj.time_ = time;
   new_tobj.beat_ = beat;
   tempoobjs_.push_back(new_tobj);
@@ -307,8 +309,9 @@ void TempoData::SeekByBeat(double beat)
 {
   ASSERT(beat >= tempoobjs_.back().beat_);
   if (beat == tempoobjs_.back().beat_) return;
-  double time = GetBeatFromTimeInLastSegment(beat);
+  double time = GetTimeFromBeatInLastSegment(beat);
   TempoObject new_tobj(tempoobjs_.back());
+  new_tobj.clearForCopiedSegment();
   new_tobj.time_ = time;
   new_tobj.beat_ = beat;
   tempoobjs_.push_back(new_tobj);
@@ -453,7 +456,8 @@ std::string TempoData::toString() const
 void TempoData::clear()
 {
   tempoobjs_.clear();
-  TempoData();
+  // Dummy object to avoid crashing
+  tempoobjs_.emplace_back(TempoObject());
 }
 
 void TempoData::swap(TempoData& tempodata)

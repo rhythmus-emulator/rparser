@@ -14,7 +14,7 @@ class MetaData;
 struct TempoObject
 {
   TempoObject();
-  TempoObject(const TempoObject&);
+  TempoObject(const TempoObject&) = default;
   
   double beat_;
   double time_;           // in second
@@ -28,6 +28,7 @@ struct TempoObject
   double scrollspeed_;    // XXX: scroll speed is not available here.
   uint32_t tick_;         // XXX: unused (default 4)
 
+  void clearForCopiedSegment();
   std::string toString();
 };
 
@@ -57,7 +58,6 @@ public:
   NoteData<TempoNote>& GetTempoNoteData();
   void Invalidate(const MetaData& m);
 
-private:
   void SetFirstObjectFromMetaData(const MetaData &md);
   void SeekByTime(double time);
   void SeekByBeat(double beat);
@@ -69,8 +69,9 @@ private:
   void SetWarp(double warp_length_in_beat);
   void SetTick(uint32_t tick);
   void SetScrollSpeedChange(double scrollspeed);
-  double GetTimeFromBeatInLastSegment(double beat_delta) const;       // return msec time
-  double GetBeatFromTimeInLastSegment(double time_delta_msec) const;
+private:
+  double GetTimeFromBeatInLastSegment(double beat) const;       // return msec time
+  double GetBeatFromTimeInLastSegment(double time) const;
   double GetBeatFromRowInLastSegment(const Row& row) const;
 
   NoteData<TempoNote> temponotedata_;

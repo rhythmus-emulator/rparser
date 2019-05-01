@@ -107,13 +107,65 @@ TEST(RPARSER, TEMPODATA)
   TempoData &td = c.GetTempoData();
 
   // default value check
+  td.SetBPMChange(120.0);
   EXPECT_EQ(120, td.GetMinBpm());
   EXPECT_EQ(120, td.GetMaxBpm());
   EXPECT_FALSE(td.HasBpmChange());
   EXPECT_FALSE(td.HasStop());
   EXPECT_FALSE(td.HasWarp());
 
-  // add some data
+  // add some time signature (default)
+  td.SetBPMChange(120.0);
+  EXPECT_EQ(60'000.0, td.GetTimeFromBeat(120.0));
+  EXPECT_EQ(120.0, td.GetBeatFromTime(60'000.0));
+  td.clear();
+
+  // add some time signature
+  td.SetBPMChange(180.0);
+  td.SeekByBeat(40.0);
+  td.SetBPMChange(90.0);
+  td.SeekByBeat(48.0);
+  td.SetSTOP(2000.0);
+  td.SetBPMChange(180.0);
+  // SeekByTime and add STOP\
+  // -- Excluding these line may fail test below. do it for advanced test.
+  td.SeekByTime(50'000.0);
+  td.SetSTOP(2000.0);
+  EXPECT_EQ(90.0, td.GetMinBpm());
+  EXPECT_EQ(180.0, td.GetMaxBpm());
+
+  // test time
+  std::cout << "40Beat time: " << td.GetTimeFromBeat(40.0) << std::endl;
+  std::cout << "47.99Beat time: " << td.GetTimeFromBeat(47.99) << std::endl;
+  std::cout << "48Beat time: " << td.GetTimeFromBeat(48.0) << std::endl;
+  std::cout << "48.01Beat time: " << td.GetTimeFromBeat(48.01) << std::endl;
+  std::cout << "18sec beat: " << td.GetBeatFromTime(18'000.0) << std::endl;
+  std::cout << "19sec beat: " << td.GetBeatFromTime(19'000.0) << std::endl;
+  std::cout << "20sec beat: " << td.GetBeatFromTime(20'000.0) << std::endl;
+  std::cout << "50sec beat: " << td.GetBeatFromTime(50'000.0) << std::endl;
+  std::cout << "52sec beat: " << td.GetBeatFromTime(52'000.0) << std::endl;
+  std::cout << "60sec beat: " << td.GetBeatFromTime(60'000.0) << std::endl;
+  std::cout << "120sec beat: " << td.GetBeatFromTime(120'000.0) << std::endl;
+  EXPECT_NEAR(2'000.0, td.GetTimeFromBeat(48.0) - td.GetTimeFromBeat(47.99), 10.0);
+  EXPECT_NEAR(0.0, td.GetBeatFromTime(20'000.0) - td.GetBeatFromTime(19'000.0), 0.01);
+  EXPECT_NEAR(0.0, td.GetBeatFromTime(52'000.0) - td.GetBeatFromTime(50'000.0), 0.01);
+  EXPECT_NEAR(180.0, td.GetBeatFromTime(110'000.0 /* 60+2 sec */) - td.GetBeatFromTime(48'000.0), 0.01);
+  td.clear();
+
+  // now use Invalidate method
+  auto &n = td.GetTempoNoteData();
+  MetaData md;
+  TempoNote tn;
+  tn.pos.type = NotePosTypes::Beat;
+  tn.type = NoteTypes::kTempo;
+  tn.subtype = NoteTempoTypes::kBpm;
+  tn.pos.beat = 0;
+  tn.value.f = 180;
+  n.AddNote(tn);
+  td.Invalidate(md);
+
+  // test time
+  // TODO
 }
 
 TEST(RPARSER, NOTEDATA)
