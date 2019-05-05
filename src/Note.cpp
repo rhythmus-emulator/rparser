@@ -74,6 +74,9 @@ const char **pNoteSubtypeStr[] = {
   kNoteSpecialTypesStr,
 };
 
+Row::Row(uint32_t measure, RowPos num, RowPos deno)
+  : measure(measure), num(num), deno(deno) {}
+
 std::string Note::toString() const
 {
   std::stringstream ss;
@@ -87,6 +90,65 @@ std::string Note::toString() const
   ss << "Time: " << pos.time_msec << std::endl;
   ss << getValueAsString() << std::endl;
   return ss.str();
+}
+
+NoteType Note::GetNotetype() const
+{
+  return type;
+}
+
+NoteType Note::GetNoteSubtype() const
+{
+  return subtype;
+}
+
+void Note::SetNotetype(NoteType t)
+{
+  type = t;
+}
+
+void Note::SetNoteSubtype(NoteType t)
+{
+  subtype = t;
+}
+
+void Note::SetRowPos(const Row& r)
+{
+  pos.type = NotePosTypes::Row;
+  pos.row = r;
+}
+
+void Note::SetRowPos(uint32_t measure, RowPos deno, RowPos num)
+{
+  pos.type = NotePosTypes::Row;
+  pos.row = std::move(Row(measure,deno,num));
+}
+
+void Note::SetBeatPos(double beat)
+{
+  pos.type = NotePosTypes::Beat;
+  pos.beat = beat;
+}
+
+void Note::SetTimePos(double time_msec)
+{
+  pos.type = NotePosTypes::Time;
+  pos.time_msec = time_msec;
+}
+
+NotePos& Note::GetNotePos()
+{
+  return pos;
+}
+
+const NotePos& Note::GetNotePos() const
+{
+  return const_cast<Note*>(this)->GetNotePos();
+}
+
+NotePosTypes Note::GetNotePosType() const
+{
+  return pos.type;
 }
 
 bool NotePos::operator==(const NotePos &other) const noexcept
@@ -117,6 +179,31 @@ bool Note::operator==(const Note &other) const noexcept
   return pos == other.pos;
 }
 
+SoundNote::SoundNote() : value(0), volume(1.0f), pitch(0), restart(false)
+{
+  SetAsBGM();
+}
+
+void SoundNote::SetAsBGM()
+{
+  SetNotetype(NoteTypes::kBGM);
+}
+
+void SoundNote::SetAsTouchNote()
+{
+  SetNotetype(NoteTypes::kTouch);
+}
+
+void SoundNote::SetAsTapNote()
+{
+  SetNotetype(NoteTypes::kNote);
+}
+
+void SoundNote::SetAsKnobNote()
+{
+  SetNotetype(NoteTypes::kKnob);
+}
+
 std::string SoundNote::getValueAsString() const
 {
   std::stringstream ss;
@@ -130,7 +217,7 @@ std::string SoundNote::getValueAsString() const
 
 bool SoundNote::operator==(const SoundNote &other) const noexcept
 {
-  return pos == other.pos && value == other.value;
+  return Note::operator==(other) && value == other.value;
 }
 
 std::string BgaNote::getValueAsString() const
@@ -140,9 +227,77 @@ std::string BgaNote::getValueAsString() const
   return ss.str();
 }
 
+BgaNote::BgaNote() : value(0)
+{
+  SetNotetype(NoteTypes::kBGA);
+}
+
 bool BgaNote::operator==(const BgaNote &other) const noexcept
 {
-  return pos == other.pos && value == other.value;
+  return Note::operator==(other) && value == other.value;
+}
+
+TempoNote::TempoNote()
+{
+  SetNotetype(NoteTypes::kTempo);
+}
+
+void TempoNote::SetBpm(float bpm)
+{
+  SetNoteSubtype(NoteTempoTypes::kBpm);
+  value.f = bpm;
+}
+
+void TempoNote::SetBmsBpm(Channel bms_channel)
+{
+  SetNoteSubtype(NoteTempoTypes::kBmsBpm);
+  value.i = bms_channel;
+}
+
+void TempoNote::SetStop(float stop)
+{
+  SetNoteSubtype(NoteTempoTypes::kStop);
+  value.f = stop;
+}
+
+void TempoNote::SetBmsStop(Channel bms_channel)
+{
+  SetNoteSubtype(NoteTempoTypes::kBmsStop);
+  value.i = bms_channel;
+}
+
+void TempoNote::SetMeasure(float measure_length)
+{
+  SetNoteSubtype(NoteTempoTypes::kMeasure);
+  value.f = measure_length;
+}
+
+void TempoNote::SetScroll(float scrollspeed)
+{
+  SetNoteSubtype(NoteTempoTypes::kScroll);
+  value.f = scrollspeed;
+}
+
+void TempoNote::SetTick(int32_t tick)
+{
+  SetNoteSubtype(NoteTempoTypes::kTick);
+  value.i = tick;
+}
+
+void TempoNote::SetWarp(float warp_to)
+{
+  SetNoteSubtype(NoteTempoTypes::kWarp);
+  value.f = warp_to;
+}
+
+float TempoNote::GetFloatValue() const
+{
+  return value.f;
+}
+
+int32_t TempoNote::GetIntValue() const
+{
+  return value.i;
 }
 
 std::string TempoNote::getValueAsString() const
@@ -155,7 +310,7 @@ std::string TempoNote::getValueAsString() const
 
 bool TempoNote::operator==(const TempoNote &other) const noexcept
 {
-  return pos == other.pos &&
+  return Note::operator==(other) &&
          value.i == other.value.i &&
          value.f == other.value.f;
 }

@@ -477,18 +477,19 @@ bool ChartLoaderBMS::ParseNote()
   if (len == 0) return false;
 
   memset(&n, 0, sizeof(Note));
-  n.pos.type = NotePosTypes::Row;
-  n.pos.row.measure = measure;
-  n.pos.row.deno = len;
-  n.type = GetNoteTypeFromBmsChannel(channel);
-  n.subtype = GetNoteSubTypeFromBmsChannel(channel);
+  NotePos& npos = n.GetNotePos();
+  npos.type = NotePosTypes::Row;
+  npos.row.measure = measure;
+  npos.row.deno = len;
+  n.SetNotetype(GetNoteTypeFromBmsChannel(channel));
+  n.SetNoteSubtype(GetNoteSubTypeFromBmsChannel(channel));
   n.track.lane.note.player = GetNotePlayerFromBmsChannel(channel);
   n.track.lane.note.lane = GetNoteColFromBmsChannel(channel);
   for (unsigned int i = 0; i < len; i += 2)
   {
     value_u = atoi_bms_channel(value+i);
     if (value_u == 0) continue;
-    n.pos.row.num = i;
+    npos.row.num = i;
     n.value = static_cast<Channel>(value_u);
     // TODO: do process for LNTYPE1/2 chaining.
     chart_context_->GetNoteData().AddNote(n);

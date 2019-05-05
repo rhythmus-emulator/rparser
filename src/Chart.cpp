@@ -126,26 +126,26 @@ void InvalidateNoteDataPos(NoteData<N>& nd, const TempoData& tempodata_)
   SortNoteObjectsByType(nd, sorted);
   // Make conversion of row --> beat --> time first.
   for (const Note* nobj : sorted.nobj_by_row)
-    v_row.push_back(nobj->pos.row);
+    v_row.push_back(nobj->GetNotePos().row);
   const std::vector<double> v_row_to_beat(std::move(tempodata_.GetBeatFromRowArr(v_row)));
   for (Note* nobj : sorted.nobj_by_row)
-    v_beat.push_back(nobj->pos.beat = v_row_to_beat[r_idx++]);
+    v_beat.push_back(nobj->GetNotePos().beat = v_row_to_beat[r_idx++]);
   const std::vector<double> v_row_to_time(std::move(tempodata_.GetTimeFromBeatArr(v_beat)));
   r_idx = 0;
   for (Note* nobj : sorted.nobj_by_row)
-    nobj->pos.time_msec = v_row_to_time[r_idx++];
+    nobj->GetNotePos().time_msec = v_row_to_time[r_idx++];
   v_beat.clear();
   // Make conversion of beat <--> time.
   for (const Note* nobj : sorted.nobj_by_beat)
-    v_beat.push_back(nobj->pos.beat);
+    v_beat.push_back(nobj->GetNotePos().beat);
   for (const Note* nobj : sorted.nobj_by_tempo)
-    v_time.push_back(nobj->pos.time_msec);
+    v_time.push_back(nobj->GetNotePos().time_msec);
   const std::vector<double>&& v_time_to_beat = tempodata_.GetBeatFromTimeArr(v_time);
   const std::vector<double>&& v_beat_to_time = tempodata_.GetTimeFromBeatArr(v_beat);
   for (Note* nobj : sorted.nobj_by_beat)
-    nobj->pos.time_msec = v_beat_to_time[t_idx++];
+    nobj->GetNotePos().time_msec = v_beat_to_time[t_idx++];
   for (Note* nobj : sorted.nobj_by_tempo)
-    nobj->pos.beat = v_time_to_beat[b_idx++];
+    nobj->GetNotePos().beat = v_time_to_beat[b_idx++];
 }
 
 void Chart::InvalidateAllNotePos()
@@ -156,15 +156,16 @@ void Chart::InvalidateAllNotePos()
 
 void Chart::InvalidateNotePos(Note &nobj)
 {
-  switch (nobj.pos.type)
+  NotePos &npos = nobj.GetNotePos();
+  switch (npos.type)
   {
     case NotePosTypes::Time:
-      nobj.pos.beat = tempodata_.GetBeatFromTime(nobj.pos.time_msec);
+      npos.beat = tempodata_.GetBeatFromTime(npos.time_msec);
       break;
     case NotePosTypes::Row:
-      nobj.pos.beat = tempodata_.GetBeatFromRow(nobj.pos.row);
+      npos.beat = tempodata_.GetBeatFromRow(npos.row);
     case NotePosTypes::Beat:
-      nobj.pos.time_msec = tempodata_.GetTimeFromBeat(nobj.pos.beat);
+      npos.time_msec = tempodata_.GetTimeFromBeat(npos.beat);
       break;
   }
 }

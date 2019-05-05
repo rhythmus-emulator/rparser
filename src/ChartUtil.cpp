@@ -58,14 +58,15 @@ void FixInvalidNote(Chart &c, SONGTYPE songtype, bool delete_invalid_note)
   {
     current_col = note.track.lane.note.lane;
     current_player = note.track.lane.note.player;
-    if (note.type != NoteTypes::kNote)
+    if (note.GetNotetype() != NoteTypes::kNote)
       continue;
-    if (note.subtype != NoteTypes::kNote)
+    if (note.GetNoteSubtype() != NoteTypes::kNote)
       continue;
     // if beat change, invalidate all marked note status
-    if (note.pos.beat != current_beat)
+    NotePos& npos = note.GetNotePos();
+    if (npos.beat != current_beat)
     {
-      current_beat = note.pos.beat;
+      current_beat = npos.beat;
       for (auto pi=0u ; pi<player_count ; pi++)
       {
         for (auto i=0u ; i<track_column_count ; i++)
@@ -80,7 +81,7 @@ void FixInvalidNote(Chart &c, SONGTYPE songtype, bool delete_invalid_note)
           {
             // in case of longnote, renew longnote object.
             // TODO: in case of pos_end attribute note?
-            if ((*ncl)->pos.beat < current_beat)
+            if ((*ncl)->GetNotePos().beat < current_beat)
               (*ncl) = (*ncl)->next;
           }
         }
@@ -233,7 +234,7 @@ inline bool CheckNoteValidity(SoundNote& note, const EffectorParam& param)
 {
   int current_col = note.track.lane.note.lane;
   int current_player = note.track.lane.note.player;
-  if (note.type != NoteTypes::kNote)
+  if (note.GetNotetype() != NoteTypes::kNote)
     return false;
   if (current_player != param.player)
     return false;
@@ -267,10 +268,11 @@ void SRandom(Chart &c, const EffectorParam& param)
   {
     if (!CheckNoteValidity(note, param)) continue;
     // reassign note if beat changed
-    if (note.pos.beat != current_beat)
+    NotePos& npos = note.GetNotePos();
+    if (npos.beat != current_beat)
     {
       GenerateRandomColumn(new_col, param);
-      current_beat = note.pos.beat;
+      current_beat = npos.beat;
     }
     // XXX: notes might be duplicated to longnote, making unplayable.
     //      So must fix these notes using some method.
@@ -290,9 +292,10 @@ void HRandom(Chart &c, const EffectorParam& param)
   {
     if (!CheckNoteValidity(note, param)) continue;
 
-    if (note.pos.beat != current_beat)
+    NotePos& npos = note.GetNotePos();
+    if (npos.beat != current_beat)
     {
-      current_beat = note.pos.beat;
+      current_beat = npos.beat;
       double new_measure = c.GetTempoData().GetMeasureFromBeat(current_beat);
       if ((int)new_measure != current_measure)
       {
@@ -386,9 +389,10 @@ void AllSC(Chart &c, const EffectorParam& param)
   {
     if (!CheckNoteValidity(note, param)) continue;
     
-    if (note.pos.beat != current_beat)
+    NotePos& npos = note.GetNotePos();
+    if (npos.beat != current_beat)
     {
-      current_beat = note.pos.beat;
+      current_beat = npos.beat;
       if (row_notes.size())
         row_notes[rand() % row_notes.size()]->track.lane.note.lane = sc_idx;
       row_notes.clear();

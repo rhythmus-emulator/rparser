@@ -19,13 +19,14 @@ struct TempoObject
   double beat_;
   double time_;           // in second
   double bpm_;
-  double measure_idx_;
+  uint32_t measure_idx_;  // XXX: is it useless? just for debugging?
+  uint32_t measure_length_changed_idx_;
   double measure_length_changed_beat_;
   double measure_length_; // default: 4 beat 1 measure
   double stoptime_;
   double delaytime_;
   double warpbeat_;
-  double scrollspeed_;    // XXX: scroll speed is not available here.
+  double scrollspeed_;    // Faster scrollspeed marks smaller timepoint for each segment.
   uint32_t tick_;         // XXX: unused (default 4)
 
   void clearForCopiedSegment();

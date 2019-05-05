@@ -20,6 +20,9 @@ enum class NotePosTypes
 
 struct Row
 {
+  Row() = default;
+  Row(uint32_t measure, RowPos num, RowPos deno);
+
   uint32_t measure;
   RowPos num;
   RowPos deno;
@@ -49,17 +52,32 @@ typedef struct
 class Note
 {
 public:
-  NoteType type;
-  NoteType subtype;
-  NotePos pos;
-  Note *prev;
-  Note *next;
+  Note() = default;
+  Note(const Note&) = default;
+
+  NoteType GetNotetype() const;
+  NoteType GetNoteSubtype() const;
+  void SetNotetype(NoteType t);
+  void SetNoteSubtype(NoteType t);
+  void SetRowPos(const Row& r);
+  void SetRowPos(uint32_t measure, RowPos deno, RowPos num);
+  void SetBeatPos(double beat);
+  void SetTimePos(double time_msec);
+  NotePos& GetNotePos();
+  const NotePos& GetNotePos() const;
+  NotePosTypes GetNotePosType() const;
 
   bool operator<(const Note &other) const noexcept;
   bool operator==(const Note &other) const noexcept;
   std::string toString() const;
+
+  Note *prev;
+  Note *next;
 private:
   virtual std::string getValueAsString() const = 0;
+  NotePos pos;
+  NoteType type;
+  NoteType subtype;
 };
 
 /**
@@ -76,6 +94,12 @@ private:
 class SoundNote : public Note
 {
 public:
+  SoundNote();
+  void SetAsBGM();
+  void SetAsTouchNote();
+  void SetAsTapNote();
+  void SetAsKnobNote();
+
   NoteTrack track;
   Channel value;
   float volume;
@@ -94,6 +118,8 @@ private:
 class BgaNote : public Note
 {
 public:
+  BgaNote();
+
   Channel value;
   bool operator==(const BgaNote &other) const noexcept;
 private:
@@ -107,13 +133,26 @@ private:
 class TempoNote : public Note
 {
 public:
-  struct
+  TempoNote();
+
+  void SetBpm(float bpm);
+  void SetBmsBpm(Channel bms_channel);
+  void SetStop(float stop);
+  void SetBmsStop(Channel bms_channel);
+  void SetMeasure(float measure_length);
+  void SetScroll(float scrollspeed);
+  void SetTick(int32_t tick);
+  void SetWarp(float warp_to);
+  float GetFloatValue() const;
+  int32_t GetIntValue() const;
+
+  bool operator==(const TempoNote &other) const noexcept;
+private:
+  union
   {
     float f;
     int32_t i;
   } value;
-  bool operator==(const TempoNote &other) const noexcept;
-private:
   virtual std::string getValueAsString() const;
 };
 

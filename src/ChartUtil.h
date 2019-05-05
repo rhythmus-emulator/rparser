@@ -55,22 +55,25 @@ void SortNoteObjectsByType(A& notedata, B& out)
 {
   for (auto& nobj : notedata)
   {
-    if (nobj.type == NoteTypes::kTempo)
+    if (nobj.GetNotetype() == NoteTypes::kTempo)
     {
-      if (nobj.pos.type == NotePosTypes::Beat)
+      if (nobj.GetNotePosType() == NotePosTypes::Beat)
         out.nobj_by_beat.push_back(&nobj);
-      else if (nobj.pos.type == NotePosTypes::Time)
+      else if (nobj.GetNotePosType() == NotePosTypes::Time)
         out.nobj_by_tempo.push_back(&nobj);
-      else if (nobj.pos.type == NotePosTypes::Row)
+      else if (nobj.GetNotePosType() == NotePosTypes::Row)
         out.nobj_by_row.push_back(&nobj);
     }
   }
   std::sort(out.nobj_by_beat.begin(), out.nobj_by_beat.end(), [] (const Note* lhs, const Note* rhs)
-  { return lhs->pos.beat < rhs->pos.beat; });
+  { return lhs->GetNotePos().beat < rhs->GetNotePos().beat; });
   std::sort(out.nobj_by_tempo.begin(), out.nobj_by_tempo.end(), [] (const Note* lhs, const Note* rhs)
-  { return lhs->pos.beat < rhs->pos.beat; });
+  { return lhs->GetNotePos().beat < rhs->GetNotePos().beat; });
   std::sort(out.nobj_by_row.begin(), out.nobj_by_row.end(), [] (const Note* lhs, const Note* rhs)
-  { return lhs->pos.row.measure <= rhs->pos.row.measure && lhs->pos.row.num / (double)lhs->pos.row.deno < rhs->pos.row.num / (double)rhs->pos.row.deno; });
+  { return lhs->GetNotePos().row.measure <= rhs->GetNotePos().row.measure &&
+           (lhs->GetNotePos().row.num / (double)lhs->GetNotePos().row.deno)
+           < 
+           (rhs->GetNotePos().row.num / (double)rhs->GetNotePos().row.deno); });
 }
 
 // fix invalid note to correct one after chart effector

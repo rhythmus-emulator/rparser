@@ -127,12 +127,17 @@ TEST(RPARSER, TEMPODATA)
   td.SeekByBeat(48.0);
   td.SetSTOP(2000.0);
   td.SetBPMChange(180.0);
-  // SeekByTime and add STOP\
+  td.SetMeasureLengthChange(2.0);   // default is 4 beat per measure
+  // SeekByTime and add STOP
   // -- Excluding these line may fail test below. do it for advanced test.
   td.SeekByTime(50'000.0);
   td.SetSTOP(2000.0);
   EXPECT_EQ(90.0, td.GetMinBpm());
   EXPECT_EQ(180.0, td.GetMaxBpm());
+
+  // add warp test
+  td.SeekByBeat(1000.0);
+  td.SetWarp(2.0);
 
   // test time
   std::cout << "40Beat time: " << td.GetTimeFromBeat(40.0) << std::endl;
@@ -150,22 +155,43 @@ TEST(RPARSER, TEMPODATA)
   EXPECT_NEAR(0.0, td.GetBeatFromTime(20'000.0) - td.GetBeatFromTime(19'000.0), 0.01);
   EXPECT_NEAR(0.0, td.GetBeatFromTime(52'000.0) - td.GetBeatFromTime(50'000.0), 0.01);
   EXPECT_NEAR(180.0, td.GetBeatFromTime(110'000.0 /* 60+2 sec */) - td.GetBeatFromTime(48'000.0), 0.01);
+  EXPECT_NEAR(td.GetBeatFromRow(Row(13, 2, 4)), 48.0+3.0, 0.01);
+
+  const double warp_time = td.GetTimeFromBeat(1000.0);
+  EXPECT_NEAR(2.0, td.GetBeatFromTime(warp_time + 0.01) - td.GetBeatFromTime(warp_time), 0.01);
+
   td.clear();
 
   // now use Invalidate method
   auto &n = td.GetTempoNoteData();
   MetaData md;
   TempoNote tn;
-  tn.pos.type = NotePosTypes::Beat;
-  tn.type = NoteTypes::kTempo;
-  tn.subtype = NoteTempoTypes::kBpm;
-  tn.pos.beat = 0;
-  tn.value.f = 180;
+
+  tn.SetBeatPos(0);
+  tn.SetBpm(180);
   n.AddNote(tn);
+  tn.SetBeatPos(40);
+  tn.SetBpm(90);
+  n.AddNote(tn);
+  tn.SetBeatPos(48);
+  tn.SetStop(2000);
+  n.AddNote(tn);
+  tn.SetBpm(180);
+  n.AddNote(tn);
+  tn.SetMeasure(2.0);
+  n.AddNote(tn);
+  tn.SetTimePos(50'000.0);
+  tn.SetStop(2000);
+  n.AddNote(tn);
+
   td.Invalidate(md);
 
-  // test time
-  // TODO
+  // do same test
+  EXPECT_NEAR(2'000.0, td.GetTimeFromBeat(48.0) - td.GetTimeFromBeat(47.99), 10.0);
+  EXPECT_NEAR(0.0, td.GetBeatFromTime(20'000.0) - td.GetBeatFromTime(19'000.0), 0.01);
+  EXPECT_NEAR(0.0, td.GetBeatFromTime(52'000.0) - td.GetBeatFromTime(50'000.0), 0.01);
+  EXPECT_NEAR(180.0, td.GetBeatFromTime(110'000.0 /* 60+2 sec */) - td.GetBeatFromTime(48'000.0), 0.01);
+  EXPECT_NEAR(td.GetBeatFromRow(Row(13, 2, 4)), 48.0 + 3.0, 0.01);
 }
 
 TEST(RPARSER, NOTEDATA)
