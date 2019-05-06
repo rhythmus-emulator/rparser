@@ -66,6 +66,8 @@ public:
   NotePos& GetNotePos();
   const NotePos& GetNotePos() const;
   NotePosTypes GetNotePosType() const;
+  double GetBeatPos() const;
+  double GetTimePos() const;
 
   bool operator<(const Note &other) const noexcept;
   bool operator==(const Note &other) const noexcept;
@@ -95,9 +97,9 @@ class SoundNote : public Note
 {
 public:
   SoundNote();
-  void SetAsBGM();
+  void SetAsBGM(uint8_t col);
   void SetAsTouchNote();
-  void SetAsTapNote();
+  void SetAsTapNote(uint8_t player, uint8_t lane);
   void SetAsKnobNote();
 
   NoteTrack track;
@@ -271,10 +273,18 @@ public:
     }
     else notes_.push_back(n);
   }
+  N& front() { return notes_.front(); }
+  N& back() { return notes_.back(); }
+  const N& front() const { return notes_.front(); }
+  const N& back() const { return notes_.back(); }
   typename std::vector<N>::iterator begin() { return notes_.begin(); }
   typename std::vector<N>::iterator end() { return notes_.end(); }
   const typename std::vector<N>::const_iterator begin() const { return notes_.begin(); }
   const typename std::vector<N>::const_iterator end() const { return notes_.end(); }
+  typename std::vector<N>::iterator rbegin() { return notes_.rbegin(); }
+  typename std::vector<N>::iterator rend() { return notes_.rend(); }
+  const typename std::vector<N>::const_iterator rbegin() const { return notes_.rbegin(); }
+  const typename std::vector<N>::const_iterator rend() const { return notes_.rend(); }
   bool IsEmpty() const { return notes_.size(); }
   std::string toString() const
   {

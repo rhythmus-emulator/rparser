@@ -55,15 +55,12 @@ void SortNoteObjectsByType(A& notedata, B& out)
 {
   for (auto& nobj : notedata)
   {
-    if (nobj.GetNotetype() == NoteTypes::kTempo)
-    {
-      if (nobj.GetNotePosType() == NotePosTypes::Beat)
-        out.nobj_by_beat.push_back(&nobj);
-      else if (nobj.GetNotePosType() == NotePosTypes::Time)
-        out.nobj_by_tempo.push_back(&nobj);
-      else if (nobj.GetNotePosType() == NotePosTypes::Row)
-        out.nobj_by_row.push_back(&nobj);
-    }
+    if (nobj.GetNotePosType() == NotePosTypes::Beat)
+      out.nobj_by_beat.push_back(&nobj);
+    else if (nobj.GetNotePosType() == NotePosTypes::Time)
+      out.nobj_by_tempo.push_back(&nobj);
+    else if (nobj.GetNotePosType() == NotePosTypes::Row)
+      out.nobj_by_row.push_back(&nobj);
   }
   std::sort(out.nobj_by_beat.begin(), out.nobj_by_beat.end(), [] (const Note* lhs, const Note* rhs)
   { return lhs->GetNotePos().beat < rhs->GetNotePos().beat; });

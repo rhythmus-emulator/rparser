@@ -151,6 +151,16 @@ NotePosTypes Note::GetNotePosType() const
   return pos.type;
 }
 
+double Note::GetBeatPos() const
+{
+  return pos.beat;
+}
+
+double Note::GetTimePos() const
+{
+  return pos.time_msec;
+}
+
 bool NotePos::operator==(const NotePos &other) const noexcept
 {
   if (type != other.type) return false;
@@ -181,12 +191,14 @@ bool Note::operator==(const Note &other) const noexcept
 
 SoundNote::SoundNote() : value(0), volume(1.0f), pitch(0), restart(false)
 {
-  SetAsBGM();
+  SetAsBGM(0);
 }
 
-void SoundNote::SetAsBGM()
+void SoundNote::SetAsBGM(uint8_t col)
 {
   SetNotetype(NoteTypes::kBGM);
+  track.lane.note.player = 0;
+  track.lane.note.lane = col;
 }
 
 void SoundNote::SetAsTouchNote()
@@ -194,9 +206,11 @@ void SoundNote::SetAsTouchNote()
   SetNotetype(NoteTypes::kTouch);
 }
 
-void SoundNote::SetAsTapNote()
+void SoundNote::SetAsTapNote(uint8_t player, uint8_t lane)
 {
   SetNotetype(NoteTypes::kNote);
+  track.lane.note.player = player;
+  track.lane.note.lane = lane;
 }
 
 void SoundNote::SetAsKnobNote()

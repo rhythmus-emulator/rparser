@@ -71,6 +71,9 @@ int GetSmallestIndex(double arr[], int size)
 
 void TempoData::Invalidate(const MetaData& m)
 {
+  // set first bpm from metadata
+  SetBPMChange(m.bpm);
+
   // extract tempo related object from chartdata
   static const NotePosTypes nbtypes[3] = { NotePosTypes::Beat, NotePosTypes::Time, NotePosTypes::Row };
   std::vector<const Note*> nobj_by_beat, nobj_by_tempo, nobj_by_row;

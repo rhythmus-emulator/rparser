@@ -140,6 +140,7 @@ TEST(RPARSER, TEMPODATA)
   td.SetWarp(2.0);
 
   // test time
+#if 0
   std::cout << "40Beat time: " << td.GetTimeFromBeat(40.0) << std::endl;
   std::cout << "47.99Beat time: " << td.GetTimeFromBeat(47.99) << std::endl;
   std::cout << "48Beat time: " << td.GetTimeFromBeat(48.0) << std::endl;
@@ -151,6 +152,7 @@ TEST(RPARSER, TEMPODATA)
   std::cout << "52sec beat: " << td.GetBeatFromTime(52'000.0) << std::endl;
   std::cout << "60sec beat: " << td.GetBeatFromTime(60'000.0) << std::endl;
   std::cout << "120sec beat: " << td.GetBeatFromTime(120'000.0) << std::endl;
+#endif
   EXPECT_NEAR(2'000.0, td.GetTimeFromBeat(48.0) - td.GetTimeFromBeat(47.99), 10.0);
   EXPECT_NEAR(0.0, td.GetBeatFromTime(20'000.0) - td.GetBeatFromTime(19'000.0), 0.01);
   EXPECT_NEAR(0.0, td.GetBeatFromTime(52'000.0) - td.GetBeatFromTime(50'000.0), 0.01);
@@ -194,9 +196,48 @@ TEST(RPARSER, TEMPODATA)
   EXPECT_NEAR(td.GetBeatFromRow(Row(13, 2, 4)), 48.0 + 3.0, 0.01);
 }
 
-TEST(RPARSER, NOTEDATA)
+TEST(RPARSER, CHART)
 {
-  // TODO : time marking from tempodata
+  /**
+   * Chart testing without conditional segment
+   */
+
+  Chart c;
+  auto &nd = c.GetNoteData();
+  auto &md = c.GetMetaData();
+  SoundNote n;
+
+  n.SetBeatPos(0.0);
+  n.SetAsTapNote(0, 0);
+  nd.AddNote(n);
+  n.SetBeatPos(0.5);
+  n.SetAsTapNote(0, 1);
+  nd.AddNote(n);
+  n.SetBeatPos(1.0);
+  n.SetAsTapNote(0, 2);
+  nd.AddNote(n);
+  n.SetBeatPos(1.5);
+  n.SetAsTapNote(0, 3);
+  nd.AddNote(n);
+  n.SetBeatPos(2.0);
+  n.SetAsTapNote(0, 4);
+  nd.AddNote(n);
+
+  md.bpm = 90.0;
+  md.title = "ABCD";
+  md.subtitle = "EFG";
+  md.artist = "TEST";
+
+  c.InvalidateTempoData();
+  c.InvalidateAllNotePos();
+
+  EXPECT_EQ(2, nd.back().GetBeatPos());
+  EXPECT_NEAR(1333.33, nd.back().GetTimePos(), 0.01);
+}
+
+TEST(RPARSER, CHART_CONDITIONAL_SEGMENT)
+{
+  // TODO
 }
 
 TEST(RPARSER, CHARTLIST)
