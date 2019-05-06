@@ -242,7 +242,70 @@ TEST(RPARSER, CHART_CONDITIONAL_SEGMENT)
 
 TEST(RPARSER, CHARTLIST)
 {
-  // TODO
+  ChartList clist;
+  Chart *c = nullptr;
+
+  clist.AddNewChart();
+  clist.AddNewChart();
+  clist.AddNewChart();
+
+  SoundNote n;
+  n.SetBeatPos(1.0);
+
+  c = clist.GetChart(0);
+  c->GetTempoData().SetBPMChange(120);
+  n.SetAsTapNote(0, 0);
+  c->GetNoteData().AddNote(n);
+
+  c = clist.GetChart(1);
+  c->GetTempoData().SetBPMChange(121);
+  n.SetAsTapNote(0, 1);
+  c->GetNoteData().AddNote(n);
+
+  c = clist.GetChart(2);
+  c->GetTempoData().SetBPMChange(122);
+  n.SetAsTapNote(0, 2);
+  c->GetNoteData().AddNote(n);
+
+  c = clist.GetChart(1);
+  EXPECT_EQ(c->GetNoteData().back().GetLane(), 1);
+  EXPECT_EQ(c->GetTempoData().GetMinBpm(), 121);
+}
+
+TEST(RPARSER, CHARTNOTELIST)
+{
+  ChartNoteList clist;
+  Chart *c = nullptr;
+
+  clist.AddNewChart();
+  clist.AddNewChart();
+  clist.AddNewChart();
+
+  SoundNote n;
+  n.SetBeatPos(1.0);
+
+  c = clist.GetChartData(0);
+  c->GetTempoData().SetBPMChange(120);
+  n.SetAsTapNote(0, 0);
+  c->GetNoteData().AddNote(n);
+  clist.CloseChartData();
+
+  c = clist.GetChartData(1);
+  c->GetTempoData().SetBPMChange(121);
+  n.SetAsTapNote(0, 1);
+  c->GetNoteData().AddNote(n);
+  clist.CloseChartData();
+
+  c = clist.GetChartData(2);
+  c->GetTempoData().SetBPMChange(122);
+  n.SetAsTapNote(0, 2);
+  c->GetNoteData().AddNote(n);
+  clist.CloseChartData();
+
+  c = clist.GetChartData(1);
+  EXPECT_EQ(c->GetNoteData().back().GetLane(), 1);
+  EXPECT_EQ(c->GetTempoData().GetMinBpm(), 122);
+  clist.CloseChartData();
 }
 
 TEST(RPARSER, VOSFILE)
@@ -263,5 +326,5 @@ TEST(RPARSER, BMSARCHIVE)
 int main(int argc, char **argv)
 {
 	::testing::InitGoogleTest(&argc, argv);
-	return RUN_ALL_TESTS();
+  return RUN_ALL_TESTS();
 }

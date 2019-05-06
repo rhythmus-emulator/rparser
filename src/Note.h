@@ -102,6 +102,12 @@ public:
   void SetAsTapNote(uint8_t player, uint8_t lane);
   void SetAsKnobNote();
 
+  uint8_t GetPlayer();
+  uint8_t GetLane();
+  uint8_t GetBGMCol();
+  uint8_t GetX();
+  uint8_t GetY();
+
   NoteTrack track;
   Channel value;
   float volume;

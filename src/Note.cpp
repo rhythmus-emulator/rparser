@@ -218,6 +218,37 @@ void SoundNote::SetAsKnobNote()
   SetNotetype(NoteTypes::kKnob);
 }
 
+uint8_t SoundNote::GetPlayer()
+{
+  ASSERT(GetNotetype() == NoteTypes::kNote);
+  return track.lane.note.player;
+}
+
+uint8_t SoundNote::GetLane()
+{
+  ASSERT(GetNotetype() == NoteTypes::kNote);
+  return track.lane.note.lane;
+}
+
+uint8_t SoundNote::GetBGMCol()
+{
+  ASSERT(GetNotetype() == NoteTypes::kBGM);
+  return track.lane.note.lane;
+}
+
+uint8_t SoundNote::GetX()
+{
+  ASSERT(GetNotetype() == NoteTypes::kTouch);
+  return track.lane.touch.x;
+}
+
+uint8_t SoundNote::GetY()
+{
+  ASSERT(GetNotetype() == NoteTypes::kTouch);
+  return track.lane.touch.y;
+}
+
+
 std::string SoundNote::getValueAsString() const
 {
   std::stringstream ss;

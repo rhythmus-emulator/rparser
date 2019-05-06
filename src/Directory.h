@@ -31,7 +31,7 @@ class Directory
 {
 public:
 	Directory();
-	~Directory();
+	virtual ~Directory();
 
   struct FileDataSegment
   {
@@ -113,6 +113,7 @@ private:
 
   void SetPath(const char* filepath);
   void SetExtension(const char* extension);
+  void ReleaseMemory();
 
 protected:
   std::vector<FileDataSegment> files_;

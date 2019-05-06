@@ -18,7 +18,7 @@ Directory::Directory(DIRECTORY_TYPE restype) :
 
 Directory::~Directory()
 {
-	Clear(false);
+  ReleaseMemory();
 }
 
 void Directory::SetDirectoryType(DIRECTORY_TYPE restype)
@@ -76,15 +76,19 @@ bool Directory::Clear(bool flush)
   if (!Close(flush))
     return false;
 
-  // release allocated memory and reset flag
+  ReleaseMemory();
+
+  return true;
+}
+
+void Directory::ReleaseMemory()
+{
   for (auto &ii : files_)
   {
     free(ii.d.p);
   }
 
   files_.clear();
-
-  return true;
 }
 
 bool Directory::Close(bool flush)
