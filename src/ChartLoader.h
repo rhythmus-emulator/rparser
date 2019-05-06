@@ -69,6 +69,8 @@ enum VOS_VERSION {
   VOS_V3 = 3
 };
 
+enum class MIDISIG;
+
 class ChartLoaderVOS : public ChartLoader {
 public:
   ChartLoaderVOS();
@@ -76,17 +78,41 @@ public:
   virtual bool Load(Chart &c, const void* p, int iLen);
 private:
   Chart *chart_;
-  const unsigned char* p_;
-  const unsigned char *note_p_;
-  const unsigned char* midi_p_;
   int vos_version_;
-  int len_;
   bool ParseVersion();
   bool ParseMetaDataV2();
   bool ParseMetaDataV3();
   bool ParseNoteDataV2();
   bool ParseNoteDataV3();
   bool ParseMIDI();
+
+  struct MIDIProgramInfo {
+  };
+
+  class BinaryStream {
+  public:
+    BinaryStream();
+    void SetSource(const void* p, size_t len);
+    void SeekSet(size_t cnt);
+    void SeekCur(size_t cnt);
+    int32_t ReadInt32();
+    uint8_t ReadUInt8();
+    int32_t GetInt32();
+    uint32_t GetUInt32();
+    uint16_t GetUInt16();
+    uint8_t GetUInt8();
+    void GetChar(char *out, size_t cnt);
+    int GetOffset();
+    int GetMSInt();
+    int GetMSFixedInt(uint8_t bytesize=4);
+    bool IsEnd();
+    void SeekBack(size_t cnt);
+    MIDISIG GetMidiSignature(MIDIProgramInfo& mprog);
+  private:
+    const void* p_;
+    int len_;
+    size_t offset_;
+  } stream;
 };
 
 }

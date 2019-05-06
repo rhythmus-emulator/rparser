@@ -29,9 +29,9 @@ MetaData::MetaData()
 
 MetaData::MetaData(const MetaData& m)
 {
-  #define META_INT(x) x = m.x;
-  #define META_DBL(x) x = m.x;
-  #define META_STR(x) x = m.x;
+  #define META_INT(x,s) x = m.x;
+  #define META_DBL(x,s) x = m.x;
+  #define META_STR(x,s) x = m.x;
   RPARSER_METADATA_LISTS
   #undef META_INT
   #undef META_DBL
@@ -99,11 +99,26 @@ bool MetaData::IsAttributeExist(const std::string& key)
   return attrs_.find(key) != attrs_.end();
 }
 
+void MetaData::SetMetaFromAttribute()
+{
+  for (const auto &attr : attrs_)
+  {
+    if (attr.first.size() == 0) continue;
+#define META_INT(x,s) else if (attr.first == s) x = atoi(attr.second.c_str())
+#define META_DBL(x,s) else if (attr.first == s) x = atof(attr.second.c_str())
+#define META_STR(x,s) else if (attr.first == s) x = attr.second
+    RPARSER_METADATA_LISTS
+#undef META_STR
+#undef META_DBL
+#undef META_INT
+  }
+}
+
 bool MetaData::SetEncoding(int from_codepage, int to_codepage)
 {
-  #define META_INT(x)
-  #define META_DBL(x)
-  #define META_STR(x) x = std::move(ConvertEncoding(x, to_codepage, from_codepage))
+  #define META_INT(x,s)
+  #define META_DBL(x,s)
+  #define META_STR(x,s) x = std::move(ConvertEncoding(x, to_codepage, from_codepage))
   RPARSER_METADATA_LISTS
   #undef META_INT
   #undef META_DBL
@@ -157,9 +172,9 @@ std::string MetaData::toString() const
 
 void MetaData::swap(MetaData& m)
 {
-  #define META_INT(x) std::swap(x, m.x)
-  #define META_DBL(x) std::swap(x, m.x)
-  #define META_STR(x) std::swap(x, m.x)
+  #define META_INT(x,s) std::swap(x, m.x)
+  #define META_DBL(x,s) std::swap(x, m.x)
+  #define META_STR(x,s) std::swap(x, m.x)
   RPARSER_METADATA_LISTS
   #undef META_INT
   #undef META_DBL
@@ -168,9 +183,9 @@ void MetaData::swap(MetaData& m)
 
 void MetaData::clear()
 {
-  #define META_INT(x) x = 0;
-  #define META_DBL(x) x = 0.0;
-  #define META_STR(x)
+  #define META_INT(x,s) x = 0;
+  #define META_DBL(x,s) x = 0.0;
+  #define META_STR(x,s)
   RPARSER_METADATA_LISTS
   #undef META_INT
   #undef META_DBL

@@ -14,28 +14,29 @@
 namespace rparser {
 
 #define RPARSER_METADATA_LISTS \
-  META_STR(title); \
-  META_STR(subtitle); \
-  META_STR(artist); \
-  META_STR(subartist); \
-  META_STR(genre); \
-  META_STR(charttype); \
-  META_INT(player_count); \
-  META_INT(player_side); \
-  META_INT(difficulty); \
-  META_INT(level); \
-  META_DBL(bpm); \
-  META_DBL(judge_timing); \
-  META_DBL(gauge_total); \
-  META_DBL(time_0beat_offset); \
-  META_STR(back_image); \
-  META_STR(stage_image); \
-  META_STR(banner_image); \
-  META_STR(preview_music); \
-  META_STR(background_music); \
-  META_STR(lyrics); \
-  META_INT(bms_longnote_type); \
-  META_INT(bms_longnote_object);
+  META_STR(title, "TITLE"); \
+  META_STR(subtitle, "SUBTITLE"); \
+  META_STR(artist, "ARTIST"); \
+  META_STR(subartist, "SUBARTIST"); \
+  META_STR(genre, "GENRE"); \
+  META_STR(charttype, "CHARTTYPE"); \
+  META_STR(chartmaker, "CHARTMAKER"); \
+  META_INT(player_count, "PLAYERCOUNT"); \
+  META_INT(player_side, "PLAYERSIDE"); \
+  META_INT(difficulty, "DIFFICULTY"); \
+  META_INT(level, "LEVEL"); \
+  META_DBL(bpm, "BPM"); \
+  META_DBL(judge_timing, "JUDGETIMING"); \
+  META_DBL(gauge_total, "TOTAL"); \
+  META_DBL(time_0beat_offset, "OFFSET"); \
+  META_STR(back_image, "BACKIMAGE"); \
+  META_STR(stage_image, "STAGEIMAGE"); \
+  META_STR(banner_image, "BANNERIMAGE"); \
+  META_STR(preview_music, "PREVIEW"); \
+  META_STR(background_music, "BGM"); \
+  META_STR(lyrics, "LYRICS"); \
+  META_INT(bms_longnote_type, "LNTYPE"); \
+  META_INT(bms_longnote_object, "LNOBJ");
   
 const static int kDefaultBpm = 120;
 
@@ -110,6 +111,7 @@ public:
   void SetAttribute(const std::string& key, const std::string& value);
   void SetAttribute(const std::string& key, double value);
   bool IsAttributeExist(const std::string& key);
+  void SetMetaFromAttribute();
 
   bool SetEncoding(int from_codepage, int to_codepage);
   bool SetUtf8Encoding();
@@ -127,9 +129,9 @@ public:
   const BmsStopMetaData* GetSTOPChannel() const { return &stop_channel_; };
 
 
-  #define META_INT(x) int x
-  #define META_DBL(x) double x
-  #define META_STR(x) std::string x
+  #define META_INT(x,s) int x
+  #define META_DBL(x,s) double x
+  #define META_STR(x,s) std::string x
   RPARSER_METADATA_LISTS
   #undef META_INT
   #undef META_DBL

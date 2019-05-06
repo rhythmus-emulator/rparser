@@ -35,16 +35,15 @@ struct VOSHeader {
 };
 
 struct VOSNoteDataV2 {
-  unsigned char dummy;
-  unsigned int time;
-  unsigned char pitch;
-  unsigned char dummy2;   // always 00; WAVID?
-  unsigned char volume;
-  unsigned char isplayable; // Note or BGM?
-  unsigned char issoundable;  // soundable; always 1?
-  unsigned char islongnote;
-  unsigned int duration;
-  unsigned char dummy3; // 00|FF, note or BGM?
+  uint8_t dummy;
+  uint32_t time;
+  uint16_t pitch;
+  uint8_t volume;
+  uint8_t isplayable; // Note or BGM?
+  uint8_t issoundable;  // soundable; always 1?
+  uint8_t islongnote;
+  uint32_t duration;
+  uint8_t dummy3;
 };
 
 struct VOSNoteDataV3 {
@@ -58,55 +57,178 @@ struct VOSNoteDataV3 {
   unsigned char dummy2;
 };
 
-unsigned char MIDISIG_BYTE[3][2] = {
+#define MIDISIG_TYPES 8
+#define MIDISIG_LENGTH 2
+#define MIDISIG_NULLCMPR 0xFF /* this byte wont be compared */
+
+unsigned char MIDISIG_BYTE[MIDISIG_TYPES][MIDISIG_LENGTH] = {
   {0xFF, 0x21},
   {0xFF, 0x03},
-  {0xFF, 0x2F}
+  {0xFF, 0x2F},
+  {0xFF, 0x51},
+  {0xFF, 0x58},
+  {0xFF, 0x59},
+  {0xFF, 0x20},
+  {0xFF, 0x00},
 };
 
+// https://www.csie.ntu.edu.tw/~r92092/ref/midi/#sysex_event
 enum class MIDISIG: int {
   MIDISIG_DUMMY=0, // output port
-  MIDISIG_TRACKNAME=1,
-  MIDISIG_END=2,
-  MIDISIG_DATA=3 // includes all unknown other signatures
+  MIDISIG_TRACKNAME,
+  MIDISIG_END,
+  MIDISIG_TEMPO,
+  MIDISIG_MEASURE,
+  MIDISIG_KEYSIG,
+  MIDISIG_CHANNEL,
+  MIDISIG_SEQNUM,
+  // -- below is for program --
+  MIDISIG_PROGRAM,
+  MIDISIG_PROGRAM_RUNNING,
+  MIDISIG_OTHERS
 };
 
-#define MIDISIG_TYPES 3
-#define MIDISIG_LENGTH 3
+ChartLoaderVOS::BinaryStream::BinaryStream()
+  : p_(0), len_(0), offset_(0) {}
 
-int ReadMSInt( const unsigned char **_p ) {
-  const unsigned char *p = *_p;
-  int r = 0;
-  int i = 0;
-  while (true) {
-    r = (r << 7) | (*(int*)p & 0x00FFFFFF);
-    char sign = *p;
-    p += 4;
-    if (sign == 0) break;
-    ASSERT(++i < 4);
-  }
+void ChartLoaderVOS::BinaryStream::SetSource(const void* p, size_t len)
+{
+  p_ = p;
+  len_ = len;
+  offset_ = 0;
+}
 
-  *_p = p;
+void ChartLoaderVOS::BinaryStream::SeekSet(size_t cnt)
+{
+  offset_ = cnt;
+  ASSERT(offset_ < len_);
+}
+
+void ChartLoaderVOS::BinaryStream::SeekCur(size_t cnt)
+{
+  offset_ += cnt;
+  ASSERT(offset_ < len_);
+}
+
+int32_t ChartLoaderVOS::BinaryStream::ReadInt32()
+{
+  return *reinterpret_cast<const int32_t*>((uint8_t*)p_ + offset_);
+}
+
+uint8_t ChartLoaderVOS::BinaryStream::ReadUInt8()
+{
+  return *reinterpret_cast<const uint8_t*>((uint8_t*)p_ + offset_);
+}
+
+int32_t ChartLoaderVOS::BinaryStream::GetInt32()
+{
+  int32_t r = *reinterpret_cast<const int32_t*>((uint8_t*)p_ + offset_);
+  offset_ += sizeof(int32_t);
+  ASSERT(offset_ < len_);
   return r;
 }
 
-MIDISIG GetMidiSignature(const unsigned char **_p, int *delta) {
-  const unsigned char *p = *_p;
-  *delta = ReadMSInt(&p);
-  MIDISIG r = MIDISIG::MIDISIG_DATA;
-  for (int i=0; i<MIDISIG_TYPES; i++) {
-    if (memcmp(p, MIDISIG_BYTE[i], MIDISIG_LENGTH) == 0) {
+uint32_t ChartLoaderVOS::BinaryStream::GetUInt32()
+{
+  uint32_t r = *reinterpret_cast<const uint32_t*>((uint8_t*)p_ + offset_);
+  offset_ += sizeof(uint32_t);
+  ASSERT(offset_ < len_);
+  return r;
+}
+
+uint16_t ChartLoaderVOS::BinaryStream::GetUInt16()
+{
+  uint16_t r = *reinterpret_cast<const uint16_t*>((uint8_t*)p_ + offset_);
+  offset_ += sizeof(uint16_t);
+  ASSERT(offset_ < len_);
+  return r;
+}
+
+uint8_t ChartLoaderVOS::BinaryStream::GetUInt8()
+{
+  uint8_t r = *reinterpret_cast<const uint8_t*>((uint8_t*)p_ + offset_);
+  offset_ += sizeof(uint8_t);
+  ASSERT(offset_ < len_);
+  return r;
+}
+
+void ChartLoaderVOS::BinaryStream::GetChar(char *out, size_t cnt)
+{
+  memcpy(out, (uint8_t*)p_ + offset_, cnt);
+  offset_ += cnt;
+  ASSERT(offset_ < len_);
+}
+
+int ChartLoaderVOS::BinaryStream::GetOffset()
+{
+  return offset_;
+}
+
+int ChartLoaderVOS::BinaryStream::GetMSFixedInt(uint8_t bytesize)
+{
+  int r = 0;
+  for (int i = 0; i < bytesize; i++)
+  {
+    r = (r << 8) + *((uint8_t*)p_ + offset_);
+    offset_++;
+  }
+  return r;
+}
+
+int ChartLoaderVOS::BinaryStream::GetMSInt()
+{
+  int r = 0;
+  bool cont_flag = false;
+  do
+  {
+    cont_flag = *((uint8_t*)p_ + offset_) & 0x80;
+    r = (r << 7) + (*((uint8_t*)p_ + offset_) & 0x7F);
+    offset_++;
+  } while (cont_flag);
+  return r;
+}
+
+MIDISIG ChartLoaderVOS::BinaryStream::GetMidiSignature(MIDIProgramInfo &mprog)
+{
+  uint8_t buf[20];
+  GetChar((char*)buf, MIDISIG_LENGTH);
+  MIDISIG r = MIDISIG::MIDISIG_OTHERS;
+  if (buf[0] == 0xF0 || buf[0] == 0xF7)
+  {
+    std::cerr << "MIDI Sysex event found, going to be ignored." << std::endl;
+    return r;
+  }
+
+  for (int i = 0; i<MIDISIG_TYPES; i++) {
+    if (memcmp(buf, MIDISIG_BYTE[i], MIDISIG_LENGTH) == 0)
+    {
       r = (MIDISIG)i;
       break;
     }
   }
-  p += MIDISIG_LENGTH;
-  *_p = p;
+
+  if (buf[0] < 0xF0)
+  {
+    r = MIDISIG::MIDISIG_PROGRAM;
+    offset_--;
+  }
+
   return r;
 }
 
+bool ChartLoaderVOS::BinaryStream::IsEnd()
+{
+  return offset_ >= len_;
+}
+
+void ChartLoaderVOS::BinaryStream::SeekBack(size_t cnt)
+{
+  ASSERT(offset_ > cnt);
+  offset_ -= cnt;
+}
+
 ChartLoaderVOS::ChartLoaderVOS()
-  : p_(0), note_p_(0), midi_p_(0), vos_version_(VOS_UNKNOWN), len_(0) {};
+  : vos_version_(VOS_UNKNOWN) {};
 
 bool ChartLoaderVOS::LoadFromDirectory(ChartListBase& chartlist, Directory& dir)
 {
@@ -135,10 +257,7 @@ bool ChartLoaderVOS::LoadFromDirectory(ChartListBase& chartlist, Directory& dir)
 
 bool ChartLoaderVOS::Load( Chart &c, const void* p, int len ) {
   this->chart_ = &c;
-  p_ = static_cast<const unsigned char*>(p);
-  note_p_ = 0;
-  midi_p_ = 0;
-  len_ = len;
+  stream.SetSource(p, len);
 
   if (!ParseVersion()) return false;
 
@@ -159,7 +278,7 @@ bool ChartLoaderVOS::Load( Chart &c, const void* p, int len ) {
 
 bool ChartLoaderVOS::ParseVersion()
 {
-  vos_version_ = *(int*)p_;
+  vos_version_ = stream.ReadInt32();
   switch (vos_version_)
   {
   case VOS_V2:
@@ -172,37 +291,38 @@ bool ChartLoaderVOS::ParseVersion()
 
 bool ChartLoaderVOS::ParseMetaDataV2()
 {
-  const unsigned char* p = p_ + 4;  // skip version
+  stream.GetUInt32();     // skip version
   MetaData& md = chart_->GetMetaData();
+  char buf[256];
 
   // 4 byte: filename length
-  int fnamelen = *(int*)p;
-  p += 4;
-  p += fnamelen;
+  int fnamelen = stream.GetInt32();
+  stream.SeekCur(fnamelen);
   // 4 byte: VOS track file length
-  int vosflen = *(int*)p;
-  p += 4;
+  int vosflen = stream.GetInt32();
+  // 6 byte: signature
+  stream.GetChar(buf, 6);
+  ASSERT(memcmp(buf, "VOS022", 6) == 0);
   // parse metadatas [title, songartist, chartmaker, genre, unknown]
   // metadata consisted with frames
   // frame: length(short) + body
   int i = 0;
-  char meta_attrs[][32] = { "TITLE", "ARTIST", "SUBARTIST", "GENRE" };
+  char meta_attrs[][32] = { "TITLE", "ARTIST", "SUBARTIST", "CHARTMAKER", "GENRE" };
   while (i < 5) {
-    short len = *(short*)p;
-    p += 2;
+    uint16_t len = stream.GetUInt16();
     if (len == 0) break;
-    char body[256];
-    memset(body, 0, sizeof(body));
-    memcpy(body, p, len);
-    p += len;
-    md.SetAttribute(meta_attrs[i], body);
+    memset(buf, 0, sizeof(buf));
+    stream.GetChar(buf, len);
+    md.SetAttribute(meta_attrs[i], buf);
     i += 1;
   }
-  // parse second metadatas (26bytes)
-  char meta_binary[26];
-  memcpy(meta_binary, p, 26);
+  md.SetMetaFromAttribute();
+
+  // parse second metadatas (28bytes)
   // TODO
-  p += 26;
+  char meta_binary[28];
+  stream.GetChar(meta_binary, 28);
+#if 0
   // if flag is VOS009, then seek 1013 bytes
   // else, seek 1017 bytes
   if (memcmp("VOS009", p, 6) == 0) {
@@ -210,156 +330,255 @@ bool ChartLoaderVOS::ParseMetaDataV2()
   } else {
     p += 1017;
   }
+#endif
+
+  stream.SeekCur(0x3F7);
 
   // done. we'll ignore other metadatas.
-  note_p_ = p;
   return true;
 }
 
 bool ChartLoaderVOS::ParseMetaDataV3()
 {
-  const unsigned char* p = p_ + 4;  // skip version
+  stream.SeekSet(4);  // skip version
   MetaData& md = chart_->GetMetaData();
 
-  int headersize = *(int*)p; p+=4;
-  p += 4; // inf; static flag
-  p += 12; // unknown null bytes
-  int infpos = *(int*)p; p+=4; // end of inf file pos (start of MID file)
-  p += 4; // mid; static flag
-  p += 12; // unknown null bytes (maybe 64bit long long int?)
-  int midpos = *(int*)p; p+=4;
-  p += 4; // EOF flag
-  p += 12; // unknown null bytes
+  int headersize = stream.GetInt32();
+  stream.SeekCur(4);  // inf; static flag
+  stream.SeekCur(12); // unknown null bytes
+  int infpos = stream.GetInt32(); // end of inf file pos (start of MID file)
+  stream.SeekCur(4);  // mid; static flag
+  stream.SeekCur(12); // unknown null bytes (maybe 64bit long long int?)
+  int midpos = stream.GetInt32();
+  stream.SeekCur(4);  // EOF flag
+  stream.SeekCur(12); // unknown null bytes
   // now position is 64(0x40), which means starting pos of header.
   // start to read METADATAS
   char metadatas[][12] = { "TITLE", "ARTIST", "CHARTMAKER", "GENRE" };
   VOSHeader header;
   for (int i=0; i<4; i++) {
-    header.len = *(int*)p; p+=4;
-    memcpy(header.desc, p, header.len); p+=header.len;
+    header.len = stream.GetInt32();
+    stream.GetChar(header.desc, header.len);
     header.desc[header.len] = 0;
   }
 
-  int genre = *p; p++;
-  p++;    // unknown
-  int songlength = *(int*)p; p+=4;
-  int level = *p; level++; p++;
-  p += 4;
-  p++;
-  p += 1018; // null; unknown
+  int genre = stream.GetUInt16(); /* unknown 1 byte? */
+  int songlength = stream.GetUInt32();
+  int level = stream.GetUInt8(); level++;
+  stream.SeekCur(4 + 1 + 1018);
 
   // done. we'll ignore other metadatas.
-  note_p_ = p;
   return true;
 }
 
 bool ChartLoaderVOS::ParseNoteDataV2()
 {
-  ASSERT(note_p_);
-  const unsigned char* p = note_p_;
+  char buf[256];
 
-  int cnt_inst = *(int*)p;     p += 4;
-  int cnt_chart = *(int*)p;    p += 4;     // mostly 1, means there're only one chart
+  int cnt_inst = stream.GetInt32();
+  int cnt_chart = stream.GetInt32();  // mostly 1, means there're only one chart
   // read basic instrument info for note data filling
   int midichannel_per_track[20];
   int playmode = 0;   // SP or DP ...
   int level = 0;
   std::string title;
   for (int i=0; i<cnt_inst; i++) {
-    p += 1;
-    midichannel_per_track[i] = *(int*)p;
-    p += 4;
+    stream.SeekCur(1);
+    midichannel_per_track[i] = stream.GetInt32();
   }
   for (int i=0; i<cnt_chart; i++) {
-    playmode = *p;  // SP=0, DP=1
-    p++;
-    level = *p; level++;
-    p++;
-    short len = *(short*)p;
-    char buf[256];
-    memcpy(buf, p, len);    p += len;
+    playmode = stream.GetUInt8();  // SP=0, DP=1
+    level = stream.GetUInt8(); level++;
+    uint16_t len = stream.GetUInt16();
+    stream.GetChar(buf, len);
     title = buf;
-    // track index?
-    p += 4;
+    // track index? (int 0)
+    stream.SeekCur(4);
   }
+
   // parse note objects per each channels.
   // (includes BGM/autoplay objects)
   // TODO: make it as structure
-  for (int i=0; i<7; i++) {
+  VOSNoteDataV2 vnote;
+  SoundNote note;
+  auto &nd = chart_->GetNoteData();
+  for (int i=0; i<cnt_inst; i++) {
     int channel = i;
-    int notecnt = *(int*)p;
-    p += 4;
+    int notecnt = stream.GetInt32();
     for (int j=0; j<notecnt; j++) {
-      VOSNoteDataV2 note;
-      memcpy(&note, p, sizeof(VOSNoteDataV2));
-      p += sizeof(VOSNoteDataV2);
+      /** cannot do memcpy due to struct padding. */
+      vnote.dummy = stream.GetUInt8();
+      vnote.time = stream.GetUInt32();
+      vnote.pitch = stream.GetUInt16();
+      vnote.volume = stream.GetUInt8();
+      vnote.isplayable = stream.GetUInt8();
+      vnote.issoundable = stream.GetUInt8();
+      vnote.islongnote = stream.GetUInt8();
+      vnote.duration = stream.GetUInt32();
+      vnote.dummy3 = stream.GetUInt8();
+
+      note.SetTimePos(vnote.time);
+      if (vnote.isplayable)
+        note.SetAsTapNote(0, i);
+      else
+        note.SetAsBGM(i);
+      nd.AddNote(note);
     }
   }
+
+  /** Actual playable note segment */
+  ASSERT(stream.GetUInt32() == 0);        // empty
+  uint32_t seg_cnt = stream.GetUInt32();  // some unknown segment count
+  stream.SeekCur(1);
+  for (size_t i = 0; i < seg_cnt; i++)
+  {
+    uint32_t idx = stream.GetUInt32();    // idx
+    uint8_t lane = stream.GetUInt8();
+    uint8_t ln_size = stream.GetUInt8();  // seems like instrument channel?
+    //std::cout << idx << "," << (int)lane << " (" << (int)ln_size << ")" << std::endl;
+  }
+  stream.SeekCur(7);
 
   return true;
 }
 
 bool ChartLoaderVOS::ParseNoteDataV3()
 {
-  ASSERT(note_p_);
-  const unsigned char* p = note_p_;
-  
   // start to read note data
   while (true) {
-    int midiinstrument = *(int*)p; p+=4;
-    short cnt = *(short*)p; p+=4;
+    int midiinstrument = stream.GetInt32();
+    uint16_t cnt = stream.GetUInt16();
+    stream.SeekCur(2);
     if (cnt == 0) break;
-    p += 16;
+    stream.SeekCur(16);
     for (int i=0; i<cnt; i++) {
       VOSNoteDataV3 note;
-      memcpy(&note, p, sizeof(VOSNoteDataV3));
-      p += sizeof(VOSNoteDataV3);
+      stream.GetChar((char*)&note, sizeof(VOSNoteDataV3));
     }
   }
 
-  midi_p_ = p;
   return true;
 }
 
 bool ChartLoaderVOS::ParseMIDI()
 {
-  ASSERT(midi_p_);
+  char buf[256];
+  char *buf_midi = (char*)malloc(65536);
 
-  const unsigned char* p = midi_p_;
-  const unsigned char* p_end = p_+len_;
+  // in case of version 2, skip file name.
+  if (vos_version_ == 2)
+  {
+    uint32_t fnamelen = stream.GetUInt32();
+    stream.GetChar(buf, fnamelen);
+    stream.GetUInt32(); // filesize
+  }
 
   // MUST start from MThd signature
-  if (memcmp(p, "MThd", 4) != 0) {
-    printf("[VOSLoader] Invalid MIDI start signature\n");
+  stream.GetChar(buf, 4);
+  if (memcmp(buf, "MThd", 4) != 0) {
+    std::cerr << "[VOSLoader] Invalid MIDI start signature" << std::endl;
     return false;
   }
-  p+=4;
-  p+=6; // len: 00 00 00 06
-  short format = *(short*)p; p+=2; // always 1
+  stream.SeekCur(5);  // len: 00 00 00 06
+  uint16_t format = stream.GetUInt16();       // always 1
   ASSERT(format == 1);
-  short trackcount = *(short*)p; p+=2;
-  short timedivision = *(short*)p; p+=2;
+  uint16_t trackcount = stream.GetUInt16();
+  uint16_t timedivision = stream.GetUInt8();  // tick size
+  double cur_beat = 0;
+
+  TempoNote tn;
+  SoundNote sn;
+  auto &td = chart_->GetTempoData();
+  auto &tnd = td.GetTempoNoteData();
+  auto &nd = chart_->GetNoteData();
+  uint32_t val, val2;
 
   int trackidx = 0;
-  while (p<p_end && memcmp(p, "Mtrk", 4) == 0) {
-    p += 4;
-    int tracksize = *(int*)p;
-    const unsigned char *p_track_end = p+tracksize;
+  do {
+    stream.GetChar(buf, 4);
+    if (memcmp(buf, "MTrk", 4) != 0)
+      break;
+
+    uint32_t tracksize = stream.GetMSFixedInt();
+    uint32_t offset_cur = stream.GetOffset();
 
     MIDISIG midisig = MIDISIG::MIDISIG_DUMMY;
-    int delta = 0;
-    int ticks = 0;  // 480 tick: 1 beat
-    while ((midisig = GetMidiSignature(&p, &delta)) != MIDISIG::MIDISIG_END) {
+    MIDIProgramInfo mprog;
+    int delta = 0;  // delta tick(position) from previous event.
+    int ticks = 0;  // current midi event position (tick). 480 tick: 1 measure (4 beat), mostly.
+    int byte_len = 0;
+    bool is_midisegment_end = false;
+    bool is_program_cont = false;
+    do {
+      delta = stream.GetMSInt();
+      midisig = stream.GetMidiSignature(mprog);
+      ASSERT(stream.GetOffset() < offset_cur + tracksize);
       ticks += delta;
-      if (midisig == MIDISIG::MIDISIG_DATA) {
-        // TODO: register midi signature with data in timeloader datas.
-      }
-    }
-    p++; // process 0x00 of MIDISIG_END
-    ASSERT(p < p_track_end);
-    trackidx ++;
-  }
+      cur_beat = (double)ticks / timedivision;
 
+      if (midisig == MIDISIG::MIDISIG_PROGRAM)
+      {
+        is_program_cont = true;
+        while (is_program_cont && stream.ReadUInt8() < 0x80)
+        {
+          // program won't need byte length
+          if ((0xC0 < buf[0]) && (buf[0] < 0xE0))
+          {
+            stream.GetChar(buf, 1);
+            is_program_cont = buf[0] != 0 && buf[0] != 0x40;
+          }
+          else
+          {
+            stream.GetChar(buf, 2);
+            is_program_cont = buf[1] != 0 && buf[1] != 0x40;
+          }
+          // TODO
+        }
+        stream.SeekBack(1);
+        continue;
+      }
+
+      byte_len = stream.GetMSInt();
+      switch (midisig)
+      {
+      case MIDISIG::MIDISIG_TEMPO:
+        ASSERT(byte_len == 3);
+        val = stream.GetMSFixedInt(3);
+        tn.SetBeatPos(cur_beat);
+        tn.SetBpm((double)val / timedivision / 500000 * 120);
+        tnd.AddNote(tn);
+        break;
+      case MIDISIG::MIDISIG_MEASURE:
+        val = stream.GetUInt8();
+        val2 = stream.GetUInt8();
+        stream.GetUInt8();  // useless
+        stream.GetUInt8();  // useless
+        tn.SetBeatPos(cur_beat);
+        tn.SetMeasure(4.0 * val / val2);
+        tnd.AddNote(tn);
+        break;
+      case MIDISIG::MIDISIG_KEYSIG:
+        // TODO: special object
+        break;
+      case MIDISIG::MIDISIG_CHANNEL:
+        // TODO: special object
+        break;
+      case MIDISIG::MIDISIG_SEQNUM:
+        // TODO: special object
+        break;
+      case MIDISIG::MIDISIG_END:
+        ASSERT(byte_len == 0);
+        is_midisegment_end = true;
+        break;
+      default:
+        // do nothing
+        stream.GetChar(buf_midi, byte_len);
+      }
+    } while (!is_midisegment_end);
+    trackidx ++;
+  } while (!stream.IsEnd());
+
+  free(buf_midi);
   return true;
 }
 
