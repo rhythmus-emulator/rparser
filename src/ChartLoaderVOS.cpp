@@ -525,12 +525,12 @@ bool ChartLoaderVOS::ParseMIDI()
           if ((0xC0 < buf[0]) && (buf[0] < 0xE0))
           {
             stream.GetChar(buf, 1);
-            is_program_cont = buf[0] != 0 && buf[0] != 0x40;
+            is_program_cont = buf[0] != 0;
           }
           else
           {
             stream.GetChar(buf, 2);
-            is_program_cont = buf[1] != 0 && buf[1] != 0x40;
+            is_program_cont = buf[1] != 0;
           }
           // TODO
         }
