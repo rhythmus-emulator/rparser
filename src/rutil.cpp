@@ -874,7 +874,7 @@ bool FileData::IsEOF() { return pos == len; };
 
 bool FileData::IsEmpty() { return p == 0; };
 
-bool md5(const void* p, int iLen, char* out)
+bool md5(const void* p, int iLen, unsigned char* out)
 {
 #ifdef USE_OPENSSL
   MD5((unsigned char*)p, iLen, reinterpret_cast<unsigned char*>(out));
@@ -889,13 +889,12 @@ bool md5_str(const void* p, int iLen, char *out)
 #ifndef USE_OPENSSL
 #define MD5_DIGEST_LENGTH 16
 #endif
-  char result[MD5_DIGEST_LENGTH];
+  unsigned char result[MD5_DIGEST_LENGTH];
   if (md5(p, iLen, result))
   {
-    char buf[6];
     for (int i = 0; i < MD5_DIGEST_LENGTH; i++)
     {
-      sprintf(buf, "%02x", result[i]);
+      sprintf(out, "%02x", result[i]);
       out += 2;
     }
     return true;

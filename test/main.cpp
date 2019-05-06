@@ -311,12 +311,13 @@ TEST(RPARSER, CHARTNOTELIST)
 TEST(RPARSER, VOSFILE)
 {
   Song song;
-  song.Open(BASE_DIR + "chart_sample/1.vos");
+  EXPECT_TRUE(song.Open(BASE_DIR + "chart_sample/1.vos"));
   Chart *c = song.GetChart(0);
   auto &md = c->GetMetaData();
   auto &nd = c->GetNoteData();
   auto &td = c->GetTempoData();
   song.CloseChart();
+  song.Close();
 }
 
 TEST(RPARSER, BMS)

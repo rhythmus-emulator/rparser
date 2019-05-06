@@ -659,7 +659,7 @@ bool DirectoryBinary::doOpen()
 {
   if (!rutil::IsFile(GetPath()))
     return false;
-  CreateEmptyFileData(GetPath());
+  CreateEmptyFileData(rutil::GetFilename(GetPath()));
   return true;
 }
 

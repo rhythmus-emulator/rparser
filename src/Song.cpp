@@ -187,19 +187,21 @@ bool Song::Save()
 
 bool Song::Close(bool save)
 {
-	if (save && !Save())
-	{
-		// error message already assigned at Save()
-		return false;
-	}
+  CloseChart();
 
-	// release resources and memory.
+  if (save && !Save())
+  {
+    // error message already assigned at Save()
+    return false;
+  }
+
+  // release resources and memory.
   delete chartlist_;
   delete directory_;
   chartlist_ = 0;
   directory_ = 0;
-	error_ = ERROR::NONE;
-	songtype_ = SONGTYPE::NONE;
+  error_ = ERROR::NONE;
+  songtype_ = SONGTYPE::NONE;
 
   return true;
 }
