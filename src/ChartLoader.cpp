@@ -2,8 +2,21 @@
 
 namespace rparser {
 
-void ChartLoader::SetChart(Chart *c) { chart_ = c; chartlist_ = 0; }
+bool ChartLoader::Test(const void* p, int iLen) { return false; }
 
-void ChartLoader::SetChartList(ChartListBase *chartlist) { chart_ = 0; chartlist_ = chartlist; }
+ChartLoader* ChartLoader::Create(SONGTYPE songtype)
+{
+  switch (songtype)
+  {
+  case SONGTYPE::BMS:
+    return new ChartLoaderBMS();
+  case SONGTYPE::VOS:
+    return new ChartLoaderVOS();
+  default:
+    ASSERT(0);
+  }
+
+  return nullptr;
+}
 
 }

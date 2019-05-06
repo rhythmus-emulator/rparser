@@ -2,8 +2,8 @@
  * by @lazykuna, MIT License.
  */
 
-#ifndef RPARSER_NOTELOADER_H
-#define RPARSER_NOTELOADER_H
+#ifndef RPARSER_CHARTLOADER_H
+#define RPARSER_CHARTLOADER_H
 
 #include "Song.h"
 #include "Chart.h"
@@ -19,26 +19,29 @@ class Chart;
  *              If Chart context is set, then it will be cleared.
  * SetChart Set chart context to load chart.
  *          If ChartList context is set, then it will be cleared.
+ * \warn    Each ChartLoader can be used for single thread.
  */
 class ChartLoader {
 public:
-  ChartLoader(): chart_(0), error_(0) {};
-  void SetChartList(ChartListBase *chartlist);
-  void SetChart(Chart *c);
-  virtual bool Test( const void* p, int iLen ) = 0;
-  virtual bool TestName( const char *fn ) = 0;
-  virtual bool Load( const void* p, int iLen ) = 0;
-  virtual bool LoadCommonData( ChartListBase& chartlist, const Directory& dir ) = 0;
+  ChartLoader(): error_(0) {};
+  virtual bool LoadFromDirectory(ChartListBase& chartlist, Directory& dir) = 0;
+  virtual bool Load(Chart &c, const void* p, int iLen) = 0;
+  virtual bool Test(const void* p, int iLen);
+
+  static ChartLoader* Create(SONGTYPE songtype);
 protected:
-  ChartListBase *chartlist_;
-  Chart *chart_;
   int error_;
 };
 
 
 class ChartLoaderBMS : public ChartLoader {
+public:
+  ChartLoaderBMS();
+  virtual bool LoadFromDirectory(ChartListBase& chartlist, Directory& dir);
+  virtual bool Load(Chart &c, const void* p, int iLen);
+  virtual bool Test(const void* p, int iLen);
 private:
-  Chart* chart_context_;
+  Chart * chart_context_;
   std::vector<Chart*> chart_context_stack_;
   ConditionalChart* condstmt_;
   struct LineContext {
@@ -58,11 +61,6 @@ private:
   bool ParseControlFlow();
   bool ParseMetaData();
   bool ParseNote();
-public:
-  ChartLoaderBMS();
-  bool Test( const void* p, int iLen );
-  bool TestName( const char *fn );
-  bool Load( const void* p, int iLen );
 };
 
 enum VOS_VERSION {
@@ -72,7 +70,12 @@ enum VOS_VERSION {
 };
 
 class ChartLoaderVOS : public ChartLoader {
+public:
+  ChartLoaderVOS();
+  virtual bool LoadFromDirectory(ChartListBase& chartlist, Directory& dir);
+  virtual bool Load(Chart &c, const void* p, int iLen);
 private:
+  Chart *chart_;
   const unsigned char* p_;
   const unsigned char *note_p_;
   const unsigned char* midi_p_;
@@ -84,16 +87,7 @@ private:
   bool ParseNoteDataV2();
   bool ParseNoteDataV3();
   bool ParseMIDI();
-public:
-  ChartLoaderVOS();
-  bool Test( const void* p, int iLen );
-  bool TestName( const char *fn );
-  bool Load( const void* p, int iLen );
 };
-
-ChartLoader* CreateChartLoader(SONGTYPE songtype);
-int LoadChart( const std::string& fn, SONGTYPE songtype = SONGTYPE::NONE );
-int LoadChart( const void* p, int iLen, SONGTYPE songtype = SONGTYPE::NONE );
 
 }
 

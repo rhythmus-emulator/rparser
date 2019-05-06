@@ -903,6 +903,14 @@ bool md5_str(const void* p, int iLen, char *out)
   else return false;
 }
 
+std::string md5_str(const void* p, int iLen)
+{
+  char s[33];
+  s[0] = s[32] = 0;
+  md5_str(p, iLen, s);
+  return std::string(s);
+}
+
 #ifdef WIN32
 char *itoa(int value, char *str, int base)
 {

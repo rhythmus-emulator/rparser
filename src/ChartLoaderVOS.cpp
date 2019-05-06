@@ -108,7 +108,33 @@ MIDISIG GetMidiSignature(const unsigned char **_p, int *delta) {
 ChartLoaderVOS::ChartLoaderVOS()
   : p_(0), note_p_(0), midi_p_(0), vos_version_(VOS_UNKNOWN), len_(0) {};
 
-bool ChartLoaderVOS::Load( const void* p, int len ) {
+bool ChartLoaderVOS::LoadFromDirectory(ChartListBase& chartlist, Directory& dir)
+{
+  if (dir.count() <= 0)
+    return false;
+
+  bool r = false;
+  auto &f = *dir.begin();
+  if (!dir.Read(f.d))
+    return false;
+
+  Chart *c = chartlist.GetChartData(chartlist.AddNewChart());
+  if (!c) return false;
+
+  c->SetFilename(f.d.GetFilename());
+  c->SetHash(rutil::md5_str(f.d.GetPtr(), f.d.GetFileSize()));
+  r = Load(*c, f.d.p, f.d.len);
+
+  chartlist.CloseChartData();
+  if (!r)
+  {
+    std::cerr << "Failed to read VOS file (may be invalid) : " << f.d.GetFilename() << std::endl;
+  }
+  return r;
+}
+
+bool ChartLoaderVOS::Load( Chart &c, const void* p, int len ) {
+  this->chart_ = &c;
   p_ = static_cast<const unsigned char*>(p);
   note_p_ = 0;
   midi_p_ = 0;

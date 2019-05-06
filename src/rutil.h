@@ -158,6 +158,7 @@ bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecu
 bool md5(const void* p, int iLen, char* out);
 // same to md5; returns 32byte string (%02x formatted)
 bool md5_str(const void* p, int iLen, char* out);
+std::string md5_str(const void* p, int iLen);
 
 char *itoa(int value, char *str, int base);
 char *gcvt(double value, int digits, char *string);

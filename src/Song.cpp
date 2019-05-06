@@ -123,6 +123,7 @@ bool Song::SetSongType(SONGTYPE songtype)
 
 bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 {
+  bool r = false;
 	Close();
 
 	// Read file binaries.
@@ -137,26 +138,14 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 
   // Detect song type and prepare chartlist.
   if (songtype == SONGTYPE::NONE) SetSongType(DetectSongtype());
-  else SetSongType(songtype_);
+  else SetSongType(songtype);
 
   // Load binary into chartloader
-	ChartLoader *cl = CreateChartLoader(songtype);
-  cl->SetChartList(chartlist_);
-  for (auto fds : *directory_)
-  {
-    if (!cl->Load(fds.d.fn.c_str(), fds.d.len))
-    {
-      // Error might be occured during chart loading,
-      // But won't stop loading as there *might* be 
-      // So, just skip the wrong chart file and make log.
-      error_ = ERROR::OPEN_INVALID_CHART;
-      continue;
-    }
-  }
-  cl->LoadCommonData(*chartlist_, *directory_);
+	ChartLoader *cl = ChartLoader::Create(songtype_);
+  r = cl->LoadFromDirectory(*chartlist_, *directory_);
 	delete cl;
 
-	return true;
+	return r;
 }
 
 bool Song::Save()

@@ -61,9 +61,9 @@ public:
 
   bool IsEmpty();
   std::string GetHash() const;
-  void SetHash(std::string& hash);
+  void SetHash(const std::string& hash);
   std::string GetFilename() const;
-  void SetFilename(std::string& filename);
+  void SetFilename(const std::string& filename);
 
 private:
   NoteData<SoundNote> notedata_;

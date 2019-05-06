@@ -194,7 +194,7 @@ std::string Chart::GetHash() const
   return hash_;
 }
 
-void Chart::SetHash(std::string& hash)
+void Chart::SetHash(const std::string& hash)
 {
   hash_ = hash;
 }
@@ -204,7 +204,7 @@ std::string Chart::GetFilename() const
   return filename_;
 }
 
-void Chart::SetFilename(std::string& filename)
+void Chart::SetFilename(const std::string& filename)
 {
   filename_ = filename;
 }

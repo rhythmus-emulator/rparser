@@ -25,19 +25,6 @@ ChartLoaderBMS::ChartLoaderBMS()
 
 }
 
-// main file
-bool ChartLoaderBMS::Test( const void* p, int iLen )
-{
-  // As bms file has no file signature,
-  // just search for "*--" string for first 100 string.
-  // TODO: is there any exception?
-  for (int i=0; i<iLen-4 && i<100; i++) {
-    if (strncmp((const char*)p, "*-----", 6)==0)
-      return true;
-  }
-  return false;
-}
-
 bool TestName( const char *fn )
 {
   std::string fn_lower = fn;  lower(fn_lower);
@@ -47,7 +34,37 @@ bool TestName( const char *fn )
          endsWith(fn_lower, ".pms");
 }
 
-bool ChartLoaderBMS::Load( const void* p, int iLen )
+bool ChartLoaderBMS::LoadFromDirectory(ChartListBase& chartlist, Directory& dir)
+{
+  if (dir.count() <= 0)
+    return false;
+
+  for (auto &f : dir)
+  {
+    if (!dir.Read(f.d)) continue;
+    const std::string filename = f.d.GetFilename();
+    if (!TestName(filename.c_str())) continue;
+
+    Chart *c = chartlist.GetChartData(chartlist.AddNewChart());
+    if (!c) return false;
+
+    c->SetFilename(filename);
+    c->SetHash(rutil::md5_str(f.d.GetPtr(), f.d.GetFileSize()));
+    bool r = Load(*c, f.d.p, f.d.len);
+
+    chartlist.CloseChartData();
+
+    if (!r)
+    {
+      std::cerr << "Failed to read chart file (may be invalid) : " << filename << std::endl;
+      chartlist.DeleteChart(chartlist.size() - 1);
+    }
+  }
+
+  return true;
+}
+
+bool ChartLoaderBMS::Load( Chart &c, const void* p, int iLen )
 {
   const char *chr = static_cast<const char*>(p);
   const char *linestart = static_cast<const char*>(p);
@@ -80,11 +97,17 @@ bool ChartLoaderBMS::Load( const void* p, int iLen )
   return true;
 }
 
-bool ChartLoaderBMS::TestName(const char *fn)
+// main file
+bool ChartLoaderBMS::Test(const void* p, int iLen)
 {
-  return endsWith(fn, ".bms", false) ||
-    endsWith(fn, ".bme", false) ||
-    endsWith(fn, ".bml", false);
+  // As bms file has no file signature,
+  // just search for "*--" string for first 100 string.
+  // TODO: is there any exception?
+  for (int i = 0; i<iLen - 4 && i<100; i++) {
+    if (strncmp((const char*)p, "*-----", 6) == 0)
+      return true;
+  }
+  return false;
 }
 
 inline char upperchr(char c)
