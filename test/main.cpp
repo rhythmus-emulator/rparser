@@ -327,6 +327,26 @@ TEST(RPARSER, VOSFILE_V2)
   }
 }
 
+TEST(RPARSER, VOSFILE_V3)
+{
+  Song song;
+  const auto songlist = {
+    "chart_sample/23.vos",
+    "chart_sample/24.vos",
+    "chart_sample/109.vos"
+  };
+  for (auto& songpath : songlist)
+  {
+    EXPECT_TRUE(song.Open(BASE_DIR + songpath));
+    Chart *c = song.GetChart(0);
+    auto &md = c->GetMetaData();
+    auto &nd = c->GetNoteData();
+    auto &td = c->GetTempoData();
+    song.CloseChart();
+    song.Close();
+  }
+}
+
 TEST(RPARSER, BMS)
 {
   // TODO

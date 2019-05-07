@@ -79,6 +79,7 @@ public:
 private:
   Chart *chart_;
   int vos_version_;
+  size_t vos_v3_midi_offset_;
   bool ParseVersion();
   bool ParseMetaDataV2();
   bool ParseMetaDataV3();
@@ -108,7 +109,6 @@ private:
     int GetMSInt();
     int GetMSFixedInt(uint8_t bytesize=4);
     bool IsEnd();
-    void SeekBack(size_t cnt);
     MIDISIG GetMidiSignature(MIDIProgramInfo& mprog);
   private:
     const void* p_;

@@ -249,12 +249,6 @@ bool ChartLoaderVOS::BinaryStream::IsEnd()
   return offset_ >= len_;
 }
 
-void ChartLoaderVOS::BinaryStream::SeekBack(size_t cnt)
-{
-  ASSERT(offset_ > cnt);
-  offset_ -= cnt;
-}
-
 ChartLoaderVOS::ChartLoaderVOS()
   : vos_version_(VOS_UNKNOWN) {};
 
@@ -372,29 +366,49 @@ bool ChartLoaderVOS::ParseMetaDataV2()
 
 bool ChartLoaderVOS::ParseMetaDataV3()
 {
+  char buf[256];
   stream.SeekSet(4);  // skip version
   MetaData& md = chart_->GetMetaData();
 
   int headersize = stream.GetInt32();
   stream.SeekCur(4);  // inf; static flag
   stream.SeekCur(12); // unknown null bytes
-  int infpos = stream.GetInt32(); // end of inf file pos (start of MID file)
+  vos_v3_midi_offset_ = stream.GetInt32(); // end of inf file pos (start of MID file)
   stream.SeekCur(4);  // mid; static flag
   stream.SeekCur(12); // unknown null bytes (maybe 64bit long long int?)
   int midpos = stream.GetInt32();
   stream.SeekCur(4);  // EOF flag
-  stream.SeekCur(12); // unknown null bytes
+  stream.GetChar(buf, 12);  // some unknown bytes
+  // some vos file header is different ...
+  const char **metadatas = 0;
+  int metadata_cnt = 0;
+  if (buf[0] == 0)
+  {
+    stream.GetChar(buf, 0x46);
+    ASSERT(memcmp(buf, "VOS1", 4) == 0);
+    const char *metadatas1[] = { "ARTIST", "TITLE", "SUBARTIST", "GENRE", "CHARTMAKER" };
+    metadatas = metadatas1;
+    metadata_cnt = 5;
+  }
+  else
+  {
+    const char *metadatas1[] = { "ARTIST", "TITLE", "SUBARTIST", "CHARTMAKER" };
+    metadatas = metadatas1;
+    metadata_cnt = 4;
+  }
   // now position is 64(0x40), which means starting pos of header.
   // start to read METADATAS
-  char metadatas[][12] = { "TITLE", "ARTIST", "CHARTMAKER", "GENRE" };
   VOSHeader header;
-  for (int i=0; i<4; i++) {
-    header.len = stream.GetInt32();
+  for (int i=0; i<metadata_cnt; i++) {
+    header.len = stream.GetUInt8();
     stream.GetChar(header.desc, header.len);
     header.desc[header.len] = 0;
+    md.SetAttribute(metadatas[i], header.desc);
   }
+  md.SetMetaFromAttribute();
 
-  int genre = stream.GetUInt16(); /* unknown 1 byte? */
+  int genre = stream.GetUInt8();
+  stream.GetUInt8(); /* unknown 1 byte? */
   int songlength = stream.GetUInt32();
   int level = stream.GetUInt8(); level++;
   stream.SeekCur(4 + 1 + 1018);
@@ -477,15 +491,23 @@ bool ChartLoaderVOS::ParseNoteDataV2()
 bool ChartLoaderVOS::ParseNoteDataV3()
 {
   // start to read note data
-  while (true) {
+  VOSNoteDataV3 note;
+  uint16_t cnt;
+
+  while (stream.GetOffset() < vos_v3_midi_offset_) {
     int midiinstrument = stream.GetInt32();
-    uint16_t cnt = stream.GetUInt16();
-    stream.SeekCur(2);
-    if (cnt == 0) break;
+    cnt = stream.GetUInt16();
     stream.SeekCur(16);
     for (int i=0; i<cnt; i++) {
-      VOSNoteDataV3 note;
-      stream.GetChar((char*)&note, sizeof(VOSNoteDataV3));
+      note.time = stream.GetUInt32();
+      note.duration = stream.GetUInt16();
+      note.dummy = stream.GetUInt16();
+      note.fan= stream.GetUInt8();
+      note.pitch = stream.GetUInt8();
+      note.volume = stream.GetUInt8();
+      note.channel = stream.GetUInt8();
+      note.dummy2 = stream.GetUInt8();
+      //std::cout << note.time << "," << (int)note.channel << "," << (int)note.fan << std::endl;
     }
   }
 
@@ -497,12 +519,21 @@ bool ChartLoaderVOS::ParseMIDI()
   char buf[256];
   char *buf_midi = (char*)malloc(65536);
 
-  // in case of version 2, skip file name.
-  if (vos_version_ == 2)
+  switch (vos_version_)
   {
+  case 2:
+  {
+    // in case of version 2, skip file name.
     uint32_t fnamelen = stream.GetUInt32();
     stream.GetChar(buf, fnamelen);
     stream.GetUInt32(); // filesize
+    break;
+  }
+  case 3:
+    ASSERT(stream.GetOffset() == vos_v3_midi_offset_);
+    break;
+  default:
+    ASSERT(0);
   }
 
   // MUST start from MThd signature
