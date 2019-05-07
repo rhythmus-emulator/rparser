@@ -308,16 +308,23 @@ TEST(RPARSER, CHARTNOTELIST)
   clist.CloseChartData();
 }
 
-TEST(RPARSER, VOSFILE)
+TEST(RPARSER, VOSFILE_V2)
 {
   Song song;
-  EXPECT_TRUE(song.Open(BASE_DIR + "chart_sample/1.vos"));
-  Chart *c = song.GetChart(0);
-  auto &md = c->GetMetaData();
-  auto &nd = c->GetNoteData();
-  auto &td = c->GetTempoData();
-  song.CloseChart();
-  song.Close();
+  const auto songlist = {
+    "chart_sample/1.vos",
+    "chart_sample/103.vos"
+  };
+  for (auto& songpath : songlist)
+  {
+    EXPECT_TRUE(song.Open(BASE_DIR + songpath));
+    Chart *c = song.GetChart(0);
+    auto &md = c->GetMetaData();
+    auto &nd = c->GetNoteData();
+    auto &td = c->GetTempoData();
+    song.CloseChart();
+    song.Close();
+  }
 }
 
 TEST(RPARSER, BMS)

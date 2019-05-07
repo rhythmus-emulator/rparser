@@ -193,24 +193,52 @@ MIDISIG ChartLoaderVOS::BinaryStream::GetMidiSignature(MIDIProgramInfo &mprog)
   uint8_t buf[20];
   GetChar((char*)buf, MIDISIG_LENGTH);
   MIDISIG r = MIDISIG::MIDISIG_OTHERS;
-  if (buf[0] == 0xF0 || buf[0] == 0xF7)
-  {
-    std::cerr << "MIDI Sysex event found, going to be ignored." << std::endl;
-    return r;
-  }
-
-  for (int i = 0; i<MIDISIG_TYPES; i++) {
-    if (memcmp(buf, MIDISIG_BYTE[i], MIDISIG_LENGTH) == 0)
-    {
-      r = (MIDISIG)i;
-      break;
-    }
-  }
-
   if (buf[0] < 0xF0)
   {
+    /** Channel Message */
     r = MIDISIG::MIDISIG_PROGRAM;
-    offset_--;
+    uint8_t *st_buf = buf + 1;
+    uint8_t st_len = 2;
+
+    if (buf[0] <= 0x80)
+    {
+      /** MUST BE RUNNING STATUS */
+      ASSERT(mprog.cmdtype != 0);
+      st_buf = buf;
+    }
+    else
+    {
+      mprog.cmdtype = buf[0];
+      buf[2] = GetUInt8();
+    }
+
+    if ((0xC0 < mprog.cmdtype) && (mprog.cmdtype < 0xE0))
+    {
+      st_len = 1;
+      offset_--;
+    }
+
+    mprog.cmd[0] = st_buf[0];
+    mprog.cmd[1] = (st_len == 1) ? 0 : st_buf[1];
+  }
+  else
+  {
+    /** Event Message */
+    mprog.cmdtype = 0;  // clear running status flag
+
+    if (buf[0] == 0xF0 || buf[0] == 0xF7)
+    {
+      std::cerr << "MIDI Sysex event found, going to be ignored." << std::endl;
+      return r;
+    }
+
+    for (int i = 0; i < MIDISIG_TYPES; i++) {
+      if (memcmp(buf, MIDISIG_BYTE[i], MIDISIG_LENGTH) == 0)
+      {
+        r = (MIDISIG)i;
+        break;
+      }
+    }
   }
 
   return r;
@@ -302,7 +330,11 @@ bool ChartLoaderVOS::ParseMetaDataV2()
   int vosflen = stream.GetInt32();
   // 6 byte: signature
   stream.GetChar(buf, 6);
+#if 0
   ASSERT(memcmp(buf, "VOS022", 6) == 0);
+#else
+  ASSERT(memcmp(buf, "VOS", 3) == 0);
+#endif
   // parse metadatas [title, songartist, chartmaker, genre, unknown]
   // metadata consisted with frames
   // frame: length(short) + body
@@ -504,11 +536,11 @@ bool ChartLoaderVOS::ParseMIDI()
 
     MIDISIG midisig = MIDISIG::MIDISIG_DUMMY;
     MIDIProgramInfo mprog;
+    mprog.cmdtype = 0;
     int delta = 0;  // delta tick(position) from previous event.
     int ticks = 0;  // current midi event position (tick). 480 tick: 1 measure (4 beat), mostly.
     int byte_len = 0;
     bool is_midisegment_end = false;
-    bool is_program_cont = false;
     do {
       delta = stream.GetMSInt();
       midisig = stream.GetMidiSignature(mprog);
@@ -516,31 +548,14 @@ bool ChartLoaderVOS::ParseMIDI()
       ticks += delta;
       cur_beat = (double)ticks / timedivision;
 
-      if (midisig == MIDISIG::MIDISIG_PROGRAM)
-      {
-        is_program_cont = true;
-        while (is_program_cont && stream.ReadUInt8() < 0x80)
-        {
-          // program won't need byte length
-          if ((0xC0 < buf[0]) && (buf[0] < 0xE0))
-          {
-            stream.GetChar(buf, 1);
-            is_program_cont = buf[0] != 0;
-          }
-          else
-          {
-            stream.GetChar(buf, 2);
-            is_program_cont = buf[1] != 0;
-          }
-          // TODO
-        }
-        stream.SeekBack(1);
-        continue;
-      }
+      if (midisig != MIDISIG::MIDISIG_PROGRAM)
+        byte_len = stream.GetMSInt();
 
-      byte_len = stream.GetMSInt();
       switch (midisig)
       {
+      case MIDISIG::MIDISIG_PROGRAM:
+        // TODO
+        break;
       case MIDISIG::MIDISIG_TEMPO:
         ASSERT(byte_len == 3);
         val = stream.GetMSFixedInt(3);

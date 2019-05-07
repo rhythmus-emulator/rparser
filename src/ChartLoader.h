@@ -87,6 +87,8 @@ private:
   bool ParseMIDI();
 
   struct MIDIProgramInfo {
+    uint8_t cmdtype;
+    char cmd[2];
   };
 
   class BinaryStream {
