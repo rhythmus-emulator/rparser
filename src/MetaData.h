@@ -110,6 +110,7 @@ public:
   void SetAttribute(const std::string& key, int value);
   void SetAttribute(const std::string& key, const std::string& value);
   void SetAttribute(const std::string& key, double value);
+  void MergeAttributes(const MetaData& md);
   bool IsAttributeExist(const std::string& key);
   void SetMetaFromAttribute();
 

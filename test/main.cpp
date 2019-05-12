@@ -157,7 +157,7 @@ TEST(RPARSER, TEMPODATA)
   EXPECT_NEAR(0.0, td.GetBeatFromTime(20'000.0) - td.GetBeatFromTime(19'000.0), 0.01);
   EXPECT_NEAR(0.0, td.GetBeatFromTime(52'000.0) - td.GetBeatFromTime(50'000.0), 0.01);
   EXPECT_NEAR(180.0, td.GetBeatFromTime(110'000.0 /* 60+2 sec */) - td.GetBeatFromTime(48'000.0), 0.01);
-  EXPECT_NEAR(td.GetBeatFromRow(Row(13, 2, 4)), 48.0+3.0, 0.01);
+  EXPECT_NEAR(td.GetBeatFromRow(13 + 2.0/4), 48.0+3.0, 0.01);
 
   const double warp_time = td.GetTimeFromBeat(1000.0);
   EXPECT_NEAR(2.0, td.GetBeatFromTime(warp_time + 0.01) - td.GetBeatFromTime(warp_time), 0.01);
@@ -193,7 +193,7 @@ TEST(RPARSER, TEMPODATA)
   EXPECT_NEAR(0.0, td.GetBeatFromTime(20'000.0) - td.GetBeatFromTime(19'000.0), 0.01);
   EXPECT_NEAR(0.0, td.GetBeatFromTime(52'000.0) - td.GetBeatFromTime(50'000.0), 0.01);
   EXPECT_NEAR(180.0, td.GetBeatFromTime(110'000.0 /* 60+2 sec */) - td.GetBeatFromTime(48'000.0), 0.01);
-  EXPECT_NEAR(td.GetBeatFromRow(Row(13, 2, 4)), 48.0 + 3.0, 0.01);
+  EXPECT_NEAR(td.GetBeatFromRow(13 + 2.0/4), 48.0 + 3.0, 0.01);
 }
 
 TEST(RPARSER, CHART)
@@ -237,7 +237,51 @@ TEST(RPARSER, CHART)
 
 TEST(RPARSER, CHART_CONDITIONAL_SEGMENT)
 {
-  // TODO
+  Chart c;
+  c.GetMetaData().title = "Hi";
+  auto &RandomStmt = *c.CreateStmt(5, true, false);
+  Chart *c2 = RandomStmt.CreateSentence(2);
+  c2->GetMetaData().SetAttribute("TITLE", "Hello");
+  SoundNote n;
+  n.SetBeatPos(0);
+  n.SetAsTapNote(0, 1);
+  c2->GetNoteData().AddNote(n);
+  n.SetAsTapNote(0, 3);
+  c2->GetNoteData().AddNote(n);
+  TempoNote tn;
+  tn.SetBeatPos(0);
+  tn.SetBpm(90);
+  c2->GetTempoData().GetTempoNoteData().AddNote(tn);
+  tn.SetBeatPos(10);
+  tn.SetBpm(180);
+  c2->GetTempoData().GetTempoNoteData().AddNote(tn);
+
+  c.EvaluateStmt(2);
+  c.GetMetaData().SetMetaFromAttribute();
+  c.InvalidateTempoData();
+
+  EXPECT_STREQ("Hello", c.GetMetaData().title.c_str());
+  EXPECT_EQ(2, c.GetNoteData().size());
+  EXPECT_EQ(180, c.GetTempoData().GetMaxBpm());
+  EXPECT_EQ(90, c.GetTempoData().GetMinBpm());
+}
+
+TEST(RPARSER, LONGNOTE)
+{
+  Chart c;
+  //EXPECT_FALSE(c.GetNoteData().HasLongnote());
+
+  // long note object count
+  SoundNote note;
+  note.SetBeatPos(0);
+  note.SetAsTapNote(0, 2);
+  note.SetLongnoteLength(1);
+  
+  c.GetNoteData().AddNote(note);
+  //EXPECT_TRUE(c.GetNoteData().HasLongnote());
+
+  // long note song length test
+  //c.GetSongLength();
 }
 
 TEST(RPARSER, CHARTLIST)

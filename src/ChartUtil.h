@@ -67,14 +67,9 @@ void SortNoteObjectsByType(A& notedata, B& out)
   std::sort(out.nobj_by_tempo.begin(), out.nobj_by_tempo.end(), [] (const Note* lhs, const Note* rhs)
   { return lhs->GetNotePos().beat < rhs->GetNotePos().beat; });
   std::sort(out.nobj_by_row.begin(), out.nobj_by_row.end(), [] (const Note* lhs, const Note* rhs)
-  { return lhs->GetNotePos().row.measure <= rhs->GetNotePos().row.measure &&
-           (lhs->GetNotePos().row.num / (double)lhs->GetNotePos().row.deno)
-           < 
-           (rhs->GetNotePos().row.num / (double)rhs->GetNotePos().row.deno); });
+  { return lhs->GetNotePos().measure < rhs->GetNotePos().measure; });
 }
 
-// fix invalid note to correct one after chart effector
-void FixInvalidNote(Chart &c, SONGTYPE songtype, bool delete_invalid_note);
 namespace effector
 {
   enum LaneTypes
@@ -110,7 +105,7 @@ namespace effector
   void Random(Chart &c, const EffectorParam& param);
   void SRandom(Chart &c, const EffectorParam& param);
   void HRandom(Chart &c, const EffectorParam& param);
-  void RRandom(Chart &c, const EffectorParam& param);
+  void RRandom(Chart &c, const EffectorParam& param, bool shift_by_timing=false);
   void Mirror(Chart &c, const EffectorParam& param);
   void AllSC(Chart &c, const EffectorParam& param);
   void Flip(Chart &c, const EffectorParam& param);

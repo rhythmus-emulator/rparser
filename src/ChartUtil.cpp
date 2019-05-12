@@ -35,80 +35,6 @@ void ClipRange(Chart &c, double beat_start, double beat_end)
   ASSERT(0);
 }
 
-void FixInvalidNote(Chart &c, SONGTYPE songtype, bool delete_invalid_note)
-{
-  // TODO: currently for note type.
-  //       in case of pos type ...?
-  unsigned int player_count = c.GetMetaData().player_count;
-  unsigned int track_column_count = GetSongMetaData(songtype).track_col_count;
-  double current_beat = -1;
-  Note* note_using_lane[5][256];
-  int current_col;
-  int current_player;
-
-  ASSERT(player_count < 5);
-  ASSERT(track_column_count < 128);
-
-  // must sorted first
-  c.GetNoteData().SortByBeat();
-
-  memset(note_using_lane, 0, sizeof(note_using_lane));
-
-  for (auto& note: c.GetNoteData())
-  {
-    current_col = note.track.lane.note.lane;
-    current_player = note.track.lane.note.player;
-    if (note.GetNotetype() != NoteTypes::kNote)
-      continue;
-    if (note.GetNoteSubtype() != NoteTypes::kNote)
-      continue;
-    // if beat change, invalidate all marked note status
-    NotePos& npos = note.GetNotePos();
-    if (npos.beat != current_beat)
-    {
-      current_beat = npos.beat;
-      for (auto pi=0u ; pi<player_count ; pi++)
-      {
-        for (auto i=0u ; i<track_column_count ; i++)
-        {
-          Note** ncl = &note_using_lane[pi][i];
-          if (!(*ncl)->next)
-          {
-            // not longnote (or end of longnote), instantly clear.
-            (*ncl) = 0;
-          }
-          else
-          {
-            // in case of longnote, renew longnote object.
-            // TODO: in case of pos_end attribute note?
-            if ((*ncl)->GetNotePos().beat < current_beat)
-              (*ncl) = (*ncl)->next;
-          }
-        }
-      }
-    }
-    // attempt to put note in empty lane.
-    // if lane used, then attempt to next (right) lane.
-    // if proper lane not found, then note won't edited. (stay in incorrect one)
-    for (auto i=0u; i<track_column_count; i++)
-    {
-      int new_col = (current_col + i) % track_column_count;
-      if (!note_using_lane[current_player][new_col])
-      {
-        note.track.lane.note.lane = new_col;
-        // in case of longnote, fix them all.
-        SoundNote *ln_note = static_cast<SoundNote*>(note.next);
-        while (ln_note)
-        {
-          ln_note->track.lane.note.lane = new_col;
-        } while (ln_note = static_cast<SoundNote*>(ln_note->next))
-        note_using_lane[current_player][new_col] = &note;
-        break;
-      }
-    }
-  }
-}
-
 namespace effector
 {
 
@@ -259,25 +185,11 @@ void Random(Chart &c, const EffectorParam& param)
 
 void SRandom(Chart &c, const EffectorParam& param)
 {
-  int new_col[kMaxSizeLane];
-  double current_beat = -1.0;
-  
-  c.GetNoteData().SortByBeat();
-
-  for (auto& note: c.GetNoteData())
-  {
-    if (!CheckNoteValidity(note, param)) continue;
-    // reassign note if beat changed
-    NotePos& npos = note.GetNotePos();
-    if (npos.beat != current_beat)
-    {
-      GenerateRandomColumn(new_col, param);
-      current_beat = npos.beat;
-    }
-    // XXX: notes might be duplicated to longnote, making unplayable.
-    //      So must fix these notes using some method.
-    note.track.lane.note.lane = new_col[note.track.lane.note.lane];
-  }
+  // SRANDOM algorithm from
+  // https://gall.dcinside.com/mgallery/board/view/?id=popn&no=3291&page=1484
+  Random(c, param);
+  RRandom(c, param, true);
+  Random(c, param);
 }
 
 void HRandom(Chart &c, const EffectorParam& param)
@@ -308,37 +220,43 @@ void HRandom(Chart &c, const EffectorParam& param)
   }
 }
 
-void RRandom(Chart &c, const EffectorParam& param)
+void RRandom(Chart &c, const EffectorParam& param, bool shift_by_timing)
 {
-  int new_col[kMaxSizeLane];
-  int unlocked_cols[kMaxSizeLane];
-  int unlocked_cnt = 0;
-  int delta_lane = rand();
+  int lane_to_idx[kMaxSizeLane];
+  int idx_to_lane[kMaxSizeLane];
+  const int delta_lane = rand();
+  SoundNote* longnote_lane[5][256];    // [ player index ][ lane ]
   ASSERT(param.lanesize < kMaxSizeLane);
 
-  for (int i=0, lockedcnt=0; i<param.lanesize; i++)
-  {
-    // if locked lane then stay calm
-    if (param.lockedlane[i] == LaneTypes::LOCKED)
-    {
-      new_col[i] = i;
-    }
-    else unlocked_cols[unlocked_cnt++] = i;
-  }
-  for (int i=0, c=0; i<param.lanesize; i++)
+  int shufflelanecnt = 0;
+  for (int i=0; i<param.lanesize; i++)
   {
     if (param.lockedlane[i] == LaneTypes::NOTE)
     {
-      new_col[i] = unlocked_cols[(c++ + delta_lane) % unlocked_cnt];
+      lane_to_idx[i] = shufflelanecnt;
+      idx_to_lane[shufflelanecnt] = i;
+      shufflelanecnt++;
     }
   }
 
+  ASSERT(shufflelanecnt == param.lanesize);
+
   c.GetNoteData().SortByBeat();
+
+  constexpr double time_rotation_delta = 0.072;
 
   for (auto& note: c.GetNoteData())
   {
     if (!CheckNoteValidity(note, param)) continue;
-    note.track.lane.note.lane = new_col[note.track.lane.note.lane];
+    if (param.lockedlane[note.track.lane.note.lane]) continue;
+    /**
+     * Shift by timing option make note shifting by note's timing
+     * which is used for SRANDOM option.
+     */
+    const size_t shift_amount = shift_by_timing ? time_rotation_delta : delta_lane;
+    size_t new_idx = lane_to_idx[note.track.lane.note.lane] + shift_amount;
+    while (longnote_lane[0][new_idx]) new_idx = (new_idx + 1) % param.lanesize;
+    note.track.lane.note.lane = idx_to_lane[new_idx];
   }
 }
 

@@ -22,10 +22,10 @@ inline double GetBeatFromTimeInTempoSegment(const TempoObject& tobj, double time
   return tobj.beat_ + tobj.warpbeat_ + time_delta * beat_per_msec;
 }
 
-inline double GetBeatFromRowInTempoSegment(const TempoObject& n, const Row& row)
+inline double GetBeatFromRowInTempoSegment(const TempoObject& n, double measure)
 {
   return n.measure_length_changed_beat_
-    + n.measure_length_ * (row.measure - n.measure_length_changed_idx_ + row.num / (double)row.deno);
+    + n.measure_length_ * (measure - n.measure_length_changed_idx_);
 }
 
 inline uint32_t GetMeasureFromBeatInTempoSegment(const TempoObject& n, double beat)
@@ -103,7 +103,7 @@ void TempoData::Invalidate(const MetaData& m)
     else { nbarr[1] = GetBeatFromTimeInLastSegment(nobj_by_tempo[nbidx[1]]->GetNotePos().time_msec); }
 
     if (nbidx[2] >= nobj_by_row.size()) { nbarr[2] = std::numeric_limits<double>::max(); }
-    else { nbarr[2] = GetBeatFromRowInLastSegment(nobj_by_row[nbidx[2]]->GetNotePos().row); }
+    else { nbarr[2] = GetBeatFromRowInLastSegment(nobj_by_row[nbidx[2]]->GetNotePos().measure); }
 
     cur_nobj_type_idx = GetSmallestIndex(nbarr, 3);
     cur_nobj = static_cast<const TempoNote*>( (*nobjvecs[cur_nobj_type_idx])[ nbidx[cur_nobj_type_idx] ] );
@@ -206,7 +206,7 @@ double TempoData::GetBeatFromTime(double time) const
   return GetBeatFromTimeInTempoSegment(tempoobjs_[idx], time);
 }
 
-double TempoData::GetBeatFromRow(const Row& row) const
+double TempoData::GetBeatFromRow(double measure) const
 {
   /**
    * NOTE: CANNOT be replaced with measure + num / deno method
@@ -217,16 +217,17 @@ double TempoData::GetBeatFromRow(const Row& row) const
   int min = 0, max = tempoobjs_.size() - 1;
   int l = min, r = max;
   int idx = 0;
+  uint32_t row_i = static_cast<uint32_t>(measure);
   while( l <= r )
   {
     int m = ( l + r ) / 2;
 
-    if( ( m == min || tempoobjs_[m].measure_idx_ <= row.measure ) && ( m == max || row.measure < tempoobjs_[m+1].measure_idx_ ) )
+    if( ( m == min || tempoobjs_[m].measure_idx_ <= row_i) && ( m == max || row_i < tempoobjs_[m+1].measure_idx_ ) )
     {
       idx = m;
       break;
     }
-    else if( tempoobjs_[m].measure_idx_ > row.measure )
+    else if( tempoobjs_[m].measure_idx_ > row_i)
     {
       r = m - 1;
     }
@@ -236,7 +237,7 @@ double TempoData::GetBeatFromRow(const Row& row) const
     }
   }
 
-  return GetBeatFromRowInTempoSegment(tempoobjs_[idx], row);
+  return GetBeatFromRowInTempoSegment(tempoobjs_[idx], measure);
 }
 
 double TempoData::GetMeasureFromBeat(double beat) const
@@ -291,15 +292,15 @@ std::vector<double> TempoData::GetBeatFromTimeArr(const std::vector<double>& sor
   return r_beat;
 }
 
-std::vector<double> TempoData::GetBeatFromRowArr(const std::vector<Row>& sorted_row) const
+std::vector<double> TempoData::GetBeatFromRowArr(const std::vector<double>& sorted_row) const
 {
   std::vector<double> r_beat;
   size_t idx = 0;
-  for (const Row& row: sorted_row)
+  for (double row: sorted_row)
   {
     // go to next segment if available.
     // -- measure pos might be same, so move as much as possible.
-    while (idx+1 < tempoobjs_.size() && row.measure > tempoobjs_[idx+1].measure_idx_) idx++;
+    while (idx+1 < tempoobjs_.size() && row > tempoobjs_[idx+1].measure_idx_) idx++;
     r_beat.push_back(GetBeatFromRowInTempoSegment(tempoobjs_[idx], row));
   }
   return r_beat;
@@ -337,7 +338,7 @@ void TempoData::SeekByBeat(double beat)
   tempoobjs_.push_back(new_tobj);
 }
 
-void TempoData::SeekByRow(const Row& row)
+void TempoData::SeekByRow(double row)
 {
   // convert row into beat
   const TempoObject& n = tempoobjs_.back();
@@ -413,7 +414,7 @@ double TempoData::GetBeatFromTimeInLastSegment(double time_delta_msec) const
   return GetBeatFromTimeInTempoSegment(tempoobjs_.back(), time_delta_msec);
 }
 
-double TempoData::GetBeatFromRowInLastSegment(const Row& row) const
+double TempoData::GetBeatFromRowInLastSegment(double row) const
 {
   return GetBeatFromRowInTempoSegment(tempoobjs_.back(), row);
 }

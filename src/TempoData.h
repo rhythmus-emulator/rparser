@@ -43,10 +43,10 @@ public:
   TempoData();
   double GetTimeFromBeat(double beat) const;
   double GetBeatFromTime(double time) const;
-  double GetBeatFromRow(const Row& row) const;
+  double GetBeatFromRow(double row) const;
   std::vector<double> GetTimeFromBeatArr(const std::vector<double>& sorted_beat) const;
   std::vector<double> GetBeatFromTimeArr(const std::vector<double>& sorted_time) const;
-  std::vector<double> GetBeatFromRowArr(const std::vector<Row>& sorted_row) const;
+  std::vector<double> GetBeatFromRowArr(const std::vector<double>& sorted_row) const;
   double GetMeasureFromBeat(double beat) const;
   double GetMaxBpm() const;
   double GetMinBpm() const;
@@ -62,7 +62,7 @@ public:
   void SetFirstObjectFromMetaData(const MetaData &md);
   void SeekByTime(double time);
   void SeekByBeat(double beat);
-  void SeekByRow(const Row& row);
+  void SeekByRow(double row);
   void SetBPMChange(double bpm);
   void SetMeasureLengthChange(double measure_length);
   void SetSTOP(double stop);
@@ -73,7 +73,7 @@ public:
 private:
   double GetTimeFromBeatInLastSegment(double beat) const;       // return msec time
   double GetBeatFromTimeInLastSegment(double time) const;
-  double GetBeatFromRowInLastSegment(const Row& row) const;
+  double GetBeatFromRowInLastSegment(double measure) const;
 
   NoteData<TempoNote> temponotedata_;
   std::vector<TempoObject> tempoobjs_;

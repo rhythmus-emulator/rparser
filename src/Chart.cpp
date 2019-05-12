@@ -71,7 +71,11 @@ void Chart::EvaluateStmt(int seed)
   {
     Chart *c = stmt.EvaluateSentence(seed);
     if (c)
+    {
       notedata_.Merge(c->GetNoteData());
+      GetTempoData().GetTempoNoteData().Merge(c->GetTempoData().GetTempoNoteData());
+      GetMetaData().MergeAttributes(c->GetMetaData());
+    }
   }
 }
 
@@ -118,15 +122,14 @@ const MetaData& Chart::GetMetaData() const
 template<typename N>
 void InvalidateNoteDataPos(NoteData<N>& nd, const TempoData& tempodata_)
 {
-  std::vector<double> v_time, v_beat;
-  std::vector<Row> v_row;
+  std::vector<double> v_time, v_beat, v_row;
   int t_idx = 0, b_idx = 0, r_idx = 0;
   // Sort by row / beat / time.
   SortedNoteObjects sorted;
   SortNoteObjectsByType(nd, sorted);
   // Make conversion of row --> beat --> time first.
   for (const Note* nobj : sorted.nobj_by_row)
-    v_row.push_back(nobj->GetNotePos().row);
+    v_row.push_back(nobj->GetNotePos().measure);
   const std::vector<double> v_row_to_beat(std::move(tempodata_.GetBeatFromRowArr(v_row)));
   for (Note* nobj : sorted.nobj_by_row)
     v_beat.push_back(nobj->GetNotePos().beat = v_row_to_beat[r_idx++]);
@@ -163,7 +166,7 @@ void Chart::InvalidateNotePos(Note &nobj)
       npos.beat = tempodata_.GetBeatFromTime(npos.time_msec);
       break;
     case NotePosTypes::Row:
-      npos.beat = tempodata_.GetBeatFromRow(npos.row);
+      npos.beat = tempodata_.GetBeatFromRow(npos.measure);
     case NotePosTypes::Beat:
       npos.time_msec = tempodata_.GetTimeFromBeat(npos.beat);
       break;

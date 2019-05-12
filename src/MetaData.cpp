@@ -94,6 +94,14 @@ void MetaData::SetAttribute(const std::string& key, double value)
   SetAttribute(key, s);
 }
 
+void MetaData::MergeAttributes(const MetaData& md)
+{
+  for (auto ii : md.attrs_)
+  {
+    SetAttribute(ii.first, ii.second);
+  }
+}
+
 bool MetaData::IsAttributeExist(const std::string& key)
 {
   return attrs_.find(key) != attrs_.end();

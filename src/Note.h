@@ -13,29 +13,36 @@ typedef uint32_t Channel;
 enum class NotePosTypes
 {
   NullPos,
-  Row,
   Time,
-  Beat
-};
-
-struct Row
-{
-  Row() = default;
-  Row(uint32_t measure, RowPos num, RowPos deno);
-
-  uint32_t measure;
-  RowPos num;
-  RowPos deno;
+  Beat,
+  Row
 };
 
 struct NotePos
 {
+  NotePos();
+  NotePos(const NotePos&) = default;
+  NotePos& operator=(const NotePos &) = default;
+
   NotePosTypes type;
-  Row row;
   double time_msec;
   double beat;
+  double measure;
+  uint32_t denominator;
+
+  void SetRowPos(uint32_t measure, RowPos deno, RowPos num);
+  void SetBeatPos(double beat);
+  void SetTimePos(double time_msec);
+  void SetDenominator(uint32_t denominator);
+  NotePos& GetNotePos();
+  const NotePos& GetNotePos() const;
+  NotePosTypes GetNotePosType() const;
+  double GetBeatPos() const;
+  double GetTimePos() const;
 
   bool operator==(const NotePos &other) const noexcept;
+  bool operator<(const NotePos &other) const noexcept;
+  std::string toString() const;
 };
 
 typedef struct
@@ -49,38 +56,27 @@ typedef struct
 /**
  * @detail Contains base information of a Note, includes type and position data.
  */
-class Note
+class Note : public NotePos
 {
 public:
   Note() = default;
   Note(const Note&) = default;
+  Note& operator=(const Note &) = default;
 
   NoteType GetNotetype() const;
   NoteType GetNoteSubtype() const;
   void SetNotetype(NoteType t);
   void SetNoteSubtype(NoteType t);
-  void SetRowPos(const Row& r);
-  void SetRowPos(uint32_t measure, RowPos deno, RowPos num);
-  void SetBeatPos(double beat);
-  void SetTimePos(double time_msec);
-  NotePos& GetNotePos();
-  const NotePos& GetNotePos() const;
-  NotePosTypes GetNotePosType() const;
-  double GetBeatPos() const;
-  double GetTimePos() const;
 
-  bool operator<(const Note &other) const noexcept;
   bool operator==(const Note &other) const noexcept;
   std::string toString() const;
-
-  Note *prev;
-  Note *next;
 private:
   virtual std::string getValueAsString() const = 0;
-  NotePos pos;
   NoteType type;
   NoteType subtype;
 };
+
+struct NoteChain;
 
 /**
  * @detail
@@ -97,10 +93,21 @@ class SoundNote : public Note
 {
 public:
   SoundNote();
+  SoundNote(const SoundNote &) = default;
+  SoundNote& operator=(const SoundNote &) = default;
+  SoundNote(SoundNote &&note) noexcept = default; // move constructor for vector resize
+
   void SetAsBGM(uint8_t col);
   void SetAsTouchNote();
   void SetAsTapNote(uint8_t player, uint8_t lane);
-  void SetAsKnobNote();
+  void SetAsChainNote();
+  void SetLongnoteLength(double delta_beat);
+  void SetLongnoteEndPos(const NotePos& row_pos);
+  void SetLongnoteEndValue(Channel v);
+  void AddChain(const NotePos& pos, uint8_t col);
+  void AddTouch(const NotePos& pos, uint8_t x, uint8_t y);
+  void ClearChain();
+  bool IsLongnote();
 
   uint8_t GetPlayer();
   uint8_t GetLane();
@@ -108,15 +115,28 @@ public:
   uint8_t GetX();
   uint8_t GetY();
 
+  // basic note attributes
   NoteTrack track;
   Channel value;
   float volume;
   int32_t pitch;
+
+  // longnote / chain data
+  // main reason why SoundNote object requires move constructor.
+  std::vector<NoteChain> chains;
+
   // @description bmson attribute. (loop)
   bool restart;
   bool operator==(const SoundNote &other) const noexcept;
 private:
   virtual std::string getValueAsString() const;
+};
+
+struct NoteChain
+{
+  NoteTrack track;
+  NotePos pos;
+  Channel value;
 };
 
 /**
@@ -151,6 +171,7 @@ public:
   void SetScroll(float scrollspeed);
   void SetTick(int32_t tick);
   void SetWarp(float warp_to);
+  void SetCommand(uint8_t type, uint8_t arg1, uint8_t arg2);
   float GetFloatValue() const;
   int32_t GetIntValue() const;
 
@@ -160,6 +181,7 @@ private:
   {
     float f;
     int32_t i;
+    struct { uint8_t type, arg1, arg2; } cmd;
   } value;
   virtual std::string getValueAsString() const;
 };
@@ -170,7 +192,7 @@ enum NoteTypes
   kNone,
   kNote,          // Simple note object (key input)
   kTouch,         // Osu like object (touch input)
-  kKnob,          // SDVX like object (level input)
+  kChain,         // SDVX like object (level input)
   kBGM,           // autoplay & indrawable background sound object.
   kBGA,           // drawable object
   kTempo,         // Tempo related objects
@@ -237,7 +259,7 @@ public:
   NoteData(): is_sorted_(false) {};
   NoteData(const NoteData& notedata)
     : notes_(notedata.notes_), is_sorted_(notedata.is_sorted_) { }
-  void swap(NoteData& notedata)
+  void swap(NoteData& notedata) noexcept
   {
     std::swap(notes_, notedata.notes_);
     std::swap(is_sorted_, notedata.is_sorted_);
@@ -261,7 +283,7 @@ public:
   }
   void SortModeOff() { is_sorted_ = false; }
   bool IsSorted() { return is_sorted_; }
-  void AddNote(const N &n)
+  void AddNote(const N &n) noexcept
   {
     if (is_sorted_)
     {
@@ -270,15 +292,16 @@ public:
     }
     else notes_.push_back(n);
   }
-  void AddNote(N &&n)
+  void AddNote(N &&n) noexcept
   {
     if (is_sorted_)
     {
       auto it = std::upper_bound(begin(), end(), n);
-      notes_.insert(it, n);
+      notes_.emplace(it, n);
     }
-    else notes_.push_back(n);
+    else notes_.emplace_back(n);
   }
+  size_t size() const { return notes_.size(); }
   N& front() { return notes_.front(); }
   N& back() { return notes_.back(); }
   const N& front() const { return notes_.front(); }

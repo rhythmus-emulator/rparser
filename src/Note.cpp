@@ -74,8 +74,55 @@ const char **pNoteSubtypeStr[] = {
   kNoteSpecialTypesStr,
 };
 
-Row::Row(uint32_t measure, RowPos num, RowPos deno)
-  : measure(measure), num(num), deno(deno) {}
+NotePos::NotePos()
+  : type(NotePosTypes::NullPos), time_msec(0), beat(0), measure(0), denominator(8) {}
+
+void NotePos::SetRowPos(uint32_t measure, RowPos deno, RowPos num)
+{
+  type = NotePosTypes::Row;
+  this->measure = measure + (double)num / deno;
+}
+
+void NotePos::SetBeatPos(double beat)
+{
+  type = NotePosTypes::Beat;
+  this->beat = beat;
+}
+
+void NotePos::SetTimePos(double time_msec)
+{
+  type = NotePosTypes::Time;
+  this->time_msec = time_msec;
+}
+
+void NotePos::SetDenominator(uint32_t denominator)
+{
+  this->denominator = denominator;
+}
+
+std::string NotePos::toString() const
+{
+  std::stringstream ss;
+  int32_t num = 0;
+  switch (type)
+  {
+  case NotePosTypes::NullPos:
+    ss << "(No note pos set)" << std::endl;
+    break;
+  case NotePosTypes::Beat:
+    ss << "Beat: " << beat << "(Deno " << denominator << ")" << std::endl;
+    break;
+  case NotePosTypes::Time:
+    ss << "Time: " << time_msec << "(Deno " << denominator << ")" << std::endl;
+    break;
+  case NotePosTypes::Row:
+    // recalculate numerator of Row
+    num = static_cast<int32_t>(lround(measure * denominator) % denominator);
+    ss << "Row: " << (static_cast<int32_t>(measure) % 1) << " " << num << "/" << denominator << std::endl;
+    break;
+  }
+  return ss.str();
+}
 
 std::string Note::toString() const
 {
@@ -84,13 +131,63 @@ std::string Note::toString() const
   sType = kNoteTypesStr[type];
   sSubtype = pNoteSubtypeStr[type][subtype];
   ss << "[Object Note]\n";
-  ss << "type/subtype: " << sType << "," << sSubtype;
-  ss << "Beat: " << pos.beat << std::endl;
-  ss << "Row: " << pos.row.measure << " " << pos.row.num << "/" << pos.row.deno << std::endl;
-  ss << "Time: " << pos.time_msec << std::endl;
-  ss << getValueAsString() << std::endl;
+  ss << "type/subtype: " << sType << "," << sSubtype << std::endl;
+  ss << NotePos::toString();
+  ss << getValueAsString();
   return ss.str();
 }
+
+NotePos& NotePos::GetNotePos()
+{
+  return *this;
+}
+
+const NotePos& NotePos::GetNotePos() const
+{
+  return const_cast<NotePos*>(this)->GetNotePos();
+}
+
+NotePosTypes NotePos::GetNotePosType() const
+{
+  return type;
+}
+
+double NotePos::GetBeatPos() const
+{
+  return beat;
+}
+
+double NotePos::GetTimePos() const
+{
+  return time_msec;
+}
+
+bool NotePos::operator<(const NotePos &other) const noexcept
+{
+  return beat < other.beat;
+}
+
+bool NotePos::operator==(const NotePos &other) const noexcept
+{
+  return beat == other.beat;
+}
+
+#if 0
+bool NotePos::operator==(const NotePos &other) const noexcept
+{
+  if (type != other.type) return false;
+  switch (type)
+  {
+  case NotePosTypes::Beat:
+    return beat == other.beat;
+  case NotePosTypes::Time:
+    return time_msec == other.time_msec;
+  default:
+    ASSERT(0);
+    return false;
+  }
+}
+#endif
 
 NoteType Note::GetNotetype() const
 {
@@ -112,81 +209,9 @@ void Note::SetNoteSubtype(NoteType t)
   subtype = t;
 }
 
-void Note::SetRowPos(const Row& r)
-{
-  pos.type = NotePosTypes::Row;
-  pos.row = r;
-}
-
-void Note::SetRowPos(uint32_t measure, RowPos deno, RowPos num)
-{
-  pos.type = NotePosTypes::Row;
-  pos.row = std::move(Row(measure,deno,num));
-}
-
-void Note::SetBeatPos(double beat)
-{
-  pos.type = NotePosTypes::Beat;
-  pos.beat = beat;
-}
-
-void Note::SetTimePos(double time_msec)
-{
-  pos.type = NotePosTypes::Time;
-  pos.time_msec = time_msec;
-}
-
-NotePos& Note::GetNotePos()
-{
-  return pos;
-}
-
-const NotePos& Note::GetNotePos() const
-{
-  return const_cast<Note*>(this)->GetNotePos();
-}
-
-NotePosTypes Note::GetNotePosType() const
-{
-  return pos.type;
-}
-
-double Note::GetBeatPos() const
-{
-  return pos.beat;
-}
-
-double Note::GetTimePos() const
-{
-  return pos.time_msec;
-}
-
-bool NotePos::operator==(const NotePos &other) const noexcept
-{
-  if (type != other.type) return false;
-  switch (type)
-  {
-  case NotePosTypes::Beat:
-    return beat == other.beat;
-  case NotePosTypes::Row:
-    return row.measure == other.row.measure &&
-      row.num / (double)row.deno == other.row.num / (double)other.row.deno;
-  case NotePosTypes::Time:
-    return time_msec == other.time_msec;
-  default:
-    ASSERT(0);
-    return false;
-  }
-}
-
-bool Note::operator<(const Note &other) const noexcept
-{
-  return pos.beat < other.pos.beat;
-}
-
 bool Note::operator==(const Note &other) const noexcept
 {
-  return pos == other.pos;
+  return NotePos::operator==(other) && type == other.type && subtype == other.subtype;
 }
 
 SoundNote::SoundNote() : value(0), volume(1.0f), pitch(0), restart(false)
@@ -213,9 +238,62 @@ void SoundNote::SetAsTapNote(uint8_t player, uint8_t lane)
   track.lane.note.lane = lane;
 }
 
-void SoundNote::SetAsKnobNote()
+void SoundNote::SetAsChainNote()
 {
-  SetNotetype(NoteTypes::kKnob);
+  SetNotetype(NoteTypes::kChain);
+}
+
+void SoundNote::SetLongnoteLength(double delta_beat)
+{
+  ASSERT(GetNotetype() == NoteTypes::kNote);
+  ASSERT(GetNotePosType() == NotePosTypes::Beat);
+  if (!IsLongnote())
+    chains.emplace_back(NoteChain{ track, *this, 0 });
+  chains.back().pos.SetBeatPos(GetNotePos().beat + delta_beat);
+}
+
+void SoundNote::SetLongnoteEndPos(const NotePos& row_pos)
+{
+  ASSERT(GetNotetype() == NoteTypes::kNote);
+  if (!IsLongnote())
+    chains.emplace_back(NoteChain{ track, *this, 0 });
+  chains.back().pos = row_pos;
+}
+
+void SoundNote::SetLongnoteEndValue(Channel v)
+{
+  ASSERT(GetNotetype() == NoteTypes::kNote);
+  if (!IsLongnote())
+    chains.emplace_back(NoteChain{ track, *this, 0 });
+  chains.back().value = v;
+}
+
+void SoundNote::AddChain(const NotePos& pos, uint8_t col)
+{
+  ASSERT(GetNotetype() == NoteTypes::kChain);
+  NoteTrack track;
+  track.lane.note.player = 0;
+  track.lane.note.lane = col;
+  chains.emplace_back(NoteChain{ track, pos, 0 });
+}
+
+void SoundNote::AddTouch(const NotePos& pos, uint8_t x, uint8_t y)
+{
+  ASSERT(GetNotetype() == NoteTypes::kTouch);
+  NoteTrack track;
+  track.lane.touch.x = x;
+  track.lane.touch.y = y;
+  chains.emplace_back(NoteChain{ track, pos, 0 });
+}
+
+void SoundNote::ClearChain()
+{
+  chains.clear();
+}
+
+bool SoundNote::IsLongnote()
+{
+  return chains.size() > 0;
 }
 
 uint8_t SoundNote::GetPlayer()
