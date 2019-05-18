@@ -383,6 +383,7 @@ TEST(RPARSER, VOSFILE_V3)
   {
     EXPECT_TRUE(song.Open(BASE_DIR + songpath));
     Chart *c = song.GetChart(0);
+    ASSERT_TRUE(c);
     auto &md = c->GetMetaData();
     auto &nd = c->GetNoteData();
     auto &td = c->GetTempoData();
@@ -393,7 +394,21 @@ TEST(RPARSER, VOSFILE_V3)
 
 TEST(RPARSER, BMS)
 {
-  // TODO
+  Song song;
+  const auto songlist = {
+    "chart_sample_bms"
+  };
+  for (auto& songpath : songlist)
+  {
+    EXPECT_TRUE(song.Open(BASE_DIR + songpath));
+    Chart *c = song.GetChart(0);
+    ASSERT_TRUE(c);
+    auto &md = c->GetMetaData();
+    auto &nd = c->GetNoteData();
+    auto &td = c->GetTempoData();
+    song.CloseChart();
+    song.Close();
+  }
 }
 
 TEST(RPARSER, BMSARCHIVE)

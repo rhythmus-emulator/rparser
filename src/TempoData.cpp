@@ -36,7 +36,7 @@ inline uint32_t GetMeasureFromBeatInTempoSegment(const TempoObject& n, double be
 
 TempoObject::TempoObject()
 : bpm_(kDefaultBpm), beat_(0), time_(0),
-  measure_idx_(0), measure_length_changed_idx_(0), measure_length_changed_beat_(0), measure_length_(4),
+  measure_idx_(0), measure_length_changed_idx_(0), measure_length_changed_beat_(0), measure_length_(kDefaultMeasureLength),
   stoptime_(0), delaytime_(0), warpbeat_(0), scrollspeed_(1), tick_(1) {}
 
 // called when TempoObject is copied for new block (e.g. Seek methods)

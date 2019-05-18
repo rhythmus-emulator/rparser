@@ -79,6 +79,8 @@ private:
   std::vector<TempoObject> tempoobjs_;
 };
 
+constexpr double kDefaultMeasureLength = 4.0;
+
 } /* namespace rparser */
 
 #endif

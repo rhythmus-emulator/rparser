@@ -80,7 +80,8 @@ NotePos::NotePos()
 void NotePos::SetRowPos(uint32_t measure, RowPos deno, RowPos num)
 {
   type = NotePosTypes::Row;
-  this->measure = measure + (double)num / deno;
+  if (deno == 0) this->measure = measure;
+  else this->measure = measure + (double)num / deno;
 }
 
 void NotePos::SetBeatPos(double beat)

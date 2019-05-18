@@ -289,14 +289,14 @@ int ChartList::AddNewChart()
 
 const Chart* ChartList::GetChartData(int idx) const
 {
-  if (idx < 0 || idx >= (int)charts_.size() || cur_edit_idx >= 0) return 0;
-  cur_edit_idx = idx;
-  return charts_[idx];
+  return const_cast<ChartList*>(this)->GetChartData(idx);
 }
 
 Chart* ChartList::GetChartData(int idx)
 {
-  return const_cast<Chart*>(GetChartData(idx));
+  if (idx < 0 || idx >= (int)charts_.size() || cur_edit_idx >= 0) return 0;
+  cur_edit_idx = idx;
+  return charts_[idx];
 }
 
 void ChartList::CloseChartData()

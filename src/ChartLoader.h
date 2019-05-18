@@ -46,7 +46,7 @@ private:
   ConditionalChart* condstmt_;
   struct LineContext {
     const char* stmt;
-    unsigned int stmt_len;
+    size_t stmt_len;
     char command[256];
     const char* value;
     unsigned int value_len;
@@ -60,6 +60,7 @@ private:
   bool ParseCurrentLine();
   bool ParseControlFlow();
   bool ParseMetaData();
+  bool ParseMeasureLength();
   bool ParseNote();
 };
 

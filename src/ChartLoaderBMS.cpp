@@ -64,35 +64,44 @@ bool ChartLoaderBMS::LoadFromDirectory(ChartListBase& chartlist, Directory& dir)
   return true;
 }
 
-bool ChartLoaderBMS::Load( Chart &c, const void* p, int iLen )
+inline bool IsCharacterTrimmable(char c)
 {
-  const char *chr = static_cast<const char*>(p);
-  const char *linestart = static_cast<const char*>(p);
-  do
+  return (c == ' ' || c == '\t' || c == '\r' || c == '\n');
+}
+
+bool ChartLoaderBMS::Load(Chart &c, const void* p, int iLen)
+{
+  size_t pos = 0;
+  size_t stmtlen = 0;
+  size_t nextpos = 0;
+  const char* const chr = static_cast<const char*>(p);
+  chart_context_ = &c;
+
+  while (pos < iLen)
   {
-    if (*chr == '\n')
+    if (!IsCharacterTrimmable(chr[pos]))
     {
-      const char *st_trimmed = linestart;
-      const char *chr_trimmed = chr;
-      while (chr_trimmed > st_trimmed && 
-             (*st_trimmed == ' ' || *st_trimmed == '\t' || *st_trimmed == '\r'))
-        st_trimmed++;
-      while (chr_trimmed > st_trimmed && 
-             (*chr_trimmed == ' ' || *chr_trimmed == '\t' || *chr_trimmed == '\r'))
-        chr_trimmed--;
+      stmtlen = 0;
+      while (pos + stmtlen < iLen && chr[pos + stmtlen] != '\n')
+        stmtlen++;
+      nextpos = stmtlen + pos + 1;
+      while (stmtlen > 0 && IsCharacterTrimmable(chr[pos + stmtlen - 1]))
+        stmtlen--;
+
       current_line_.clear();
-      current_line_.stmt = chr_trimmed;
-      current_line_.stmt_len = chr_trimmed-st_trimmed;
+      current_line_.stmt = chr + pos;
+      current_line_.stmt_len = stmtlen;
+
       if (!ParseCurrentLine())
       {
         // XXX: for debug
         std::string de(current_line_.stmt, current_line_.stmt_len);
-        printf("parse failed: \"%s\"", de.c_str());
+        std::cerr << "parse failed: " << de.c_str() << std::endl;
       }
-      chr = linestart+1;
-    }
-    chr++;
-  } while (*chr);
+
+      pos = nextpos;
+    } else pos++;
+  }
 
   return true;
 }
@@ -171,13 +180,14 @@ int atoi_bms16(const char* p, int length)
 bool ChartLoaderBMS::ParseCurrentLine()
 {
   const char *c, *p;
-  const unsigned int len = current_line_.stmt_len;
+  size_t len = current_line_.stmt_len;
   char *cw = current_line_.command;
   char terminator_type;
   c = p = current_line_.stmt;
 
   if (*c != '#') return false;
-  while (*c != ' ' || *c != ':')
+  c++;
+  while (*c != ' ' && *c != ':' && c-p < len-1)
   {
     if (c-p > (int)len || c-p > 256) break;
     *cw = upperchr(*c);
@@ -185,18 +195,19 @@ bool ChartLoaderBMS::ParseCurrentLine()
   }
   *cw = 0;
   terminator_type = *c;
-  current_line_.value_len = len+p-c-1;
+  current_line_.value = c + 1;
+  current_line_.value_len = len-(c-p)-1;
 
   if (terminator_type == ':')
   {
-    if (!ParseControlFlow() && !ParseMetaData())
+    current_line_.measure = atoi_bms_measure(current_line_.command, 3);
+    current_line_.bms_channel = atoi_bms_channel(current_line_.command + 3, 2);
+    if (!ParseNote())
       return false;
   }
   else if (terminator_type == ' ')
   {
-    current_line_.measure = atoi_bms_measure(current_line_.command, 3);
-    current_line_.bms_channel = atoi_bms_channel(current_line_.command+3, 2);
-    if (!ParseNote())
+    if (!ParseControlFlow() && !ParseMetaData())
       return false;
   }
   else return false;
@@ -479,6 +490,16 @@ uint8_t GetNoteColFromBmsChannel(unsigned int bms_channel)
   return channel_remap[channel_mod_16];
 }
 
+bool ChartLoaderBMS::ParseMeasureLength()
+{
+  std::string v(current_line_.value, current_line_.value_len);
+  TempoNote n;
+  n.SetRowPos(current_line_.measure, 0, 0);
+  n.SetMeasure(atof(v.c_str()) * kDefaultMeasureLength);
+  chart_context_->GetTempoData().GetTempoNoteData().AddNote(n);
+  return true;
+}
+
 bool ChartLoaderBMS::ParseNote()
 {
   unsigned int value_u;
@@ -491,10 +512,14 @@ bool ChartLoaderBMS::ParseNote()
   // cannot parse between control flow stmt
   if (!chart_context_) return false;
 
+  // check for measure length
+  if (channel == 2)
+    return ParseMeasureLength();
+
   // warn for incorrect length
   if (len % 2 == 1)
   {
-    printf("Warning: incorrect measure length detected.\n");
+    std::cerr << "Warning: incorrect measure length detected.\n" << std::endl;
     len --;
   }
   if (len == 0) return false;

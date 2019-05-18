@@ -380,6 +380,7 @@ FileData ReadFileData(const std::string& path)
   fd.len = 0;
   fd.pos = 0;
   fd.p = 0;
+  fd.fn = std::move(path);
   FILE *fp = fopen_utf8(path.c_str(), "rb");
   if (fp)
   {
@@ -404,7 +405,7 @@ bool WriteFileData(const FileData& fd)
     r = (fd.len == fwrite(fd.p, fd.len, 1, fp));
     fclose(fp);
   }
-  else return r;
+  return r;
 }
 
 // seed part ..?
@@ -493,6 +494,7 @@ std::string GetParentDirectory(const std::string& path)
 }
 std::string GetDirectory(const std::string & path)
 {
+  if (IsDirectory(path)) return path;
   size_t pos = path.find_last_of('/');
   if (pos == std::string::npos)
     return "";
@@ -511,7 +513,7 @@ std::string GetExtension(const std::string& path, std::string *sOutName)
 {
   size_t pos = path.find_last_of('.');
   size_t pos_dir = path.find_last_of('/');
-  if (pos < pos_dir /* in case of ../ */ ||
+  if (pos_dir != std::string::npos && pos < pos_dir /* in case of ../ */ ||
       pos == std::string::npos)
     return "";
   if (sOutName)
