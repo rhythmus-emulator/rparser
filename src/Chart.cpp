@@ -119,6 +119,15 @@ const MetaData& Chart::GetMetaData() const
   return metadata_;
 }
 
+uint32_t Chart::GetScoreableNoteCount() const
+{
+  const auto &nd = GetNoteData();
+  uint32_t cnt = 0;
+  for (auto &n : nd)
+    if (n.IsScoreable()) cnt++;
+  return cnt;
+}
+
 template<typename N>
 void InvalidateNoteDataPos(NoteData<N>& nd, const TempoData& tempodata_)
 {
@@ -129,26 +138,26 @@ void InvalidateNoteDataPos(NoteData<N>& nd, const TempoData& tempodata_)
   SortNoteObjectsByType(nd, sorted);
   // Make conversion of row --> beat --> time first.
   for (const Note* nobj : sorted.nobj_by_row)
-    v_row.push_back(nobj->GetNotePos().measure);
+    v_row.push_back(nobj->pos().measure);
   const std::vector<double> v_row_to_beat(std::move(tempodata_.GetBeatFromRowArr(v_row)));
   for (Note* nobj : sorted.nobj_by_row)
-    v_beat.push_back(nobj->GetNotePos().beat = v_row_to_beat[r_idx++]);
+    v_beat.push_back(nobj->pos().beat = v_row_to_beat[r_idx++]);
   const std::vector<double> v_row_to_time(std::move(tempodata_.GetTimeFromBeatArr(v_beat)));
   r_idx = 0;
   for (Note* nobj : sorted.nobj_by_row)
-    nobj->GetNotePos().time_msec = v_row_to_time[r_idx++];
+    nobj->pos().time_msec = v_row_to_time[r_idx++];
   v_beat.clear();
   // Make conversion of beat <--> time.
   for (const Note* nobj : sorted.nobj_by_beat)
-    v_beat.push_back(nobj->GetNotePos().beat);
+    v_beat.push_back(nobj->pos().beat);
   for (const Note* nobj : sorted.nobj_by_tempo)
-    v_time.push_back(nobj->GetNotePos().time_msec);
+    v_time.push_back(nobj->pos().time_msec);
   const std::vector<double>&& v_time_to_beat = tempodata_.GetBeatFromTimeArr(v_time);
   const std::vector<double>&& v_beat_to_time = tempodata_.GetTimeFromBeatArr(v_beat);
   for (Note* nobj : sorted.nobj_by_beat)
-    nobj->GetNotePos().time_msec = v_beat_to_time[t_idx++];
+    nobj->pos().time_msec = v_beat_to_time[t_idx++];
   for (Note* nobj : sorted.nobj_by_tempo)
-    nobj->GetNotePos().beat = v_time_to_beat[b_idx++];
+    nobj->pos().beat = v_time_to_beat[b_idx++];
 }
 
 void Chart::InvalidateAllNotePos()
@@ -159,7 +168,7 @@ void Chart::InvalidateAllNotePos()
 
 void Chart::InvalidateNotePos(Note &nobj)
 {
-  NotePos &npos = nobj.GetNotePos();
+  NotePos &npos = nobj.pos();
   switch (npos.type)
   {
     case NotePosTypes::Time:

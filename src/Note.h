@@ -34,9 +34,9 @@ struct NotePos
   void SetBeatPos(double beat);
   void SetTimePos(double time_msec);
   void SetDenominator(uint32_t denominator);
-  NotePos& GetNotePos();
-  const NotePos& GetNotePos() const;
-  NotePosTypes GetNotePosType() const;
+  NotePos& pos();
+  const NotePos& pos() const;
+  NotePosTypes postype() const;
   double GetBeatPos() const;
   double GetTimePos() const;
 
@@ -63,17 +63,17 @@ public:
   Note(const Note&) = default;
   Note& operator=(const Note &) = default;
 
-  NoteType GetNotetype() const;
-  NoteType GetNoteSubtype() const;
-  void SetNotetype(NoteType t);
-  void SetNoteSubtype(NoteType t);
+  NoteType type() const;
+  NoteType subtype() const;
+  void set_type(NoteType t);
+  void set_subtype(NoteType t);
 
   bool operator==(const Note &other) const noexcept;
   std::string toString() const;
 private:
   virtual std::string getValueAsString() const = 0;
-  NoteType type;
-  NoteType subtype;
+  NoteType type_;
+  NoteType subtype_;
 };
 
 struct NoteChain;
@@ -107,7 +107,8 @@ public:
   void AddChain(const NotePos& pos, uint8_t col);
   void AddTouch(const NotePos& pos, uint8_t x, uint8_t y);
   void ClearChain();
-  bool IsLongnote();
+  bool IsLongnote() const;
+  bool IsScoreable() const;
 
   uint8_t GetPlayer();
   uint8_t GetLane();
@@ -304,8 +305,10 @@ public:
   size_t size() const { return notes_.size(); }
   N& front() { return notes_.front(); }
   N& back() { return notes_.back(); }
-  const N& front() const { return notes_.front(); }
   const N& back() const { return notes_.back(); }
+  const N& front() const { return notes_.front(); }
+  N& get(size_t i) { return notes_[i]; }
+  const N& get(size_t i) const { return notes_[i]; }
   typename std::vector<N>::iterator begin() { return notes_.begin(); }
   typename std::vector<N>::iterator end() { return notes_.end(); }
   const typename std::vector<N>::const_iterator begin() const { return notes_.begin(); }

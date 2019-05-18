@@ -44,6 +44,7 @@ private:
   Chart * chart_context_;
   std::vector<Chart*> chart_context_stack_;
   ConditionalChart* condstmt_;
+  uint32_t longnote_idx_per_lane[36];
   struct LineContext {
     const char* stmt;
     size_t stmt_len;

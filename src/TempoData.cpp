@@ -97,13 +97,13 @@ void TempoData::Invalidate(const MetaData& m)
   {
     // select tempo note which is in most early timing.
     if (nbidx[0] >= nobj_by_beat.size()) { nbarr[0] = std::numeric_limits<double>::max(); }
-    else { nbarr[0] = nobj_by_beat[nbidx[0]]->GetNotePos().beat; }
+    else { nbarr[0] = nobj_by_beat[nbidx[0]]->pos().beat; }
 
     if (nbidx[1] >= nobj_by_tempo.size()) { nbarr[1] = std::numeric_limits<double>::max(); }
-    else { nbarr[1] = GetBeatFromTimeInLastSegment(nobj_by_tempo[nbidx[1]]->GetNotePos().time_msec); }
+    else { nbarr[1] = GetBeatFromTimeInLastSegment(nobj_by_tempo[nbidx[1]]->pos().time_msec); }
 
     if (nbidx[2] >= nobj_by_row.size()) { nbarr[2] = std::numeric_limits<double>::max(); }
-    else { nbarr[2] = GetBeatFromRowInLastSegment(nobj_by_row[nbidx[2]]->GetNotePos().measure); }
+    else { nbarr[2] = GetBeatFromRowInLastSegment(nobj_by_row[nbidx[2]]->pos().measure); }
 
     cur_nobj_type_idx = GetSmallestIndex(nbarr, 3);
     cur_nobj = static_cast<const TempoNote*>( (*nobjvecs[cur_nobj_type_idx])[ nbidx[cur_nobj_type_idx] ] );
@@ -112,10 +112,10 @@ void TempoData::Invalidate(const MetaData& m)
     // seek for next tempo segment object and update note object beat value.
     // (exceptionally use const_cast for update beat position)
     SeekByBeat(nbarr[cur_nobj_type_idx]);
-    const_cast<TempoNote*>(cur_nobj)->GetNotePos().beat = nbarr[cur_nobj_type_idx];
+    const_cast<TempoNote*>(cur_nobj)->pos().beat = nbarr[cur_nobj_type_idx];
 
     // set tempo segment object attribute.
-    switch (cur_nobj->GetNoteSubtype())
+    switch (cur_nobj->subtype())
     {
     case NoteTempoTypes::kBpm:
       SetBPMChange(cur_nobj->GetFloatValue());

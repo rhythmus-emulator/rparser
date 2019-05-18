@@ -43,6 +43,8 @@ public:
   const NoteData<BgaNote>& GetBgaNoteData() const;
   const MetaData& GetMetaData() const;
   const TempoData& GetTempoData() const;
+
+  uint32_t GetScoreableNoteCount() const;
   
   void Clear();
 

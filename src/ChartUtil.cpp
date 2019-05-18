@@ -160,7 +160,7 @@ inline bool CheckNoteValidity(SoundNote& note, const EffectorParam& param)
 {
   int current_col = note.track.lane.note.lane;
   int current_player = note.track.lane.note.player;
-  if (note.GetNotetype() != NoteTypes::kNote)
+  if (note.type() != NoteTypes::kNote)
     return false;
   if (current_player != param.player)
     return false;
@@ -204,7 +204,7 @@ void HRandom(Chart &c, const EffectorParam& param)
   {
     if (!CheckNoteValidity(note, param)) continue;
 
-    NotePos& npos = note.GetNotePos();
+    NotePos& npos = note.pos();
     if (npos.beat != current_beat)
     {
       current_beat = npos.beat;
@@ -307,7 +307,7 @@ void AllSC(Chart &c, const EffectorParam& param)
   {
     if (!CheckNoteValidity(note, param)) continue;
     
-    NotePos& npos = note.GetNotePos();
+    NotePos& npos = note.pos();
     if (npos.beat != current_beat)
     {
       current_beat = npos.beat;

@@ -55,19 +55,19 @@ void SortNoteObjectsByType(A& notedata, B& out)
 {
   for (auto& nobj : notedata)
   {
-    if (nobj.GetNotePosType() == NotePosTypes::Beat)
+    if (nobj.postype() == NotePosTypes::Beat)
       out.nobj_by_beat.push_back(&nobj);
-    else if (nobj.GetNotePosType() == NotePosTypes::Time)
+    else if (nobj.postype() == NotePosTypes::Time)
       out.nobj_by_tempo.push_back(&nobj);
-    else if (nobj.GetNotePosType() == NotePosTypes::Row)
+    else if (nobj.postype() == NotePosTypes::Row)
       out.nobj_by_row.push_back(&nobj);
   }
   std::sort(out.nobj_by_beat.begin(), out.nobj_by_beat.end(), [] (const Note* lhs, const Note* rhs)
-  { return lhs->GetNotePos().beat < rhs->GetNotePos().beat; });
+  { return lhs->pos().beat < rhs->pos().beat; });
   std::sort(out.nobj_by_tempo.begin(), out.nobj_by_tempo.end(), [] (const Note* lhs, const Note* rhs)
-  { return lhs->GetNotePos().beat < rhs->GetNotePos().beat; });
+  { return lhs->pos().beat < rhs->pos().beat; });
   std::sort(out.nobj_by_row.begin(), out.nobj_by_row.end(), [] (const Note* lhs, const Note* rhs)
-  { return lhs->GetNotePos().measure < rhs->GetNotePos().measure; });
+  { return lhs->pos().measure < rhs->pos().measure; });
 }
 
 namespace effector

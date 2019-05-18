@@ -129,8 +129,8 @@ std::string Note::toString() const
 {
   std::stringstream ss;
   std::string sType, sSubtype;
-  sType = kNoteTypesStr[type];
-  sSubtype = pNoteSubtypeStr[type][subtype];
+  sType = kNoteTypesStr[type_];
+  sSubtype = pNoteSubtypeStr[type_][subtype_];
   ss << "[Object Note]\n";
   ss << "type/subtype: " << sType << "," << sSubtype << std::endl;
   ss << NotePos::toString();
@@ -138,17 +138,17 @@ std::string Note::toString() const
   return ss.str();
 }
 
-NotePos& NotePos::GetNotePos()
+NotePos& NotePos::pos()
 {
   return *this;
 }
 
-const NotePos& NotePos::GetNotePos() const
+const NotePos& NotePos::pos() const
 {
-  return const_cast<NotePos*>(this)->GetNotePos();
+  return const_cast<NotePos*>(this)->pos();
 }
 
-NotePosTypes NotePos::GetNotePosType() const
+NotePosTypes NotePos::postype() const
 {
   return type;
 }
@@ -190,29 +190,29 @@ bool NotePos::operator==(const NotePos &other) const noexcept
 }
 #endif
 
-NoteType Note::GetNotetype() const
+NoteType Note::type() const
 {
-  return type;
+  return type_;
 }
 
-NoteType Note::GetNoteSubtype() const
+NoteType Note::subtype() const
 {
-  return subtype;
+  return subtype_;
 }
 
-void Note::SetNotetype(NoteType t)
+void Note::set_type(NoteType t)
 {
-  type = t;
+  type_ = t;
 }
 
-void Note::SetNoteSubtype(NoteType t)
+void Note::set_subtype(NoteType t)
 {
-  subtype = t;
+  subtype_ = t;
 }
 
 bool Note::operator==(const Note &other) const noexcept
 {
-  return NotePos::operator==(other) && type == other.type && subtype == other.subtype;
+  return NotePos::operator==(other) && type() == other.type() && subtype() == other.subtype();
 }
 
 SoundNote::SoundNote() : value(0), volume(1.0f), pitch(0), restart(false)
@@ -222,40 +222,40 @@ SoundNote::SoundNote() : value(0), volume(1.0f), pitch(0), restart(false)
 
 void SoundNote::SetAsBGM(uint8_t col)
 {
-  SetNotetype(NoteTypes::kBGM);
+  set_type(NoteTypes::kBGM);
   track.lane.note.player = 0;
   track.lane.note.lane = col;
 }
 
 void SoundNote::SetAsTouchNote()
 {
-  SetNotetype(NoteTypes::kTouch);
+  set_type(NoteTypes::kTouch);
 }
 
 void SoundNote::SetAsTapNote(uint8_t player, uint8_t lane)
 {
-  SetNotetype(NoteTypes::kNote);
+  set_type(NoteTypes::kNote);
   track.lane.note.player = player;
   track.lane.note.lane = lane;
 }
 
 void SoundNote::SetAsChainNote()
 {
-  SetNotetype(NoteTypes::kChain);
+  set_type(NoteTypes::kChain);
 }
 
 void SoundNote::SetLongnoteLength(double delta_beat)
 {
-  ASSERT(GetNotetype() == NoteTypes::kNote);
-  ASSERT(GetNotePosType() == NotePosTypes::Beat);
+  ASSERT(type() == NoteTypes::kNote);
+  ASSERT(postype() == NotePosTypes::Beat);
   if (!IsLongnote())
     chains.emplace_back(NoteChain{ track, *this, 0 });
-  chains.back().pos.SetBeatPos(GetNotePos().beat + delta_beat);
+  chains.back().pos.SetBeatPos(pos().beat + delta_beat);
 }
 
 void SoundNote::SetLongnoteEndPos(const NotePos& row_pos)
 {
-  ASSERT(GetNotetype() == NoteTypes::kNote);
+  ASSERT(type() == NoteTypes::kNote);
   if (!IsLongnote())
     chains.emplace_back(NoteChain{ track, *this, 0 });
   chains.back().pos = row_pos;
@@ -263,7 +263,7 @@ void SoundNote::SetLongnoteEndPos(const NotePos& row_pos)
 
 void SoundNote::SetLongnoteEndValue(Channel v)
 {
-  ASSERT(GetNotetype() == NoteTypes::kNote);
+  ASSERT(type() == NoteTypes::kNote);
   if (!IsLongnote())
     chains.emplace_back(NoteChain{ track, *this, 0 });
   chains.back().value = v;
@@ -271,7 +271,7 @@ void SoundNote::SetLongnoteEndValue(Channel v)
 
 void SoundNote::AddChain(const NotePos& pos, uint8_t col)
 {
-  ASSERT(GetNotetype() == NoteTypes::kChain);
+  ASSERT(type() == NoteTypes::kChain);
   NoteTrack track;
   track.lane.note.player = 0;
   track.lane.note.lane = col;
@@ -280,7 +280,7 @@ void SoundNote::AddChain(const NotePos& pos, uint8_t col)
 
 void SoundNote::AddTouch(const NotePos& pos, uint8_t x, uint8_t y)
 {
-  ASSERT(GetNotetype() == NoteTypes::kTouch);
+  ASSERT(type() == NoteTypes::kTouch);
   NoteTrack track;
   track.lane.touch.x = x;
   track.lane.touch.y = y;
@@ -292,38 +292,43 @@ void SoundNote::ClearChain()
   chains.clear();
 }
 
-bool SoundNote::IsLongnote()
+bool SoundNote::IsLongnote() const
 {
   return chains.size() > 0;
 }
 
+bool SoundNote::IsScoreable() const
+{
+  return type() == NoteTypes::kNote || type() == NoteTypes::kTouch || type() == NoteTypes::kChain;
+}
+
 uint8_t SoundNote::GetPlayer()
 {
-  ASSERT(GetNotetype() == NoteTypes::kNote);
+  ASSERT(type() == NoteTypes::kNote);
   return track.lane.note.player;
 }
 
 uint8_t SoundNote::GetLane()
 {
-  ASSERT(GetNotetype() == NoteTypes::kNote);
+  ASSERT(type() == NoteTypes::kNote);
   return track.lane.note.lane;
 }
 
 uint8_t SoundNote::GetBGMCol()
 {
-  ASSERT(GetNotetype() == NoteTypes::kBGM);
+  ASSERT(type() == NoteTypes::kBGM);
   return track.lane.note.lane;
 }
 
 uint8_t SoundNote::GetX()
 {
-  ASSERT(GetNotetype() == NoteTypes::kTouch);
+  ASSERT(type() == NoteTypes::kTouch);
   return track.lane.touch.x;
 }
 
 uint8_t SoundNote::GetY()
 {
-  ASSERT(GetNotetype() == NoteTypes::kTouch);
+  ASSERT(type() == NoteTypes::kTouch);
   return track.lane.touch.y;
 }
 
@@ -353,7 +358,7 @@ std::string BgaNote::getValueAsString() const
 
 BgaNote::BgaNote() : value(0)
 {
-  SetNotetype(NoteTypes::kBGA);
+  set_type(NoteTypes::kBGA);
 }
 
 bool BgaNote::operator==(const BgaNote &other) const noexcept
@@ -363,54 +368,54 @@ bool BgaNote::operator==(const BgaNote &other) const noexcept
 
 TempoNote::TempoNote()
 {
-  SetNotetype(NoteTypes::kTempo);
+  set_type(NoteTypes::kTempo);
 }
 
 void TempoNote::SetBpm(float bpm)
 {
-  SetNoteSubtype(NoteTempoTypes::kBpm);
+  set_subtype(NoteTempoTypes::kBpm);
   value.f = bpm;
 }
 
 void TempoNote::SetBmsBpm(Channel bms_channel)
 {
-  SetNoteSubtype(NoteTempoTypes::kBmsBpm);
+  set_subtype(NoteTempoTypes::kBmsBpm);
   value.i = bms_channel;
 }
 
 void TempoNote::SetStop(float stop)
 {
-  SetNoteSubtype(NoteTempoTypes::kStop);
+  set_subtype(NoteTempoTypes::kStop);
   value.f = stop;
 }
 
 void TempoNote::SetBmsStop(Channel bms_channel)
 {
-  SetNoteSubtype(NoteTempoTypes::kBmsStop);
+  set_subtype(NoteTempoTypes::kBmsStop);
   value.i = bms_channel;
 }
 
 void TempoNote::SetMeasure(float measure_length)
 {
-  SetNoteSubtype(NoteTempoTypes::kMeasure);
+  set_subtype(NoteTempoTypes::kMeasure);
   value.f = measure_length;
 }
 
 void TempoNote::SetScroll(float scrollspeed)
 {
-  SetNoteSubtype(NoteTempoTypes::kScroll);
+  set_subtype(NoteTempoTypes::kScroll);
   value.f = scrollspeed;
 }
 
 void TempoNote::SetTick(int32_t tick)
 {
-  SetNoteSubtype(NoteTempoTypes::kTick);
+  set_subtype(NoteTempoTypes::kTick);
   value.i = tick;
 }
 
 void TempoNote::SetWarp(float warp_to)
 {
-  SetNoteSubtype(NoteTempoTypes::kWarp);
+  set_subtype(NoteTempoTypes::kWarp);
   value.f = warp_to;
 }
 

@@ -416,20 +416,20 @@ TEST(RPARSER, BMS)
 TEST(RPARSER, BMSARCHIVE)
 {
   Song song;
-  const auto songlist = {
-    "bms_sample_angelico.zip"
-  };
-  for (auto& songpath : songlist)
-  {
-    EXPECT_TRUE(song.Open(BASE_DIR + songpath));
-    Chart *c = song.GetChart(0);
-    ASSERT_TRUE(c);
-    auto &md = c->GetMetaData();
-    auto &nd = c->GetNoteData();
-    auto &td = c->GetTempoData();
-    song.CloseChart();
-    song.Close();
-  }
+  EXPECT_TRUE(song.Open(BASE_DIR + "bms_sample_angelico.zip"));
+
+  Chart *c = song.GetChart(0);
+  ASSERT_TRUE(c);
+  auto &md = c->GetMetaData();
+  auto &nd = c->GetNoteData();
+  auto &td = c->GetTempoData();
+  md.SetMetaFromAttribute();
+
+  ASSERT_STREQ("Angelico [Max]", md.title.c_str());
+  EXPECT_EQ(1088, c->GetScoreableNoteCount());
+
+  song.CloseChart();
+  song.Close();
 }
 
 int main(int argc, char **argv)

@@ -76,6 +76,7 @@ bool ChartLoaderBMS::Load(Chart &c, const void* p, int iLen)
   size_t nextpos = 0;
   const char* const chr = static_cast<const char*>(p);
   chart_context_ = &c;
+  memset(longnote_idx_per_lane, 0xffffffff, sizeof(longnote_idx_per_lane));
 
   while (pos < iLen)
   {
@@ -138,7 +139,7 @@ unsigned int atoi_bms_measure(const char* p, unsigned int length = 3)
   return r;
 }
 
-unsigned int atoi_bms_channel(const char* p, unsigned int length = 2)
+constexpr unsigned int atoi_bms_channel(const char* p, unsigned int length = 2)
 {
   unsigned int r = 0;
   while (p && length)
@@ -286,6 +287,15 @@ bool ChartLoaderBMS::ParseMetaData()
   std::string cmd(current_line_.command);
   std::string value(current_line_.value, current_line_.value_len);
 
+  /**
+   * @warn
+   * LNTYPE metadata effects directly in syntax progress!
+   */
+  if (cmd == "LNTYPE")
+    md.bms_longnote_type = atoi(value.c_str());
+  else if (cmd == "LNOBJ")
+    md.bms_longnote_object = atoi(value.c_str());
+
 # define CHKCMD(cmd_const, len) (strncmp(current_line_.command, cmd_const, len) == 0)
   if (CHKCMD("BMP",3)) {
     unsigned int key = atoi_bms_channel(current_line_.value + 3);
@@ -327,6 +337,11 @@ bool ChartLoaderBMS::ParseMetaData()
   return true;
 }
 
+constexpr unsigned int radix_16_2_36(unsigned int radix_16)
+{
+  return (radix_16 / 16) * 36 + (radix_16 % 16);
+}
+
 int GetNoteTypeFromBmsChannel(unsigned int bms_channel)
 {
   switch (bms_channel)
@@ -349,20 +364,20 @@ int GetNoteTypeFromBmsChannel(unsigned int bms_channel)
     return NoteTypes::kSpecial;
   default:
     // 1P/2P visible note
-    if (bms_channel >= 0x11 && bms_channel <= 0x19 ||
-        bms_channel >= 0x21 && bms_channel <= 0x29)
+    if (bms_channel >= radix_16_2_36(0x11) && bms_channel <= radix_16_2_36(0x19) ||
+        bms_channel >= radix_16_2_36(0x21) && bms_channel <= radix_16_2_36(0x29))
       return NoteTypes::kNote;
     // 1P/2P invisible note
-    else if (bms_channel >= 0x31 && bms_channel <= 0x39 ||
-             bms_channel >= 0x41 && bms_channel <= 0x49)
+    else if (bms_channel >= radix_16_2_36(0x31) && bms_channel <= radix_16_2_36(0x39) ||
+             bms_channel >= radix_16_2_36(0x41) && bms_channel <= radix_16_2_36(0x49))
       return NoteTypes::kNote;
     // Longnote
-    else if (bms_channel >= 0x51 && bms_channel <= 0x59 ||
-             bms_channel >= 0x61 && bms_channel <= 0x69)
+    else if (bms_channel >= radix_16_2_36(0x51) && bms_channel <= radix_16_2_36(0x59) ||
+             bms_channel >= radix_16_2_36(0x61) && bms_channel <= radix_16_2_36(0x69))
       return NoteTypes::kNote;
     // Mine
-    else if (bms_channel >= 0xD1 && bms_channel <= 0xD9 ||
-             bms_channel >= 0xE1 && bms_channel <= 0xE9)
+    else if (bms_channel >= radix_16_2_36(0xD1) && bms_channel <= radix_16_2_36(0xD9) ||
+             bms_channel >= radix_16_2_36(0xE1) && bms_channel <= radix_16_2_36(0xE9))
       return NoteTypes::kNote;
   }
   return NoteTypes::kNone;
@@ -398,20 +413,20 @@ int GetNoteSubTypeFromBmsChannel(unsigned int bms_channel)
     return NoteSpecialTypes::kBmsARGBMISS;
   default:
     // 1P/2P visible note
-    if (bms_channel >= 0x11 && bms_channel <= 0x19 ||
-        bms_channel >= 0x21 && bms_channel <= 0x29)
+    if (bms_channel >= radix_16_2_36(0x11) && bms_channel <= radix_16_2_36(0x19) ||
+        bms_channel >= radix_16_2_36(0x21) && bms_channel <= radix_16_2_36(0x29))
       return NoteSubTypes::kNormalNote;
     // 1P/2P invisible note
-    else if (bms_channel >= 0x31 && bms_channel <= 0x39 ||
-             bms_channel >= 0x41 && bms_channel <= 0x49)
+    else if (bms_channel >= radix_16_2_36(0x31) && bms_channel <= radix_16_2_36(0x39) ||
+             bms_channel >= radix_16_2_36(0x41) && bms_channel <= radix_16_2_36(0x49))
       return NoteSubTypes::kInvisibleNote;
     // Longnote
-    else if (bms_channel >= 0x51 && bms_channel <= 0x59 ||
-             bms_channel >= 0x61 && bms_channel <= 0x69)
+    else if (bms_channel >= radix_16_2_36(0x51) && bms_channel <= radix_16_2_36(0x59) ||
+             bms_channel >= radix_16_2_36(0x61) && bms_channel <= radix_16_2_36(0x69))
       return NoteSubTypes::kLongNote;
     // Mine
-    else if (bms_channel >= 0xD1 && bms_channel <= 0xD9 ||
-             bms_channel >= 0xE1 && bms_channel <= 0xE9)
+    else if (bms_channel >= radix_16_2_36(0xD1) && bms_channel <= radix_16_2_36(0xD9) ||
+             bms_channel >= radix_16_2_36(0xE1) && bms_channel <= radix_16_2_36(0xE9))
       return NoteSubTypes::kMineNote;
   }
   return 0;
@@ -419,12 +434,12 @@ int GetNoteSubTypeFromBmsChannel(unsigned int bms_channel)
 
 uint8_t GetNotePlayerFromBmsChannel(unsigned int bms_channel)
 {
-  if (bms_channel >= 0x21 && bms_channel <= 0x29 ||
-      bms_channel >= 0x41 && bms_channel <= 0x49 ||
-      bms_channel >= 0x61 && bms_channel <= 0x69 ||
-      bms_channel >= 0xE1 && bms_channel <= 0xE9)
+  if (bms_channel >= radix_16_2_36(0x21) && bms_channel <= radix_16_2_36(0x29) ||
+      bms_channel >= radix_16_2_36(0x41) && bms_channel <= radix_16_2_36(0x49) ||
+      bms_channel >= radix_16_2_36(0x61) && bms_channel <= radix_16_2_36(0x69) ||
+      bms_channel >= radix_16_2_36(0xE1) && bms_channel <= radix_16_2_36(0xE9))
     return 1;   // 2P
-  return 0;
+  return 0;     // 1P
 }
 
 /* SC is 8th ch */
@@ -432,8 +447,9 @@ uint8_t GetNotePlayerFromBmsChannel(unsigned int bms_channel)
 /* XXX: pedal is 9th ch, but when it would be in progress? */
 uint8_t GetNoteColFromBmsChannel(unsigned int bms_channel)
 {
-  if (bms_channel < 0x20) return 0;
-  unsigned int channel_mod_16 = bms_channel % 16;
+  if (bms_channel < radix_16_2_36(0x20)) return 0;  // special channel
+  unsigned int channel_mod_16 = bms_channel % 36;
+  if (channel_mod_16 >= 16) return 0;
   unsigned int channel_remap[16] = 
   {0, 1, 2, 3, 4, 5, 8, 9, 6, 7, 0, 0, 0, 0, 0, 0};
   return channel_remap[channel_mod_16];
@@ -457,6 +473,8 @@ bool ChartLoaderBMS::ParseNote()
   const unsigned int channel = current_line_.bms_channel;
   const char* value = current_line_.value;
   unsigned int len = current_line_.value_len;
+  bool register_longnote;
+  uint32_t curlane;
 
   // cannot parse between control flow stmt
   if (!chart_context_) return false;
@@ -473,21 +491,63 @@ bool ChartLoaderBMS::ParseNote()
   }
   if (len == 0) return false;
 
-  memset(&n, 0, sizeof(Note));
-  NotePos& npos = n.GetNotePos();
+  memset(&n, 0, sizeof(SoundNote));
+  NotePos& npos = n.pos();
   npos.type = NotePosTypes::Row;
   n.SetDenominator(len);
-  n.SetNotetype(GetNoteTypeFromBmsChannel(channel));
-  n.SetNoteSubtype(GetNoteSubTypeFromBmsChannel(channel));
+  n.set_type(GetNoteTypeFromBmsChannel(channel));
+  n.set_subtype(GetNoteSubTypeFromBmsChannel(channel));
   n.track.lane.note.player = GetNotePlayerFromBmsChannel(channel);
-  n.track.lane.note.lane = GetNoteColFromBmsChannel(channel);
+  n.track.lane.note.lane = curlane = GetNoteColFromBmsChannel(channel);
   for (unsigned int i = 0; i < len; i += 2)
   {
     value_u = atoi_bms_channel(value+i);
-    if (value_u == 0) continue;
+    if (value_u == 0)
+    {
+      /** Close longnote in case of LNTYPE 2 (obsolete) */
+      if (chart_context_->GetMetaData().bms_longnote_type == 2)
+        longnote_idx_per_lane[channel] = UINT32_MAX;
+      /** Don't do anything in 00 note */
+      continue;
+    }
+
     npos.measure = measure + (double)i / len;
     n.value = static_cast<Channel>(value_u);
-    // TODO: do process for LNTYPE1/2 chaining.
+
+    /** Longnote check */
+    register_longnote = false;
+    if ((n.type() == kNote && n.subtype() == kLongNote) /* General LN channel */ ||
+        (value_u == chart_context_->GetMetaData().bms_longnote_object) /* LNOBJ check */)
+    {
+      /** LNTYPE 2 (obsolete) */
+      if (chart_context_->GetMetaData().bms_longnote_type == 2)
+      {
+        if (longnote_idx_per_lane[curlane] == UINT32_MAX)
+          longnote_idx_per_lane[curlane] = chart_context_->GetNoteData().size();
+        else
+        {
+          SoundNote& ln = chart_context_->GetNoteData().get(longnote_idx_per_lane[curlane]);
+          ln.SetLongnoteEndValue(value_u);
+          ln.SetLongnoteEndPos(npos);
+          continue; /* Don't add note */
+        }
+      }
+      /** LNTYPE 1 (default) or LNOBJ */
+      else
+      {
+        if (longnote_idx_per_lane[curlane] == UINT32_MAX)
+          longnote_idx_per_lane[curlane] = chart_context_->GetNoteData().size();
+        else
+        {
+          SoundNote& ln = chart_context_->GetNoteData().get(longnote_idx_per_lane[curlane]);
+          ln.SetLongnoteEndValue(value_u);
+          ln.SetLongnoteEndPos(npos);
+          longnote_idx_per_lane[curlane] = UINT32_MAX;
+          continue; /* Don't add note */
+        }
+      }
+    }
+
     chart_context_->GetNoteData().AddNote(n);
   }
 
