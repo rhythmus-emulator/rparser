@@ -9,6 +9,7 @@
 #include "Note.h"
 #include "TempoData.h"
 #include "MetaData.h"
+#include "rutil.h"
 
 namespace rparser
 {
@@ -49,7 +50,7 @@ public:
   ConditionalChart* GetLastStmt();
   void AppendStmt(ConditionalChart& stmt);
   // evaluate all stmt and generate objects (process control flow)
-  void EvaluateStmt(int seed = -1);
+  void EvaluateStmt(rutil::Random &random);
 
   void swap(Chart& c);
 
@@ -83,7 +84,7 @@ class ConditionalChart
 {
 public:
   void AddSentence(unsigned int cond, Chart* chartdata);
-  Chart* EvaluateSentence(int seed = -1) const;
+  Chart* EvaluateSentence(rutil::Random& random) const;
   size_t GetSentenceCount();
   Chart* CreateSentence(unsigned int cond);
 

@@ -185,16 +185,27 @@ bool ChartLoaderBMS::ParseCurrentLine()
   char terminator_type;
   c = p = current_line_.stmt;
 
+  // check field separation message
+  if (current_line_.stmt_len > 23 &&
+      memcmp(current_line_.stmt, "*----------------------", 23) == 0)
+    return true;
+
+  // if not header field
   if (*c != '#') return false;
   c++;
-  while (*c != ' ' && *c != ':' && c-p < len-1)
+  while (*c != ' ' && *c != ':' && c-p < len)
   {
-    if (c-p > (int)len || c-p > 256) break;
     *cw = upperchr(*c);
     c++; cw++;
   }
   *cw = 0;
   terminator_type = *c;
+  // check an attribute has no value, ignored.
+  if (c - p == len)
+  {
+    std::cerr << "Warning: Command #" << current_line_.command << " has no value, ignored." << std::endl;
+    return true;
+  }
   current_line_.value = c + 1;
   current_line_.value_len = len-(c-p)-1;
 
@@ -267,7 +278,6 @@ bool ChartLoaderBMS::ParseControlFlow()
 }
 #undef CMDCMP
 
-#define CMDCMP(x) (cmd == (x))
 bool ChartLoaderBMS::ParseMetaData()
 {
   // cannot parse between control flow stmt
@@ -276,72 +286,8 @@ bool ChartLoaderBMS::ParseMetaData()
   std::string cmd(current_line_.command);
   std::string value(current_line_.value, current_line_.value_len);
 
-  if (CMDCMP("TITLE")) {
-    std::swap(md.title, value);
-  }
-  else if (CMDCMP("SUBTITLE")) {
-    std::swap(md.subtitle, value);
-  }
-  else if (CMDCMP("ARTIST")) {
-    std::swap(md.artist, value);
-  }
-  else if (CMDCMP("SUBARTIST")) {
-    std::swap(md.subartist, value);
-  }
-  else if (CMDCMP("GENRE")) {
-    std::swap(md.genre, value);
-  }
-  else if (CMDCMP("PLAYER")) {
-    int pl = atoi(value.c_str());
-    if (pl == 2 || pl == 4)
-      md.player_count = 2;
-    else
-      md.player_count = 1;
-    md.player_side = 1;
-  }
-  else if (CMDCMP("PLAYLEVEL")) {
-    md.level = atoi(value.c_str());
-  }
-  else if (CMDCMP("DIFFICULTY")) {
-    md.difficulty = atoi(value.c_str());
-  }
-  else if (CMDCMP("RANK")) {
-    // convert from 4 to 100.0
-    md.judge_timing = atof(value.c_str()) / 4.0 * 100;
-  }
-  else if (CMDCMP("TOTAL")) {
-    md.gauge_total = atof(value.c_str());
-  }
-  else if (CMDCMP("BANNER")) {
-    md.banner_image = value;
-  }
-  else if (CMDCMP("BACKBMP")) {
-    md.back_image = value;
-  }
-  else if (CMDCMP("STAGEFILE")) {
-    md.stage_image = value;
-  }
-  else if (CMDCMP("BPM")) {
-    md.bpm = atof(value.c_str());
-  }
-  else if (CMDCMP("LNTYPE")) {
-    md.bms_longnote_type = atoi(value.c_str());
-  }
-  else if (CMDCMP("LNOBJ")) {
-    md.bms_longnote_object = atoi_bms_channel(value.c_str());
-  }
-  else if (CMDCMP("MUSIC")) {
-    md.background_music = value;
-  }
-  else if (CMDCMP("PREVIEW")) {
-    md.preview_music = value;
-  }
-  else if (CMDCMP("OFFSET")) {
-    md.time_0beat_offset = atof(value.c_str());
-  }
-
-  #define CHKCMD(cmd_const, len) (strncmp(current_line_.command, cmd_const, len) == 0)
-  else if (CHKCMD("BMP",3)) {
+# define CHKCMD(cmd_const, len) (strncmp(current_line_.command, cmd_const, len) == 0)
+  if (CHKCMD("BMP",3)) {
     unsigned int key = atoi_bms_channel(current_line_.value + 3);
     md.GetBGAChannel()->bga[key] = { value, 0,0,0,0, 0,0,0,0 };
   }
@@ -361,7 +307,10 @@ bool ChartLoaderBMS::ParseMetaData()
     unsigned int key = atoi_bms_channel(current_line_.value  + 4);
     md.GetSTOPChannel()->stop[key] = static_cast<float>(atoi(value.c_str()));  // 1/192nd
   }
-  else if (value == "#stp") {
+  // TODO: WAVCMD, EXWAV
+  // TODO: MIDIFILE
+# undef CHKCMD
+  else if (cmd == "STP") {
     std::string sMeasure, sTime;
     if (!split(value, ' ', sMeasure, sTime))
     {
@@ -371,9 +320,9 @@ bool ChartLoaderBMS::ParseMetaData()
     float fMeasure = static_cast<float>(atof(sMeasure.c_str()));
     md.GetSTOPChannel()->STP[fMeasure] = static_cast<float>(atoi(sTime.c_str()));
   }
-  // TODO: WAVCMD, EXWAV
-  // TODO: MIDIFILE
-  #undef CHKCMD
+  else {
+    md.SetAttribute(cmd, value);
+  }
 
   return true;
 }

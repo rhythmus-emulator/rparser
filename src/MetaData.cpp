@@ -119,6 +119,19 @@ void MetaData::SetMetaFromAttribute()
 #undef META_STR
 #undef META_DBL
 #undef META_INT
+    /** BMS related attributes */
+    else if (attr.first == "RANK") {
+      // convert from 4 to 100.0
+      judge_timing = atof(attr.second.c_str()) / 4.0 * 100;
+    }
+    else if (attr.first == "PLAYER") {
+      int pl = atoi(attr.second.c_str());
+      if (pl == 2 || pl == 4)
+        player_count = 2;
+      else
+        player_count = 1;
+      player_side = 1;
+    }
   }
 }
 

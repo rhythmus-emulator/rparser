@@ -65,11 +65,11 @@ void Chart::AppendStmt(ConditionalChart& stmt)
   stmtdata_.push_back(stmt);
 }
 
-void Chart::EvaluateStmt(int seed)
+void Chart::EvaluateStmt(rutil::Random &random)
 {
   for (const ConditionalChart& stmt : stmtdata_)
   {
-    Chart *c = stmt.EvaluateSentence(seed);
+    Chart *c = stmt.EvaluateSentence(random);
     if (c)
     {
       notedata_.Merge(c->GetNoteData());
@@ -217,14 +217,10 @@ void ConditionalChart::AddSentence(unsigned int cond, Chart* chartdata)
   sentences_[cond] = chartdata;
 }
 
-Chart* ConditionalChart::EvaluateSentence(int seed) const
+Chart* ConditionalChart::EvaluateSentence(rutil::Random& random) const
 {
-  unsigned int cur_seed = seed;
-  if (cur_seed < 0)
-  {
-    cur_seed = rand() % value_;
-  }
-  auto it = sentences_.find(cur_seed);
+  uint32_t idx = static_cast<uint32_t>(random.Next()) % value_;
+  auto it = sentences_.find(idx);
   if (it == sentences_.end())
     return 0;
   return it->second;

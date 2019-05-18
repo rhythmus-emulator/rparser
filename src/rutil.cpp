@@ -979,4 +979,45 @@ char *gcvt(double value, int ndigits, char *buf)
 }
 #endif
 
+
+Random::Random()
+{
+  SetSeedByTime();
+  this->dist_real_ = std::uniform_real_distribution<double_t>();
+  this->dist_int_ = std::uniform_int_distribution<int32_t>();
+}
+
+void Random::SetSeed(uint32_t seed)
+{
+  seed_ = seed;
+  this->randomgenerator_ = std::mt19937(seed_);
+}
+
+void Random::SetSeedByTime()
+{
+  SetSeed(time(0));
+}
+
+int32_t Random::Next()
+{
+  return dist_int_(randomgenerator_);
+}
+
+double Random::NextDouble()
+{
+  return dist_real_(randomgenerator_);
+}
+
+int32_t Random::Next(int32_t min, int32_t max)
+{
+  std::uniform_int_distribution<int32_t> distribution(min, max);
+  return distribution(randomgenerator_);
+}
+
+double_t Random::NextDouble(double_t minValue, double_t maxValue)
+{
+  std::uniform_real_distribution<double_t> distribution(minValue, minValue);
+  return distribution(randomgenerator_);
+}
+
 }

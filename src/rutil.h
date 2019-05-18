@@ -28,6 +28,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <random>
 
 // pre-declaration for zip_t
 struct zip;
@@ -162,6 +163,25 @@ std::string md5_str(const void* p, int iLen);
 
 char *itoa(int value, char *str, int base);
 char *gcvt(double value, int digits, char *string);
+
+
+class Random
+{
+public:
+  Random();
+  void SetSeedByTime();
+  void SetSeed(uint32_t seed);
+  uint32_t GetSeed();
+  virtual int32_t Next();
+  virtual double NextDouble();
+  virtual int32_t Next(int32_t min, int32_t max);
+  virtual double NextDouble(double min, double max);
+private:
+  std::mt19937 randomgenerator_;
+  std::uniform_real_distribution<double_t> dist_real_;
+  std::uniform_int_distribution<int32_t> dist_int_;
+  uint32_t seed_;
+};
 
 };
 

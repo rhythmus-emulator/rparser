@@ -256,7 +256,9 @@ TEST(RPARSER, CHART_CONDITIONAL_SEGMENT)
   tn.SetBpm(180);
   c2->GetTempoData().GetTempoNoteData().AddNote(tn);
 
-  c.EvaluateStmt(2);
+  rutil::Random random;
+  random.SetSeed(14);
+  c.EvaluateStmt(random);
   c.GetMetaData().SetMetaFromAttribute();
   c.InvalidateTempoData();
 
@@ -413,7 +415,21 @@ TEST(RPARSER, BMS)
 
 TEST(RPARSER, BMSARCHIVE)
 {
-  // TODO
+  Song song;
+  const auto songlist = {
+    "bms_sample_angelico.zip"
+  };
+  for (auto& songpath : songlist)
+  {
+    EXPECT_TRUE(song.Open(BASE_DIR + songpath));
+    Chart *c = song.GetChart(0);
+    ASSERT_TRUE(c);
+    auto &md = c->GetMetaData();
+    auto &nd = c->GetNoteData();
+    auto &td = c->GetTempoData();
+    song.CloseChart();
+    song.Close();
+  }
 }
 
 int main(int argc, char **argv)
