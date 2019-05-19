@@ -121,13 +121,13 @@ TEST(RPARSER, TEMPODATA)
   td.clear();
 
   // add some time signature
+  td.SetMeasureLengthChange(48.0, 2.0);   // Measure length must be set first
   td.SetBPMChange(180.0);
   td.SeekByBeat(40.0);
   td.SetBPMChange(90.0);
   td.SeekByBeat(48.0);
   td.SetSTOP(2000.0);
   td.SetBPMChange(180.0);
-  td.SetMeasureLengthChange(2.0);   // default is 4 beat per measure
   // SeekByTime and add STOP
   // -- Excluding these line may fail test below. do it for advanced test.
   td.SeekByTime(50'000.0);
@@ -430,7 +430,7 @@ TEST(RPARSER, BMS_STRESS)
   EXPECT_TRUE(song.Open(BASE_DIR + "chart_sample_bms"));
   ASSERT_TRUE(song.GetChartCount() == 3);
 
-  /** TEST for Mokugyo */
+  /** TEST for Mokugyo (currently not Longlong mix due to too big size to upload ...) */
   c = song.GetChart(0);
   ASSERT_TRUE(c);
   {
@@ -443,6 +443,7 @@ TEST(RPARSER, BMS_STRESS)
     c->InvalidateAllNotePos();
     std::cout << "Total time of song " << md.title.c_str() << " is: " << c->GetSongLastScorableObjectTime() << std::endl;
     EXPECT_STREQ("Mokugyo AllnightMIX", md.title.c_str());
+    // 30566 sec = 510m = 8h 30m
     EXPECT_NEAR(3.05559e+07, c->GetSongLastScorableObjectTime(), 10'000);
   }
   song.CloseChart();
@@ -472,7 +473,8 @@ TEST(RPARSER, BMS_STRESS)
     c->InvalidateAllNotePos();
     std::cout << "Total time of song " << md.title.c_str() << " is: " << c->GetSongLastScorableObjectTime() << std::endl;
     EXPECT_EQ(32678, c->GetScoreableNoteCount());
-    EXPECT_NEAR(78'000, c->GetSongLastScorableObjectTime(), 500);    // about 1m'18s
+    /** Comment: Beat of last note is nearly 179.5 ~= 180 */
+    EXPECT_NEAR(78'000, c->GetSongLastScorableObjectTime(), 1'000);    // about 1m'18s
   }
   song.CloseChart();
 

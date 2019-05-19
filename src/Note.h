@@ -15,7 +15,7 @@ enum class NotePosTypes
   NullPos,
   Time,
   Beat,
-  Row
+  Bar
 };
 
 struct NotePos

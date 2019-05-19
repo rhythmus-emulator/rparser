@@ -19,19 +19,29 @@ struct TempoObject
   double beat_;
   double time_;           // in second
   double bpm_;
-  uint32_t measure_idx_;  // XXX: is it useless? just for debugging?
-  uint32_t measure_length_changed_idx_;
-  double measure_length_changed_beat_;
-  double measure_length_; // default: 4 beat 1 measure
   double stoptime_;
   double delaytime_;
   double warpbeat_;
   double scrollspeed_;    // Faster scrollspeed marks smaller timepoint for each segment.
   uint32_t tick_;         // XXX: unused (default 4)
-  bool is_necessary_;
+  bool is_manipulated_;
 
   void clearForCopiedSegment();
   std::string toString();
+};
+
+/* @detail  Segment used for Bar <--> Beat conversion.
+ *          Must proceed first before TempoObject added. */
+struct BarObject
+{
+  BarObject();
+  BarObject(double beatpos, double barlength, uint32_t baridx, bool is_implicit);
+  BarObject(const BarObject&) = default;
+
+  double beatpos_;
+  double barlength_;
+  uint32_t baridx_;
+  bool is_implicit_;
 };
 
 /*
@@ -47,7 +57,7 @@ public:
   double GetBeatFromRow(double row) const;
   std::vector<double> GetTimeFromBeatArr(const std::vector<double>& sorted_beat) const;
   std::vector<double> GetBeatFromTimeArr(const std::vector<double>& sorted_time) const;
-  std::vector<double> GetBeatFromRowArr(const std::vector<double>& sorted_row) const;
+  std::vector<double> GetBeatFromBarArr(const std::vector<double>& sorted_row) const;
   double GetMeasureFromBeat(double beat) const;
   double GetMaxBpm() const;
   double GetMinBpm() const;
@@ -62,17 +72,19 @@ public:
   void Invalidate(const MetaData& m);
 
   void SetFirstObjectFromMetaData(const MetaData &md);
-  void SeekByTime(double time);
+  void SetMeasureLengthChange(uint32_t measure_idx, double measure_length);
+  void SetMeasureLengthChange(double beat_pos, double measure_length);
   void SeekByBeat(double beat);
-  void SeekByRow(double row);
+  void SeekByTime(double time);
+  void SeekByBar(double bar);
   void SetBPMChange(double bpm);
-  void SetMeasureLengthChange(double measure_length);
   void SetSTOP(double stop);
   void SetDelay(double delay);
   void SetWarp(double warp_length_in_beat);
   void SetTick(uint32_t tick);
   void SetScrollSpeedChange(double scrollspeed);
 private:
+  void Seek(double beat, double time);
   double GetTimeFromBeatInLastSegment(double beat) const;       // return msec time
   double GetBeatFromTimeInLastSegment(double time) const;
   double GetBeatFromRowInLastSegment(double measure) const;
@@ -80,6 +92,7 @@ private:
   bool do_recover_measure_length_;        // set measure length to 4.0 implicitly.
   NoteData<TempoNote> temponotedata_;
   std::vector<TempoObject> tempoobjs_;
+  std::vector<BarObject> barobjs_;        // always in sorted state.
 };
 
 constexpr double kDefaultMeasureLength = 4.0;

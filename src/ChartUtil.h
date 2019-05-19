@@ -59,7 +59,7 @@ void SortNoteObjectsByType(A& notedata, B& out)
       out.nobj_by_beat.push_back(&nobj);
     else if (nobj.postype() == NotePosTypes::Time)
       out.nobj_by_tempo.push_back(&nobj);
-    else if (nobj.postype() == NotePosTypes::Row)
+    else if (nobj.postype() == NotePosTypes::Bar)
       out.nobj_by_row.push_back(&nobj);
   }
   std::sort(out.nobj_by_beat.begin(), out.nobj_by_beat.end(), [] (const Note* lhs, const Note* rhs)

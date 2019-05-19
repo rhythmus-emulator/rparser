@@ -79,7 +79,7 @@ NotePos::NotePos()
 
 void NotePos::SetRowPos(uint32_t measure, RowPos deno, RowPos num)
 {
-  type = NotePosTypes::Row;
+  type = NotePosTypes::Bar;
   if (deno == 0) this->measure = measure;
   else this->measure = measure + (double)num / deno;
 }
@@ -116,7 +116,7 @@ std::string NotePos::toString() const
   case NotePosTypes::Time:
     ss << "Time: " << time_msec << "(Deno " << denominator << ")" << std::endl;
     break;
-  case NotePosTypes::Row:
+  case NotePosTypes::Bar:
     // recalculate numerator of Row
     num = static_cast<int32_t>(lround(measure * denominator) % denominator);
     ss << "Row: " << (static_cast<int32_t>(measure) % 1) << " " << num << "/" << denominator << std::endl;

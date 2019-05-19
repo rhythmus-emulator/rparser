@@ -162,7 +162,7 @@ void InvalidateNoteDataPos(NoteData<N>& nd, const TempoData& tempodata_)
   // Make conversion of row --> beat --> time first.
   for (const Note* nobj : sorted.nobj_by_row)
     v_row.push_back(nobj->pos().measure);
-  const std::vector<double> v_row_to_beat(std::move(tempodata_.GetBeatFromRowArr(v_row)));
+  const std::vector<double> v_row_to_beat(std::move(tempodata_.GetBeatFromBarArr(v_row)));
   for (Note* nobj : sorted.nobj_by_row)
     v_beat.push_back(nobj->pos().beat = v_row_to_beat[r_idx++]);
   const std::vector<double> v_row_to_time(std::move(tempodata_.GetTimeFromBeatArr(v_beat)));
@@ -197,7 +197,7 @@ void Chart::InvalidateNotePos(Note &nobj)
     case NotePosTypes::Time:
       npos.beat = tempodata_.GetBeatFromTime(npos.time_msec);
       break;
-    case NotePosTypes::Row:
+    case NotePosTypes::Bar:
       npos.beat = tempodata_.GetBeatFromRow(npos.measure);
     case NotePosTypes::Beat:
       npos.time_msec = tempodata_.GetTimeFromBeat(npos.beat);
