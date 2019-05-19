@@ -425,23 +425,58 @@ TEST(RPARSER, BMSARCHIVE)
 
 TEST(RPARSER, BMS_STRESS)
 {
-#if 0
   Song song;
-  const auto songlist = {
-    "chart_sample_bms"
-  };
-  for (auto& songpath : songlist)
+  Chart *c;
+  EXPECT_TRUE(song.Open(BASE_DIR + "chart_sample_bms"));
+  ASSERT_TRUE(song.GetChartCount() == 3);
+
+  /** TEST for Mokugyo */
+  c = song.GetChart(0);
+  ASSERT_TRUE(c);
   {
-    EXPECT_TRUE(song.Open(BASE_DIR + songpath));
-    Chart *c = song.GetChart(0);
-    ASSERT_TRUE(c);
     auto &md = c->GetMetaData();
     auto &nd = c->GetNoteData();
     auto &td = c->GetTempoData();
-    song.CloseChart();
-    song.Close();
+
+    md.SetMetaFromAttribute();
+    c->InvalidateTempoData();
+    c->InvalidateAllNotePos();
+    std::cout << "Total time of song " << md.title.c_str() << " is: " << c->GetSongLastScorableObjectTime() << std::endl;
+    EXPECT_STREQ("Mokugyo AllnightMIX", md.title.c_str());
+    EXPECT_NEAR(3.05559e+07, c->GetSongLastScorableObjectTime(), 10'000);
   }
-#endif
+  song.CloseChart();
+
+
+  /** TEST for l-for-nanasi (ConditionalStmt) */
+  c = song.GetChart(1);
+  ASSERT_TRUE(c);
+  {
+    auto &md = c->GetMetaData();
+    auto &nd = c->GetNoteData();
+    auto &td = c->GetTempoData();
+  }
+  song.CloseChart();
+
+
+  /** TEST for L99^9 */
+  c = song.GetChart(2);
+  ASSERT_TRUE(c);
+  {
+    auto &md = c->GetMetaData();
+    auto &nd = c->GetNoteData();
+    auto &td = c->GetTempoData();
+
+    md.SetMetaFromAttribute();
+    c->InvalidateTempoData();
+    c->InvalidateAllNotePos();
+    std::cout << "Total time of song " << md.title.c_str() << " is: " << c->GetSongLastScorableObjectTime() << std::endl;
+    EXPECT_EQ(32678, c->GetScoreableNoteCount());
+    EXPECT_NEAR(78'000, c->GetSongLastScorableObjectTime(), 500);    // about 1m'18s
+  }
+  song.CloseChart();
+
+  song.Close();
 }
 
 int main(int argc, char **argv)

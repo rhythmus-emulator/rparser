@@ -473,9 +473,11 @@ bool ChartLoaderVOS::ParseNoteDataV2()
   }
 
   /** Actual playable note segment */
-  ASSERT(stream.GetUInt32() == 0);        // empty
+  ASSERT(stream.ReadInt32() == 0);
+  stream.SeekCur(4);                      // empty
   uint32_t seg_cnt = stream.GetUInt32();  // some unknown segment count
   stream.SeekCur(1);
+
   for (size_t i = 0; i < seg_cnt; i++)
   {
     uint32_t idx = stream.GetUInt32();    // idx

@@ -201,15 +201,18 @@ bool ChartLoaderBMS::ParseCurrentLine()
     c++; cw++;
   }
   *cw = 0;
-  terminator_type = *c;
-  // check an attribute has no value, ignored.
+  // check an attribute has no value
   if (c - p == len)
   {
-    std::cerr << "Warning: Command #" << current_line_.command << " has no value, ignored." << std::endl;
-    return true;
+    current_line_.value_len = 0;
+    terminator_type = ' ';
+  }
+  else
+  {
+    current_line_.value_len = len-(c-p)-1;
+    terminator_type = *c;
   }
   current_line_.value = c + 1;
-  current_line_.value_len = len-(c-p)-1;
 
   if (terminator_type == ':')
   {
@@ -256,7 +259,12 @@ bool ChartLoaderBMS::ParseControlFlow()
   }
   else if (CMDCMP("IF"))
   {
-    ASSERT(condstmt_->GetSentenceCount() == 0);
+    /**
+     * COMMENT: IF statement can exist multiple times in same RANDOM block
+     * So comment out assert below:
+     * ASSERT(condstmt_->GetSentenceCount() == 0);
+     */
+    // TODO: no ELSE statement should exist
     chart_context_ = condstmt_->CreateSentence(cond);
   }
   else if (CMDCMP("ELSE"))
@@ -266,6 +274,7 @@ bool ChartLoaderBMS::ParseControlFlow()
   }
   else if (CMDCMP("ELSEIF"))
   {
+    // TODO: no ELSE statement should exist
     ASSERT(condstmt_->GetSentenceCount() > 0);
     chart_context_ = condstmt_->CreateSentence(cond);
   }
@@ -282,6 +291,13 @@ bool ChartLoaderBMS::ParseControlFlow()
 
 bool ChartLoaderBMS::ParseMetaData()
 {
+  // check contains value
+  if (current_line_.value_len == 0)
+  {
+    std::cerr << "Warning: Command #" << current_line_.command << " has no value, ignored." << std::endl;
+    return true;
+  }
+
   // cannot parse between control flow stmt
   if (!chart_context_) return false;
   MetaData& md = chart_context_->GetMetaData();
@@ -483,7 +499,7 @@ bool ChartLoaderBMS::ParseNote()
   // warn for incorrect length
   if (len % 2 == 1)
   {
-    std::cerr << "Warning: incorrect measure length detected.\n" << std::endl;
+    std::cerr << "Warning: incorrect measure length detected." << std::endl;
     len--;
   }
   if (len == 0) return false;
