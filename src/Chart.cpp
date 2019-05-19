@@ -128,6 +128,29 @@ uint32_t Chart::GetScoreableNoteCount() const
   return cnt;
 }
 
+double Chart::GetSongLastObjectTime() const
+{
+  return GetNoteData().back().GetTimePos();
+}
+
+double Chart::GetSongLastScorableObjectTime() const
+{
+  const auto &nd = GetNoteData();
+  for (auto i = nd.rbegin(); i != nd.rend(); ++i)
+  {
+    if (i->IsScoreable())
+      return i->GetTimePos();
+  }
+  return 0;
+}
+
+bool Chart::HasLongnote() const
+{
+  for (auto &n : GetNoteData())
+    if (n.IsLongnote()) return true;
+  return false;
+}
+
 template<typename N>
 void InvalidateNoteDataPos(NoteData<N>& nd, const TempoData& tempodata_)
 {

@@ -37,7 +37,7 @@ inline uint32_t GetMeasureFromBeatInTempoSegment(const TempoObject& n, double be
 TempoObject::TempoObject()
 : bpm_(kDefaultBpm), beat_(0), time_(0),
   measure_idx_(0), measure_length_changed_idx_(0), measure_length_changed_beat_(0), measure_length_(kDefaultMeasureLength),
-  stoptime_(0), delaytime_(0), warpbeat_(0), scrollspeed_(1), tick_(1) {}
+  stoptime_(0), delaytime_(0), warpbeat_(0), scrollspeed_(1), tick_(1), is_necessary_(false) {}
 
 // called when TempoObject is copied for new block (e.g. Seek methods)
 // As new object segment won't have same STOP/DELAY/WARP by default.
@@ -46,6 +46,7 @@ void TempoObject::clearForCopiedSegment()
   stoptime_ = 0;
   delaytime_ = 0;
   warpbeat_ = 0;
+  is_necessary_ = false;
 }
 
 std::string TempoObject::toString()
@@ -130,8 +131,9 @@ void TempoData::Invalidate(const MetaData& m)
       SetSTOP(cur_nobj->GetFloatValue());
       break;
     case NoteTempoTypes::kBmsStop:
+      // STOP value of 192 means 1 measure stop (4 beat).
       if (m.GetSTOPChannel()->GetStop(cur_nobj->GetIntValue(), v))
-        SetSTOP(v);
+        SetSTOP(v / 192.0 * 4.0);
       else
         RPARSER_LOG("Failed to fetch STOP information.");
       break;
@@ -322,7 +324,16 @@ void TempoData::SeekByTime(double time)
   new_tobj.time_ = time;
   new_tobj.beat_ = beat;
   new_tobj.measure_idx_ = GetMeasureFromBeatInTempoSegment(tempoobjs_.back(), beat);
-  tempoobjs_.push_back(new_tobj);
+  if (do_recover_measure_length_ && new_tobj.measure_length_ != kDefaultMeasureLength)
+  {
+    new_tobj.measure_length_changed_beat_ = beat;
+    new_tobj.measure_length_changed_idx_ = new_tobj.measure_idx_;
+    new_tobj.measure_length_ = kDefaultMeasureLength;
+  }
+  if (tempoobjs_.back().is_necessary_)
+    tempoobjs_.push_back(new_tobj);
+  else
+    tempoobjs_.back() = new_tobj;
 }
 
 void TempoData::SeekByBeat(double beat)
@@ -335,7 +346,16 @@ void TempoData::SeekByBeat(double beat)
   new_tobj.time_ = time;
   new_tobj.beat_ = beat;
   new_tobj.measure_idx_ = GetMeasureFromBeatInTempoSegment(tempoobjs_.back(), beat);
-  tempoobjs_.push_back(new_tobj);
+  if (do_recover_measure_length_ && new_tobj.measure_length_ != kDefaultMeasureLength)
+  {
+    new_tobj.measure_length_changed_beat_ = beat;
+    new_tobj.measure_length_changed_idx_ = new_tobj.measure_idx_;
+    new_tobj.measure_length_ = kDefaultMeasureLength;
+  }
+  if (tempoobjs_.back().is_necessary_)
+    tempoobjs_.push_back(new_tobj);
+  else
+    tempoobjs_.back() = new_tobj;
 }
 
 void TempoData::SeekByRow(double row)
@@ -347,7 +367,9 @@ void TempoData::SeekByRow(double row)
 
 void TempoData::SetBPMChange(double bpm)
 {
+  if (tempoobjs_.back().bpm_ == bpm) return;
   tempoobjs_.back().bpm_ = bpm;
+  tempoobjs_.back().is_necessary_ = true;
 }
 
 void TempoData::SetMeasureLengthChange(double measure_length)
@@ -359,7 +381,7 @@ void TempoData::SetMeasureLengthChange(double measure_length)
   // and calculate measure of current tobj
   const uint32_t new_measure = GetMeasureFromBeatInTempoSegment(tobj, tobj.beat_);
   const double new_measure_starting_beat = tobj.measure_length_changed_beat_ +
-                                           (new_measure - tobj.measure_length_changed_beat_) * tobj.measure_length_;
+                                           (new_measure - tobj.measure_length_changed_idx_) * tobj.measure_length_;
   if (tobj.measure_length_changed_beat_ != new_measure_starting_beat)
   {
     tobj.measure_length_changed_idx_ = new_measure;
@@ -371,11 +393,13 @@ void TempoData::SetMeasureLengthChange(double measure_length)
 void TempoData::SetSTOP(double stop)
 {
   tempoobjs_.back().stoptime_ = stop;
+  tempoobjs_.back().is_necessary_ = true;
 }
 
 void TempoData::SetDelay(double delay)
 {
   tempoobjs_.back().delaytime_ = delay;
+  tempoobjs_.back().is_necessary_ = true;
 }
 
 void TempoData::SetWarp(double warp_length_in_beat)
@@ -387,11 +411,13 @@ void TempoData::SetWarp(double warp_length_in_beat)
     warp_length_in_beat *= -1;
   }
   tempoobjs_.back().warpbeat_ = warp_length_in_beat;
+  tempoobjs_.back().is_necessary_ = true;
 }
 
 void TempoData::SetTick(uint32_t tick)
 {
   tempoobjs_.back().tick_ = tick;
+  tempoobjs_.back().is_necessary_ = true;
 }
 
 void TempoData::SetScrollSpeedChange(double scrollspeed)
@@ -402,6 +428,7 @@ void TempoData::SetScrollSpeedChange(double scrollspeed)
     scrollspeed = 1.0;
   }
   tempoobjs_.back().scrollspeed_ = scrollspeed;
+  tempoobjs_.back().is_necessary_ = true;
 }
 
 double TempoData::GetTimeFromBeatInLastSegment(double beat_delta) const
@@ -475,6 +502,12 @@ bool TempoData::HasWarp() const
   return false;
 }
 
+void TempoData::SetMeasureLengthRecover(bool recover)
+{
+  // BMS need this option
+  do_recover_measure_length_ = recover;
+}
+
 std::string TempoData::toString() const
 {
   std::stringstream ss;
@@ -489,6 +522,7 @@ std::string TempoData::toString() const
 
 void TempoData::clear()
 {
+  do_recover_measure_length_ = false;
   tempoobjs_.clear();
   // Dummy object to avoid crashing
   tempoobjs_.emplace_back(TempoObject());

@@ -234,19 +234,20 @@ void SoundNote::SetAsTouchNote()
 
 void SoundNote::SetAsTapNote(uint8_t player, uint8_t lane)
 {
-  set_type(NoteTypes::kNote);
+  set_type(NoteTypes::kTap);
+  set_subtype(NoteSubTypes::kNormalNote);
   track.lane.note.player = player;
   track.lane.note.lane = lane;
 }
 
 void SoundNote::SetAsChainNote()
 {
-  set_type(NoteTypes::kChain);
+  set_subtype(NoteSubTypes::kLongNote);
 }
 
 void SoundNote::SetLongnoteLength(double delta_beat)
 {
-  ASSERT(type() == NoteTypes::kNote);
+  ASSERT(type() == NoteTypes::kTap || type() == NoteTypes::kTouch);
   ASSERT(postype() == NotePosTypes::Beat);
   if (!IsLongnote())
     chains.emplace_back(NoteChain{ track, *this, 0 });
@@ -255,7 +256,7 @@ void SoundNote::SetLongnoteLength(double delta_beat)
 
 void SoundNote::SetLongnoteEndPos(const NotePos& row_pos)
 {
-  ASSERT(type() == NoteTypes::kNote);
+  ASSERT(type() == NoteTypes::kTap || type() == NoteTypes::kTouch);
   if (!IsLongnote())
     chains.emplace_back(NoteChain{ track, *this, 0 });
   chains.back().pos = row_pos;
@@ -263,7 +264,7 @@ void SoundNote::SetLongnoteEndPos(const NotePos& row_pos)
 
 void SoundNote::SetLongnoteEndValue(Channel v)
 {
-  ASSERT(type() == NoteTypes::kNote);
+  ASSERT(type() == NoteTypes::kTap || type() == NoteTypes::kTouch);
   if (!IsLongnote())
     chains.emplace_back(NoteChain{ track, *this, 0 });
   chains.back().value = v;
@@ -271,7 +272,7 @@ void SoundNote::SetLongnoteEndValue(Channel v)
 
 void SoundNote::AddChain(const NotePos& pos, uint8_t col)
 {
-  ASSERT(type() == NoteTypes::kChain);
+  ASSERT(type() == NoteTypes::kTap || type() == NoteTypes::kTouch);
   NoteTrack track;
   track.lane.note.player = 0;
   track.lane.note.lane = col;
@@ -299,18 +300,18 @@ bool SoundNote::IsLongnote() const
 
 bool SoundNote::IsScoreable() const
 {
-  return type() == NoteTypes::kNote || type() == NoteTypes::kTouch || type() == NoteTypes::kChain;
+  return type() == NoteTypes::kTap || type() == NoteTypes::kTouch;
 }
 
 uint8_t SoundNote::GetPlayer()
 {
-  ASSERT(type() == NoteTypes::kNote);
+  ASSERT(type() == NoteTypes::kTap);
   return track.lane.note.player;
 }
 
 uint8_t SoundNote::GetLane()
 {
-  ASSERT(type() == NoteTypes::kNote);
+  ASSERT(type() == NoteTypes::kTap);
   return track.lane.note.lane;
 }
 

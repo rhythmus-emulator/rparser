@@ -160,7 +160,7 @@ inline bool CheckNoteValidity(SoundNote& note, const EffectorParam& param)
 {
   int current_col = note.track.lane.note.lane;
   int current_player = note.track.lane.note.player;
-  if (note.type() != NoteTypes::kNote)
+  if (note.type() != NoteTypes::kTap)
     return false;
   if (current_player != param.player)
     return false;
@@ -253,7 +253,7 @@ void RRandom(Chart &c, const EffectorParam& param, bool shift_by_timing)
      * Shift by timing option make note shifting by note's timing
      * which is used for SRANDOM option.
      */
-    const size_t shift_amount = shift_by_timing ? time_rotation_delta : delta_lane;
+    const size_t shift_amount = floorl(shift_by_timing ? time_rotation_delta : delta_lane);
     size_t new_idx = lane_to_idx[note.track.lane.note.lane] + shift_amount;
     while (longnote_lane[0][new_idx]) new_idx = (new_idx + 1) % param.lanesize;
     note.track.lane.note.lane = idx_to_lane[new_idx];

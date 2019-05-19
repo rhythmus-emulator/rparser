@@ -979,6 +979,15 @@ char *gcvt(double value, int ndigits, char *buf)
 }
 #endif
 
+long atoi_16(const char* str, unsigned int len)
+{
+  if (len == 0) return strtol(str, NULL, 16);
+  else {
+    std::string v(str, len);
+    return strtol(v.c_str(), NULL, 16);
+  }
+}
+
 
 Random::Random()
 {

@@ -50,6 +50,7 @@ bool ChartLoaderBMS::LoadFromDirectory(ChartListBase& chartlist, Directory& dir)
 
     c->SetFilename(filename);
     c->SetHash(rutil::md5_str(f.d.GetPtr(), f.d.GetFileSize()));
+    c->GetTempoData().SetMeasureLengthRecover(true);  // enable by default
     bool r = Load(*c, f.d.p, f.d.len);
 
     chartlist.CloseChartData();
@@ -139,10 +140,10 @@ unsigned int atoi_bms_measure(const char* p, unsigned int length = 3)
   return r;
 }
 
-constexpr unsigned int atoi_bms_channel(const char* p, unsigned int length = 2)
+unsigned int atoi_bms_channel(const char* p, unsigned int length = 2)
 {
   unsigned int r = 0;
-  while (p && length)
+  while (*p && length)
   {
     r *= 26+10;
     if (*p >= 'a' && *p <= 'z')
@@ -305,12 +306,12 @@ bool ChartLoaderBMS::ParseMetaData()
     unsigned int key = atoi_bms_channel(current_line_.value + 3);
     md.GetSoundChannel()->fn[key] = value;
   }
-  else if (CHKCMD("EXBPM",5) || CHKCMD("BPM",3)) {
+  else if (cmd.size() > 3 && (CHKCMD("EXBPM",5) || CHKCMD("BPM",3))) {
     unsigned int key;
-    if (current_line_.value[0] == 'B')
-        key = atoi_bms_channel(current_line_.value + 3);
+    if (cmd[0] == 'B')
+        key = atoi_bms_channel(cmd.c_str() + 3);
     else
-        key = atoi_bms_channel(current_line_.value + 5);
+        key = atoi_bms_channel(cmd.c_str() + 5);
     md.GetBPMChannel()->bpm[key] = static_cast<float>(atof( value.c_str() ));
   }
   else if (CHKCMD("STOP",4)) {
@@ -366,19 +367,19 @@ int GetNoteTypeFromBmsChannel(unsigned int bms_channel)
     // 1P/2P visible note
     if (bms_channel >= radix_16_2_36(0x11) && bms_channel <= radix_16_2_36(0x19) ||
         bms_channel >= radix_16_2_36(0x21) && bms_channel <= radix_16_2_36(0x29))
-      return NoteTypes::kNote;
+      return NoteTypes::kTap;
     // 1P/2P invisible note
     else if (bms_channel >= radix_16_2_36(0x31) && bms_channel <= radix_16_2_36(0x39) ||
              bms_channel >= radix_16_2_36(0x41) && bms_channel <= radix_16_2_36(0x49))
-      return NoteTypes::kNote;
+      return NoteTypes::kTap;
     // Longnote
     else if (bms_channel >= radix_16_2_36(0x51) && bms_channel <= radix_16_2_36(0x59) ||
              bms_channel >= radix_16_2_36(0x61) && bms_channel <= radix_16_2_36(0x69))
-      return NoteTypes::kNote;
+      return NoteTypes::kTap;
     // Mine
     else if (bms_channel >= radix_16_2_36(0xD1) && bms_channel <= radix_16_2_36(0xD9) ||
              bms_channel >= radix_16_2_36(0xE1) && bms_channel <= radix_16_2_36(0xE9))
-      return NoteTypes::kNote;
+      return NoteTypes::kTap;
   }
   return NoteTypes::kNone;
 }
@@ -467,6 +468,72 @@ bool ChartLoaderBMS::ParseMeasureLength()
 
 bool ChartLoaderBMS::ParseNote()
 {
+  bool r = false;
+  const unsigned int channel = current_line_.bms_channel;
+  unsigned int len = current_line_.value_len;
+
+  // cannot parse between control flow stmt
+  if (!chart_context_) return false;
+
+  // check for measure length
+  // - if measure changed, 
+  if (channel == 2)
+    return ParseMeasureLength();
+
+  // warn for incorrect length
+  if (len % 2 == 1)
+  {
+    std::cerr << "Warning: incorrect measure length detected.\n" << std::endl;
+    len--;
+  }
+  if (len == 0) return false;
+
+  // parse various types of note
+  switch (GetNoteTypeFromBmsChannel(current_line_.bms_channel))
+  {
+  case NoteTypes::kBGA:
+    r = ParseBgaNote();
+    break;
+  case NoteTypes::kBGM:
+  case NoteTypes::kTap:
+  case NoteTypes::kTouch:
+    r = ParseSoundNote();
+    break;
+  case NoteTypes::kSpecial:
+  case NoteTypes::kTempo:
+    r = ParseTempoNote();
+    break;
+  }
+
+  return r;
+}
+
+bool ChartLoaderBMS::ParseBgaNote()
+{
+  const unsigned int measure = current_line_.measure;
+  const unsigned int channel = current_line_.bms_channel;
+  const char* value = current_line_.value;
+  unsigned int len = current_line_.value_len;
+  BgaNote n;
+
+  n.SetDenominator(len);
+  n.set_type(GetNoteTypeFromBmsChannel(channel));
+  n.set_subtype(GetNoteSubTypeFromBmsChannel(channel));
+  n.column = 0;   // TODO
+  for (unsigned int i = 0; i < len; i += 2)
+  {
+    n.value = atoi_bms_channel(value + i);
+    if (n.value == 0) continue;
+
+    n.SetRowPos(measure, len, i);
+    chart_context_->GetBgaNoteData().AddNote(n);
+  }
+
+  return true;
+}
+
+bool ChartLoaderBMS::ParseSoundNote()
+{
   unsigned int value_u;
   SoundNote n;
   const unsigned int measure = current_line_.measure;
@@ -476,24 +543,8 @@ bool ChartLoaderBMS::ParseNote()
   bool register_longnote;
   uint32_t curlane;
 
-  // cannot parse between control flow stmt
-  if (!chart_context_) return false;
-
-  // check for measure length
-  if (channel == 2)
-    return ParseMeasureLength();
-
-  // warn for incorrect length
-  if (len % 2 == 1)
-  {
-    std::cerr << "Warning: incorrect measure length detected.\n" << std::endl;
-    len --;
-  }
-  if (len == 0) return false;
-
-  memset(&n, 0, sizeof(SoundNote));
+  memset(&n, 0, sizeof(SoundNote)); // XXX: is this okay?
   NotePos& npos = n.pos();
-  npos.type = NotePosTypes::Row;
   n.SetDenominator(len);
   n.set_type(GetNoteTypeFromBmsChannel(channel));
   n.set_subtype(GetNoteSubTypeFromBmsChannel(channel));
@@ -511,12 +562,12 @@ bool ChartLoaderBMS::ParseNote()
       continue;
     }
 
-    npos.measure = measure + (double)i / len;
+    npos.SetRowPos(measure, len, i);
     n.value = static_cast<Channel>(value_u);
 
     /** Longnote check */
     register_longnote = false;
-    if ((n.type() == kNote && n.subtype() == kLongNote) /* General LN channel */ ||
+    if ((n.type() == NoteTypes::kTap && n.subtype() == NoteSubTypes::kLongNote) /* General LN channel */ ||
         (value_u == chart_context_->GetMetaData().bms_longnote_object) /* LNOBJ check */)
     {
       /** LNTYPE 2 (obsolete) */
@@ -549,6 +600,46 @@ bool ChartLoaderBMS::ParseNote()
     }
 
     chart_context_->GetNoteData().AddNote(n);
+  }
+
+  return true;
+}
+
+bool ChartLoaderBMS::ParseTempoNote()
+{
+  unsigned int value_u;
+  const unsigned int measure = current_line_.measure;
+  const unsigned int channel = current_line_.bms_channel;
+  const char* value = current_line_.value;
+  unsigned int len = current_line_.value_len;
+  TempoNote n;
+
+  n.SetDenominator(len);
+  n.set_type(GetNoteTypeFromBmsChannel(channel));
+  n.set_subtype(GetNoteSubTypeFromBmsChannel(channel));
+  for (unsigned int i = 0; i < len; i += 2)
+  {
+    value_u = atoi_bms_channel(value + i);
+    if (value_u == 0) continue;
+
+    n.SetRowPos(measure, len, i);
+    switch (n.subtype())
+    {
+    case NoteTempoTypes::kBpm:
+      /** 16 radix here */
+      n.SetBpm(atoi_16(value + i, 2));
+      break;
+    case NoteTempoTypes::kBmsBpm:
+      n.SetBmsBpm(value_u);
+      break;
+    case NoteTempoTypes::kBmsStop:
+      n.SetBmsStop(value_u);
+      break;
+    default:
+      ASSERT(0);
+    }
+
+    chart_context_->GetTempoData().GetTempoNoteData().AddNote(n);
   }
 
   return true;

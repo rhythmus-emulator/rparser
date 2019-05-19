@@ -149,6 +149,7 @@ class BgaNote : public Note
 public:
   BgaNote();
 
+  uint32_t column;
   Channel value;
   bool operator==(const BgaNote &other) const noexcept;
 private:
@@ -191,9 +192,8 @@ private:
 enum NoteTypes
 {
   kNone,
-  kNote,          // Simple note object (key input)
-  kTouch,         // Osu like object (touch input)
-  kChain,         // SDVX like object (level input)
+  kTap,           // Tappable note object with column position.
+  kTouch,         // Touch note object with x/y coordination.
   kBGM,           // autoplay & indrawable background sound object.
   kBGA,           // drawable object
   kTempo,         // Tempo related objects
@@ -205,15 +205,14 @@ enum NoteSubTypes
 {
   kNormalNote,    // general tappable / scorable note
   kInvisibleNote, // invisible and no damage, but scorable. changes keysound (bms)
-  kLongNote,      // general longnote.
-  kChargeNote,    // general chargenote. (keyup at end point)
-  kHChargeNote,   // hell chargenote
+  kLongNote,      // bms-type longnote with start time judging only. (BMS / TECHNICA / osu)
+  kChargeNote,    // general chargenote. (consider keyup judge)
+  kHChargeNote,   // hell chargenote (continous tick)
   kMineNote,      // shock / mine note.
   kAutoNote,      // drawn and sound but not judged,
   kFakeNote,      // drawn but not judged nor sound.
   kComboNote,     // free combo area (Taigo yellow note / DJMAX stick rotating)
-  kDragNote,      // dragging longnote (TECHNICA / deemo / SDVX VEFX ...)
-  kChainNote,     // chain longnote (TECHNICA / osu)
+  kDragNote,      // dragging longnote, check key_is_pressed input only. (TECHNICA / deemo / SDVX VEFX ...)
   kRepeatNote,    // repeat longnote (TECHNICA)
 };
 
@@ -313,10 +312,10 @@ public:
   typename std::vector<N>::iterator end() { return notes_.end(); }
   const typename std::vector<N>::const_iterator begin() const { return notes_.begin(); }
   const typename std::vector<N>::const_iterator end() const { return notes_.end(); }
-  typename std::vector<N>::iterator rbegin() { return notes_.rbegin(); }
-  typename std::vector<N>::iterator rend() { return notes_.rend(); }
-  const typename std::vector<N>::const_iterator rbegin() const { return notes_.rbegin(); }
-  const typename std::vector<N>::const_iterator rend() const { return notes_.rend(); }
+  typename std::vector<N>::reverse_iterator rbegin() { return notes_.rbegin(); }
+  typename std::vector<N>::reverse_iterator rend() { return notes_.rend(); }
+  const typename std::vector<N>::const_reverse_iterator rbegin() const { return notes_.rbegin(); }
+  const typename std::vector<N>::const_reverse_iterator rend() const { return notes_.rend(); }
   bool IsEmpty() const { return notes_.size(); }
   std::string toString() const
   {

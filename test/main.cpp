@@ -65,12 +65,12 @@ TEST(RUTIL, IO)
 TEST(RPARSER, DIRECTORY_FOLDER)
 {
   using namespace rparser;
-  const std::string fpath(BASE_DIR + "chart_sample");
+  const std::string fpath(BASE_DIR + "chart_sample_bms");
   DirectoryFactory &df = DirectoryFactory::Create(fpath);
   ASSERT_TRUE(df.Open());
   Directory &d = *df.GetDirectory();
   EXPECT_EQ(DIRECTORY_TYPE::FOLDER, d.GetDirectoryType());
-  EXPECT_EQ(8, d.count());
+  EXPECT_EQ(3, d.count());
   d.Clear();
 }
 
@@ -394,8 +394,38 @@ TEST(RPARSER, VOSFILE_V3)
   }
 }
 
-TEST(RPARSER, BMS)
+TEST(RPARSER, BMSARCHIVE)
 {
+  Song song;
+  EXPECT_TRUE(song.Open(BASE_DIR + "bms_sample_angelico.zip"));
+
+  Chart *c = song.GetChart(0);
+  ASSERT_TRUE(c);
+  auto &md = c->GetMetaData();
+  auto &nd = c->GetNoteData();
+  auto &td = c->GetTempoData();
+
+  // metadata, note count (including longnote) check
+  md.SetMetaFromAttribute();
+  ASSERT_STREQ("Angelico [Max]", md.title.c_str());
+  EXPECT_EQ(1088, c->GetScoreableNoteCount());
+  EXPECT_TRUE(c->HasLongnote());
+
+  // time check
+  c->InvalidateTempoData();
+  c->InvalidateAllNotePos();
+  std::cout << "Total time of song " << md.title.c_str() << " is: " << c->GetSongLastScorableObjectTime() << std::endl;
+  EXPECT_EQ(140, c->GetTempoData().GetMaxBpm());
+  EXPECT_EQ(70, c->GetTempoData().GetMinBpm());
+  EXPECT_NEAR(95'000, c->GetSongLastScorableObjectTime(), 1'500);  // nearly 1m'35s
+
+  song.CloseChart();
+  song.Close();
+}
+
+TEST(RPARSER, BMS_STRESS)
+{
+#if 0
   Song song;
   const auto songlist = {
     "chart_sample_bms"
@@ -411,25 +441,7 @@ TEST(RPARSER, BMS)
     song.CloseChart();
     song.Close();
   }
-}
-
-TEST(RPARSER, BMSARCHIVE)
-{
-  Song song;
-  EXPECT_TRUE(song.Open(BASE_DIR + "bms_sample_angelico.zip"));
-
-  Chart *c = song.GetChart(0);
-  ASSERT_TRUE(c);
-  auto &md = c->GetMetaData();
-  auto &nd = c->GetNoteData();
-  auto &td = c->GetTempoData();
-  md.SetMetaFromAttribute();
-
-  ASSERT_STREQ("Angelico [Max]", md.title.c_str());
-  EXPECT_EQ(1088, c->GetScoreableNoteCount());
-
-  song.CloseChart();
-  song.Close();
+#endif
 }
 
 int main(int argc, char **argv)

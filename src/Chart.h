@@ -45,6 +45,9 @@ public:
   const TempoData& GetTempoData() const;
 
   uint32_t GetScoreableNoteCount() const;
+  double GetSongLastObjectTime() const;
+  double GetSongLastScorableObjectTime() const;
+  bool HasLongnote() const;
   
   void Clear();
 

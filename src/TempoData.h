@@ -28,6 +28,7 @@ struct TempoObject
   double warpbeat_;
   double scrollspeed_;    // Faster scrollspeed marks smaller timepoint for each segment.
   uint32_t tick_;         // XXX: unused (default 4)
+  bool is_necessary_;
 
   void clearForCopiedSegment();
   std::string toString();
@@ -53,6 +54,7 @@ public:
   bool HasBpmChange() const;
   bool HasStop() const;
   bool HasWarp() const;
+  void SetMeasureLengthRecover(bool recover = true);
   std::string toString() const;
   void clear();
   void swap(TempoData& tempodata);
@@ -75,6 +77,7 @@ private:
   double GetBeatFromTimeInLastSegment(double time) const;
   double GetBeatFromRowInLastSegment(double measure) const;
 
+  bool do_recover_measure_length_;        // set measure length to 4.0 implicitly.
   NoteData<TempoNote> temponotedata_;
   std::vector<TempoObject> tempoobjs_;
 };

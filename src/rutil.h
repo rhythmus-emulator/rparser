@@ -163,6 +163,7 @@ std::string md5_str(const void* p, int iLen);
 
 char *itoa(int value, char *str, int base);
 char *gcvt(double value, int digits, char *string);
+long atoi_16(const char* str, unsigned int len = 0);
 
 
 class Random
