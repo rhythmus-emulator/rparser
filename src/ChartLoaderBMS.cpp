@@ -499,7 +499,7 @@ bool ChartLoaderBMS::ParseNote()
   // warn for incorrect length
   if (len % 2 == 1)
   {
-    std::cerr << "Warning: incorrect measure length detected." << std::endl;
+    std::cerr << "Warning: incorrect measure length detected. (" << current_line_.command << ")" << std::endl;
     len--;
   }
   if (len == 0) return false;
