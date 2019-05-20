@@ -420,6 +420,8 @@ TEST(RPARSER, BMSARCHIVE)
 
 TEST(RPARSER, BMS_STRESS)
 {
+  EXPECT_EQ(255, rutil::atoi_16("FF"));
+
   Song song;
   Chart *c;
   EXPECT_TRUE(song.Open(BASE_DIR + "chart_sample_bms"));

@@ -125,7 +125,15 @@ void TempoData::Invalidate(const MetaData& m)
       n.beat = GetBeatFromRow(n.measure);
 
   // Sort total objects with beat position
-  std::sort(temponotedata_.begin(), temponotedata_.end());
+  /**
+   * COMMENT
+   * Bpm channel and Bmsbpm channel object may exist in same place,
+   * and it originally produces unknown result, and as it's edge case we can ignore it.
+   * But L99^ song total time is much different unless latter object(Bmsbpm) has bpm precedence.
+   * So, in shortcut, we do sorting in subtype to make Bmsbpm object has more precedence.
+   */
+  std::sort(temponotedata_.begin(), temponotedata_.end(), [](const TempoNote& lhs, const TempoNote& rhs)
+  { return lhs.pos().beat == rhs.pos().beat ? lhs.subtype() < rhs.subtype() : lhs.pos().beat < rhs.pos().beat; });
 
   // Make tempo segments
   for (const TempoNote& n : temponotedata_)
