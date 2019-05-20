@@ -3,3 +3,6 @@
 *.bme    binary
 *.bml    binary
 *.vos    binary
+*.zip    binary
+*.ojm    binary
+*.osu    binary
