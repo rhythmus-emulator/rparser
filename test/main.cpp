@@ -128,7 +128,7 @@ TEST(RPARSER, TEMPODATA)
   td.SeekByBeat(48.0);
   td.SetSTOP(2000.0);
   td.SetBPMChange(180.0);
-  // SeekByTime and add STOP
+  // SeekByTime and add STOP (with last segment)
   // -- Excluding these line may fail test below. do it for advanced test.
   td.SeekByTime(50'000.0);
   td.SetSTOP(2000.0);
@@ -182,17 +182,12 @@ TEST(RPARSER, TEMPODATA)
   n.AddNote(tn);
   tn.SetMeasure(2.0);
   n.AddNote(tn);
-  tn.SetTimePos(50'000.0);
-  tn.SetStop(2000);
-  n.AddNote(tn);
 
   td.Invalidate(md);
 
   // do same test
   EXPECT_NEAR(2'000.0, td.GetTimeFromBeat(48.0) - td.GetTimeFromBeat(47.99), 10.0);
   EXPECT_NEAR(0.0, td.GetBeatFromTime(20'000.0) - td.GetBeatFromTime(19'000.0), 0.01);
-  EXPECT_NEAR(0.0, td.GetBeatFromTime(52'000.0) - td.GetBeatFromTime(50'000.0), 0.01);
-  EXPECT_NEAR(180.0, td.GetBeatFromTime(110'000.0 /* 60+2 sec */) - td.GetBeatFromTime(48'000.0), 0.01);
   EXPECT_NEAR(td.GetBeatFromRow(13 + 2.0/4), 48.0 + 3.0, 0.01);
 }
 
@@ -471,8 +466,25 @@ TEST(RPARSER, BMS_STRESS)
     md.SetMetaFromAttribute();
     c->InvalidateTempoData();
     c->InvalidateAllNotePos();
+
+    // is timingobj is in order
+    double m = -1;
+    size_t idx = 0;
+    for (const auto &n : td.GetTempoNoteData())
+    {
+      idx++;
+      if (n.postype() == NotePosTypes::Time) continue;
+      if (n.subtype() == NoteTempoTypes::kMeasure) continue;
+      if (m > n.measure)
+      {
+        std::cout << "error occured on idx " << idx << std::endl;
+      }
+      else m = n.measure;
+    }
+
     std::cout << "Total time of song " << md.title.c_str() << " is: " << c->GetSongLastScorableObjectTime() << std::endl;
     EXPECT_EQ(32678, c->GetScoreableNoteCount());
+    /** Comment: Temponote idx 801 is bpm 1 obj */
     /** Comment: Beat of last note is nearly 179.5 ~= 180 */
     EXPECT_NEAR(78'000, c->GetSongLastScorableObjectTime(), 1'000);    // about 1m'18s
   }

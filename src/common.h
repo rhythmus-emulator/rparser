@@ -17,6 +17,6 @@
 # define ASSERT(x)
 #endif
 
-#define RPARSER_LOG(x) {}
+#define RPARSER_LOG(x) std::cerr << x << std::endl;
 
 #endif
