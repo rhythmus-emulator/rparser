@@ -515,9 +515,7 @@ bool ChartLoaderVOS::ParseNoteDataV3()
   SoundNote n;
   uint16_t cnt;
   auto &nd = chart_->GetNoteData();
-
   size_t segment_idx = 0;   // maybe midi channel no?
-  std::vector<VOSNoteDataV3> notes_debug;
   
   while (stream.GetOffset() < vos_v3_midi_offset_) {
     int midiinstrument = stream.GetInt32();
@@ -541,7 +539,6 @@ bool ChartLoaderVOS::ParseNoteDataV3()
       else
         n.SetAsBGM(0);
       nd.AddNote(n);
-      notes_debug.push_back(note);
     }
     segment_idx++;
   }
