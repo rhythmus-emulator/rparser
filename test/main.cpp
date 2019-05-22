@@ -426,16 +426,32 @@ TEST(RPARSER, BMS_STRESS)
   Chart *c;
   EXPECT_TRUE(song.Open(BASE_DIR + "chart_sample_bms"));
   ASSERT_TRUE(song.GetChartCount() == 3);
+  ASSERT_TRUE(song.GetSongType() == SONGTYPE::BMS);
+
+  Chart *c_test_mokugyo = nullptr;
+  Chart *c_test_l_nanasi = nullptr;
+  Chart *c_test_l99 = nullptr;
+
+  for (int i=0; i<song.GetChartCount(); i++)
+  {
+    c = song.GetChart(i);
+    auto &md = c->GetMetaData();
+    md.SetMetaFromAttribute();
+    if (md.title == "Mokugyo AllnightMIX") c_test_mokugyo = c;
+    else if (md.title == "L") c_test_l_nanasi = c;
+    else if (md.title == "L9999999999999^99999999999") c_test_l99 = c;
+    song.CloseChart();
+  }
+
 
   /** TEST for Mokugyo (currently not Longlong mix due to too big size to upload ...) */
-  c = song.GetChart(0);
+  c = c_test_mokugyo;
   ASSERT_TRUE(c);
   {
     auto &md = c->GetMetaData();
     auto &nd = c->GetNoteData();
     auto &td = c->GetTempoData();
 
-    md.SetMetaFromAttribute();
     c->InvalidateTempoData();
     c->InvalidateAllNotePos();
     std::cout << "Total time of song " << md.title.c_str() << " is: " << c->GetSongLastScorableObjectTime() << std::endl;
@@ -447,7 +463,7 @@ TEST(RPARSER, BMS_STRESS)
 
 
   /** TEST for l-for-nanasi (ConditionalStmt) */
-  c = song.GetChart(1);
+  c = c_test_l_nanasi;
   ASSERT_TRUE(c);
   {
     auto &md = c->GetMetaData();
@@ -458,7 +474,7 @@ TEST(RPARSER, BMS_STRESS)
 
 
   /** TEST for L99^9 */
-  c = song.GetChart(2);
+  c = c_test_l99;
   ASSERT_TRUE(c);
   {
     auto &md = c->GetMetaData();
@@ -490,7 +506,6 @@ TEST(RPARSER, BMS_STRESS)
     /** Comment: Beat of last note is nearly 179.5 ~= 180 */
     EXPECT_NEAR(78'000, c->GetSongLastScorableObjectTime(), 1'000);    // about 1m'18s
   }
-  song.CloseChart();
 
   song.Close();
 }

@@ -1,4 +1,5 @@
 #include "Note.h"
+#include <math.h>
 
 namespace rparser
 {

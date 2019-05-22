@@ -102,7 +102,7 @@ void TempoData::Invalidate(const MetaData& m)
   std::sort(tobj_measures_beat.begin(), tobj_measures_beat.end(), [](const Note* lhs, const Note* rhs)
   { return lhs->pos().beat < rhs->pos().beat; });
   std::sort(tobj_measures_bar.begin(), tobj_measures_bar.end(), [](const TempoNote* lhs, const TempoNote* rhs)
-  { return lhs->pos().beat < rhs->pos().beat; });
+  { return lhs->pos().measure < rhs->pos().measure; });
   for (const TempoNote* n : tobj_measures_beat) SetMeasureLengthChange(n->beat, n->GetFloatValue());
   for (const TempoNote* n : tobj_measures_bar) SetMeasureLengthChange((uint32_t)n->measure, n->GetFloatValue());
 

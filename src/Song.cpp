@@ -121,6 +121,11 @@ bool Song::SetSongType(SONGTYPE songtype)
   return true;
 }
 
+SONGTYPE Song::GetSongType() const
+{
+  return songtype_;
+}
+
 bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 {
   bool r = false;
@@ -223,7 +228,6 @@ SONGTYPE Song::DetectSongtype()
   }
   return SONGTYPE::NONE;
 }
-
 
 bool Song::SaveAs(const std::string & newpath)
 {

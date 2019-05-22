@@ -221,11 +221,25 @@ int DecodeTo(std::string &s, int to_codepage)
 }
 FILE* fopen_utf8(const char* fname, const char* mode)
 {
-  return fopen(fname, mode);
+  // re-process filename for linux
+  std::string fname_unix;
+  while (*fname)
+  {
+    if (
+    // windows separator
+       (*fname == '\\')
+    // YEN sign
+    || (static_cast<uint8_t>(*fname) == 194 && 
+        static_cast<uint8_t>(*(fname+1)) == 165)
+       ) fname_unix.push_back('/');
+    else fname_unix.push_back(*fname);
+    fname++;
+  }
+  return fopen(fname_unix.c_str(), mode);
 }
 FILE* fopen_utf8(const std::string& fname, const std::string& mode)
 {
-  return fopen(fname.c_str(), mode.c_str());
+  return fopen_utf8(fname.c_str(), mode.c_str());
 }
 int printf_utf8(const char* fmt, ...)
 {
@@ -761,13 +775,15 @@ bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecu
   std::string curr_dir_name;
   std::string curr_dir;
 
-  while (maxrecursive >= 0)
+  while (maxrecursive >= 0 && directories.size() > 0)
   {
     maxrecursive--;
     curr_dir = directories.top();
     curr_dir_name = dir_name.top();
     directories.pop();
     dir_name.pop();
+    if (curr_dir_name == "./" || curr_dir_name == "../")
+      continue;
     if((dp  = opendir(curr_dir.c_str())) == NULL) {
       printf("Error opening %s dir.\n", curr_dir.c_str());
       return false;
