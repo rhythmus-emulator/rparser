@@ -17,9 +17,9 @@ Chart::Chart(const Chart &nd)
   {
     notedata_.AddNote(SoundNote(note));
   }
-  for (const auto& note : nd.bgadata_)
+  for (const auto& note : nd.cmddata_)
   {
-    bgadata_.AddNote(BgaNote(note));
+    cmddata_.AddNote(CommandNote(note));
   }
   for (const auto& stmt : nd.stmtdata_)
   {
@@ -84,9 +84,9 @@ NoteData<SoundNote>& Chart::GetNoteData()
   return notedata_;
 }
 
-NoteData<BgaNote>& Chart::GetBgaNoteData()
+NoteData<CommandNote>& Chart::GetCmdNoteData()
 {
-  return bgadata_;
+  return cmddata_;
 }
 
 MetaData& Chart::GetMetaData()
@@ -104,9 +104,9 @@ const NoteData<SoundNote>& Chart::GetNoteData() const
   return notedata_;
 }
 
-const NoteData<BgaNote>& Chart::GetBgaNoteData() const
+const NoteData<CommandNote>& Chart::GetCmdNoteData() const
 {
-  return bgadata_;
+  return cmddata_;
 }
 
 const TempoData& Chart::GetTempoData() const
@@ -186,7 +186,7 @@ void InvalidateNoteDataPos(NoteData<N>& nd, const TempoData& tempodata_)
 void Chart::InvalidateAllNotePos()
 {
   InvalidateNoteDataPos(notedata_, tempodata_);
-  InvalidateNoteDataPos(bgadata_, tempodata_);
+  InvalidateNoteDataPos(cmddata_, tempodata_);
 }
 
 void Chart::InvalidateNotePos(Note &nobj)

@@ -351,21 +351,49 @@ bool SoundNote::operator==(const SoundNote &other) const noexcept
   return Note::operator==(other) && value == other.value;
 }
 
-std::string BgaNote::getValueAsString() const
+std::string CommandNote::getValueAsString() const
 {
   std::stringstream ss;
-  ss << "Value (channel): " << value << std::endl;
+  ss << "Command: " << command_;
+  if (arg1_) ss << ", arg1: " << arg1_;
+  if (arg2_) ss << ", arg2: " << arg2_;
+  ss << std::endl;
   return ss.str();
 }
 
-BgaNote::BgaNote() : value(0)
+CommandNote::CommandNote() : command_(0), arg1_(0), arg2_(0)
+{}
+
+void CommandNote::SetBga(BgaTypes bgatype, Channel channel, uint8_t column)
 {
-  set_type(NoteTypes::kBGA);
+  set_type(NoteCommandTypes::kBGA);
+  command_ = bgatype;
+  arg1_ = static_cast<decltype(arg1_)>(channel);
+  arg2_ = column;
 }
 
-bool BgaNote::operator==(const BgaNote &other) const noexcept
+void CommandNote::SetMidiCommand(uint8_t command, uint8_t arg1, uint8_t arg2)
 {
-  return Note::operator==(other) && value == other.value;
+  set_type(NoteCommandTypes::kMIDI);
+  command_ = command;
+  arg1_ = arg1;
+  arg2_ = arg2;
+}
+
+void CommandNote::SetBmsARGBCommand(BgaTypes bgatype, Channel channel)
+{
+  set_type(NoteCommandTypes::kBmsARGBLAYER);
+  command_ = bgatype;
+  arg1_ = static_cast<decltype(arg1_)>(channel);
+  arg2_ = 0;
+}
+
+bool CommandNote::operator==(const CommandNote &other) const noexcept
+{
+  return Note::operator==(other) &&
+         command_ == other.command_ &&
+         arg1_ == other.arg1_ &&
+         arg2_ == other.arg2_;
 }
 
 TempoNote::TempoNote()

@@ -72,13 +72,15 @@ inline bool IsCharacterTrimmable(char c)
 
 bool ChartLoaderBMS::Load(Chart &c, const void* p, int iLen)
 {
-  size_t pos = 0;
-  size_t stmtlen = 0;
-  size_t nextpos = 0;
+  /** Initialize global context */
   const char* const chr = static_cast<const char*>(p);
   chart_context_ = &c;
   memset(longnote_idx_per_lane, 0xffffffff, sizeof(longnote_idx_per_lane));
+  bga_column_idx_per_measure_.clear();
 
+  size_t pos = 0;
+  size_t stmtlen = 0;
+  size_t nextpos = 0;
   while (pos < iLen)
   {
     if (!IsCharacterTrimmable(chr[pos]))
@@ -373,12 +375,11 @@ int GetNoteTypeFromBmsChannel(unsigned int bms_channel)
   case 6:   // BGA poor
   case 7:   // BGA layered
   case 10:  // BGA layered 2
-    return NoteTypes::kBGA;
   case 11:  // BGA opacity
   case 12:  // BGA opacity layer
   case 13:  // BGA opacity layer 2
   case 14:  // BGA opacity poor
-    return NoteTypes::kSpecial;
+    return NoteTypes::kCommand;
   default:
     // 1P/2P visible note
     if (bms_channel >= radix_16_2_36(0x11) && bms_channel <= radix_16_2_36(0x19) ||
@@ -413,21 +414,15 @@ int GetNoteSubTypeFromBmsChannel(unsigned int bms_channel)
   case 9:   // STOP
     return NoteTempoTypes::kBmsStop;
   case 4:   // BGA
-    return NoteBgaTypes::kMainBga;
   case 6:   // BGA poor
-    return NoteBgaTypes::kMissBga;
   case 7:   // BGA layered
-    return NoteBgaTypes::kLAYER1Bga;
   case 10:  // BGA layered 2
-    return NoteBgaTypes::kLAYER2Bga;
+    return NoteCommandTypes::kBGA;
   case 11:  // BGA opacity
-    return NoteSpecialTypes::kBmsARGBBASE;
   case 12:  // BGA opacity layer
-    return NoteSpecialTypes::kBmsARGBLAYER1;
   case 13:  // BGA opacity layer 2
-    return NoteSpecialTypes::kBmsARGBLAYER2;
   case 14:  // BGA opacity poor
-    return NoteSpecialTypes::kBmsARGBMISS;
+    return NoteCommandTypes::kBmsARGBLAYER;
   default:
     // 1P/2P visible note
     if (bms_channel >= radix_16_2_36(0x11) && bms_channel <= radix_16_2_36(0x19) ||
@@ -507,42 +502,62 @@ bool ChartLoaderBMS::ParseNote()
   // parse various types of note
   switch (GetNoteTypeFromBmsChannel(current_line_.bms_channel))
   {
-  case NoteTypes::kBGA:
-    r = ParseBgaNote();
-    break;
   case NoteTypes::kBGM:
   case NoteTypes::kTap:
   case NoteTypes::kTouch:
     r = ParseSoundNote();
     break;
-  case NoteTypes::kSpecial:
   case NoteTypes::kTempo:
     r = ParseTempoNote();
+    break;
+  case NoteTypes::kCommand:
+    r = ParseCommandNote();
     break;
   }
 
   return r;
 }
 
-bool ChartLoaderBMS::ParseBgaNote()
+bool ChartLoaderBMS::ParseCommandNote()
 {
   const unsigned int measure = current_line_.measure;
   const unsigned int channel = current_line_.bms_channel;
   const char* value = current_line_.value;
   unsigned int len = current_line_.value_len;
-  BgaNote n;
+  unsigned int value_u;
+  static uint8_t bga_per_bms_channel[] = { 4, 6, 7, 10 };
+  static uint8_t bmsargb_per_bms_channel[] = { 11, 12, 13, 14 };
+  CommandNote n;
 
   n.SetDenominator(len);
   n.set_type(GetNoteTypeFromBmsChannel(channel));
   n.set_subtype(GetNoteSubTypeFromBmsChannel(channel));
-  n.column = 0;   // TODO
   for (unsigned int i = 0; i < len; i += 2)
   {
-    n.value = atoi_bms_channel(value + i);
-    if (n.value == 0) continue;
-
     n.SetRowPos(measure, len, i);
-    chart_context_->GetBgaNoteData().AddNote(n);
+    value_u = atoi_bms_channel(value + i);
+    if (value_u == 0) continue;
+    int bgatypes;
+
+    switch (n.subtype())
+    {
+    case NoteCommandTypes::kBGA:
+      for (bgatypes = 0; bgatypes < 4; bgatypes++)
+        if (bga_per_bms_channel[bgatypes] == channel) break;
+      ASSERT(bgatypes < 4);
+      n.SetBga((BgaTypes)bgatypes, value_u, bga_column_idx_per_measure_[measure]++);
+      break;
+    case NoteCommandTypes::kBmsARGBLAYER:
+      for (bgatypes = 0; bgatypes < 4; i++)
+        if (bmsargb_per_bms_channel[bgatypes] == channel) break;
+      ASSERT(bgatypes < 4);
+      n.SetBmsARGBCommand((BgaTypes)bgatypes, value_u);
+      break;
+    default:
+      ASSERT(0);
+    }
+
+    chart_context_->GetCmdNoteData().AddNote(n);
   }
 
   return true;
