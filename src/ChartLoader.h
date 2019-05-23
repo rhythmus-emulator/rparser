@@ -87,6 +87,7 @@ private:
   Chart *chart_;
   int vos_version_;
   size_t vos_v3_midi_offset_;
+  uint32_t timedivision_;
   bool ParseVersion();
   bool ParseMetaDataV2();
   bool ParseMetaDataV3();

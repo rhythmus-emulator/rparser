@@ -281,6 +281,7 @@ bool ChartLoaderVOS::LoadFromDirectory(ChartListBase& chartlist, Directory& dir)
 bool ChartLoaderVOS::Load( Chart &c, const void* p, int len ) {
   this->chart_ = &c;
   stream.SetSource(p, len);
+  timedivision_ = 120;
 
   if (!ParseVersion()) return false;
 
@@ -501,12 +502,12 @@ bool ChartLoaderVOS::ParseNoteDataV2()
   for (auto *p : vnotes)
   {
     // TODO ! in midi time
-    n.SetBeatPos(p->time);
+    n.SetBeatPos(p->time / (double)timedivision_);
     if (p->istappable)
     {
       n.SetAsTapNote(0, p->lane);
       if (p->islongnote)
-        n.SetLongnoteLength(p->duration);
+        n.SetLongnoteLength(p->duration / (double)timedivision_);
     }
     else
       n.SetAsBGM(0);
@@ -545,12 +546,12 @@ bool ChartLoaderVOS::ParseNoteDataV3()
       uint8_t keybits = (note.type >> 4) & 0b0111;
 
       // TODO !!
-      n.SetBeatPos(note.time);
+      n.SetBeatPos(note.time / (double)timedivision_);
       if (segment_idx == 16 && istappable)
       {
         n.SetAsTapNote(0, keybits);
         if (islongnote)
-          n.SetLongnoteLength(note.duration);
+          n.SetLongnoteLength(note.duration / (double)timedivision_);
       }
       else
         n.SetAsBGM(0);
@@ -597,7 +598,17 @@ bool ChartLoaderVOS::ParseMIDI()
   uint16_t format = stream.GetUInt16();       // always 1
   ASSERT(format == 1);
   uint16_t trackcount = stream.GetUInt16();
-  uint16_t timedivision = stream.GetUInt8();  // tick size
+  uint32_t timedivision = stream.GetUInt8();  // tick size
+  // if timedivision != 120, recalculate all notepos
+  if (timedivision_ != timedivision)
+  {
+    double posmul = timedivision_ / (double)timedivision;
+    for (auto& n : chart_->GetNoteData())
+      n.SetBeatPos(n.beat * posmul);
+    for (auto& n : chart_->GetCmdNoteData())
+      n.SetBeatPos(n.beat * posmul);
+    timedivision_ = timedivision;
+  }
   double cur_beat = 0;
 
   TempoNote tn;
@@ -645,7 +656,7 @@ bool ChartLoaderVOS::ParseMIDI()
         ASSERT(byte_len == 3);
         val = stream.GetMSFixedInt(3);
         tn.SetBeatPos(cur_beat);
-        tn.SetBpm((double)val / timedivision / 500000 * 120);
+        tn.SetBpm(60'000'000 / timedivision * 120 / (double)val);
         tnd.AddNote(tn);
         break;
       case MIDISIG::MIDISIG_MEASURE:
