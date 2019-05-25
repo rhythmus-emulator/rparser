@@ -417,12 +417,12 @@ int GetNoteSubTypeFromBmsChannel(unsigned int bms_channel)
   case 6:   // BGA poor
   case 7:   // BGA layered
   case 10:  // BGA layered 2
-    return NoteCommandTypes::kBGA;
+    return NoteEventTypes::kBGA;
   case 11:  // BGA opacity
   case 12:  // BGA opacity layer
   case 13:  // BGA opacity layer 2
   case 14:  // BGA opacity poor
-    return NoteCommandTypes::kBmsARGBLAYER;
+    return NoteEventTypes::kBmsARGBLAYER;
   default:
     // 1P/2P visible note
     if (bms_channel >= radix_16_2_36(0x11) && bms_channel <= radix_16_2_36(0x19) ||
@@ -527,7 +527,7 @@ bool ChartLoaderBMS::ParseCommandNote()
   unsigned int value_u;
   static uint8_t bga_per_bms_channel[] = { 4, 6, 7, 10 };
   static uint8_t bmsargb_per_bms_channel[] = { 11, 12, 13, 14 };
-  CommandNote n;
+  EventNote n;
 
   n.SetDenominator(len);
   n.set_type(GetNoteTypeFromBmsChannel(channel));
@@ -541,13 +541,13 @@ bool ChartLoaderBMS::ParseCommandNote()
 
     switch (n.subtype())
     {
-    case NoteCommandTypes::kBGA:
+    case NoteEventTypes::kBGA:
       for (bgatypes = 0; bgatypes < 4; bgatypes++)
         if (bga_per_bms_channel[bgatypes] == channel) break;
       ASSERT(bgatypes < 4);
       n.SetBga((BgaTypes)bgatypes, value_u, bga_column_idx_per_measure_[measure]++);
       break;
-    case NoteCommandTypes::kBmsARGBLAYER:
+    case NoteEventTypes::kBmsARGBLAYER:
       for (bgatypes = 0; bgatypes < 4; i++)
         if (bmsargb_per_bms_channel[bgatypes] == channel) break;
       ASSERT(bgatypes < 4);
@@ -557,7 +557,7 @@ bool ChartLoaderBMS::ParseCommandNote()
       ASSERT(0);
     }
 
-    chart_context_->GetCmdNoteData().AddNote(n);
+    chart_context_->GetEventNoteData().AddNote(n);
   }
 
   return true;

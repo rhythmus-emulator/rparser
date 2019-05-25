@@ -105,7 +105,7 @@ enum BgaTypes
 };
 
 /** @detail Subtype of TRACK_SPECIAL */
-enum NoteCommandTypes
+enum NoteEventTypes
 {
   kBGA,
   kMIDI,
@@ -235,19 +235,19 @@ private:
 
 /**
  * @detail
- * Other command related objects (not tempo / sound related; BGA, ...)
+ * Other event related objects (not tempo / sound related; BGA, ...)
  */
-class CommandNote : public Note
+class EventNote : public Note
 {
 public:
-  CommandNote();
-  CommandNote(const CommandNote&) = default;
+  EventNote();
+  EventNote(const EventNote&) = default;
 
   void SetBga(BgaTypes bgatype, Channel channel, uint8_t column = 0);
   void SetMidiCommand(uint8_t command, uint8_t arg1, uint8_t arg2 = 0);
   void SetBmsARGBCommand(BgaTypes bgatype, Channel channel);
 
-  bool operator==(const CommandNote &other) const noexcept;
+  bool operator==(const EventNote &other) const noexcept;
 private:
   int32_t command_, arg1_, arg2_;
   virtual std::string getValueAsString() const;

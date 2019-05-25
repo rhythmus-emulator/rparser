@@ -612,11 +612,11 @@ bool ChartLoaderVOS::ParseMIDI()
 
   TempoNote tn;
   SoundNote sn;
-  CommandNote cn;
+  EventNote en;
   auto &td = chart_->GetTempoData();
   auto &tnd = td.GetTempoNoteData();
   auto &nd = chart_->GetNoteData();
-  auto &cd = chart_->GetCmdNoteData();
+  auto &ed = chart_->GetEventNoteData();
   uint32_t val, val2;
 
   int trackidx = 0;
@@ -648,9 +648,9 @@ bool ChartLoaderVOS::ParseMIDI()
       switch (midisig)
       {
       case MIDISIG::MIDISIG_PROGRAM:
-        cn.SetBeatPos(cur_beat);
-        cn.SetMidiCommand(mprog.cmdtype, mprog.cmd[0], mprog.cmd[1]);
-        cd.AddNote(cn);
+        en.SetBeatPos(cur_beat);
+        en.SetMidiCommand(mprog.cmdtype, mprog.cmd[0], mprog.cmd[1]);
+        ed.AddNote(en);
         break;
       case MIDISIG::MIDISIG_TEMPO:
         ASSERT(byte_len == 3);

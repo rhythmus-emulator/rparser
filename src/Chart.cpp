@@ -19,7 +19,7 @@ Chart::Chart(const Chart &nd)
   }
   for (const auto& note : nd.cmddata_)
   {
-    cmddata_.AddNote(CommandNote(note));
+    cmddata_.AddNote(EventNote(note));
   }
   for (const auto& stmt : nd.stmtdata_)
   {
@@ -84,7 +84,7 @@ NoteData<SoundNote>& Chart::GetNoteData()
   return notedata_;
 }
 
-NoteData<CommandNote>& Chart::GetCmdNoteData()
+NoteData<EventNote>& Chart::GetEventNoteData()
 {
   return cmddata_;
 }
@@ -104,7 +104,7 @@ const NoteData<SoundNote>& Chart::GetNoteData() const
   return notedata_;
 }
 
-const NoteData<CommandNote>& Chart::GetCmdNoteData() const
+const NoteData<EventNote>& Chart::GetEventNoteData() const
 {
   return cmddata_;
 }

@@ -366,7 +366,7 @@ bool SoundNote::operator==(const SoundNote &other) const noexcept
   return Note::operator==(other) && value == other.value;
 }
 
-std::string CommandNote::getValueAsString() const
+std::string EventNote::getValueAsString() const
 {
   std::stringstream ss;
   ss << "Command: " << command_;
@@ -376,34 +376,34 @@ std::string CommandNote::getValueAsString() const
   return ss.str();
 }
 
-CommandNote::CommandNote() : command_(0), arg1_(0), arg2_(0)
+EventNote::EventNote() : command_(0), arg1_(0), arg2_(0)
 {}
 
-void CommandNote::SetBga(BgaTypes bgatype, Channel channel, uint8_t column)
+void EventNote::SetBga(BgaTypes bgatype, Channel channel, uint8_t column)
 {
-  set_type(NoteCommandTypes::kBGA);
+  set_type(NoteEventTypes::kBGA);
   command_ = bgatype;
   arg1_ = static_cast<decltype(arg1_)>(channel);
   arg2_ = column;
 }
 
-void CommandNote::SetMidiCommand(uint8_t command, uint8_t arg1, uint8_t arg2)
+void EventNote::SetMidiCommand(uint8_t command, uint8_t arg1, uint8_t arg2)
 {
-  set_type(NoteCommandTypes::kMIDI);
+  set_type(NoteEventTypes::kMIDI);
   command_ = command;
   arg1_ = arg1;
   arg2_ = arg2;
 }
 
-void CommandNote::SetBmsARGBCommand(BgaTypes bgatype, Channel channel)
+void EventNote::SetBmsARGBCommand(BgaTypes bgatype, Channel channel)
 {
-  set_type(NoteCommandTypes::kBmsARGBLAYER);
+  set_type(NoteEventTypes::kBmsARGBLAYER);
   command_ = bgatype;
   arg1_ = static_cast<decltype(arg1_)>(channel);
   arg2_ = 0;
 }
 
-bool CommandNote::operator==(const CommandNote &other) const noexcept
+bool EventNote::operator==(const EventNote &other) const noexcept
 {
   return Note::operator==(other) &&
          command_ == other.command_ &&
