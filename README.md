@@ -40,3 +40,4 @@ song.Close();
   * BMS
   * VOS
   * Archived BMS (.zip)
+- Currently under-development; Writing chart file is not available now..
