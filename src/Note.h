@@ -63,7 +63,7 @@ enum NoteTypes
   kTouch,         // Touch note object with x/y coordination.
   kBGM,           // autoplay & indrawable background sound object.
   kTempo,         // Tempo related objects
-  kCommand,       // Other command objects (e.g. BGA, MIDI)
+  kEvent,         // Other event triggering objects (e.g. BGA, MIDI)
 };
 
 /** @detail Subtype of TRACK_TAP / TOUCH / VEFX */

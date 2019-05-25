@@ -377,7 +377,9 @@ std::string EventNote::getValueAsString() const
 }
 
 EventNote::EventNote() : command_(0), arg1_(0), arg2_(0)
-{}
+{
+  set_type(NoteTypes::kEvent);
+}
 
 void EventNote::SetBga(BgaTypes bgatype, Channel channel, uint8_t column)
 {

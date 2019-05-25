@@ -379,7 +379,7 @@ int GetNoteTypeFromBmsChannel(unsigned int bms_channel)
   case 12:  // BGA opacity layer
   case 13:  // BGA opacity layer 2
   case 14:  // BGA opacity poor
-    return NoteTypes::kCommand;
+    return NoteTypes::kEvent;
   default:
     // 1P/2P visible note
     if (bms_channel >= radix_16_2_36(0x11) && bms_channel <= radix_16_2_36(0x19) ||
@@ -510,7 +510,7 @@ bool ChartLoaderBMS::ParseNote()
   case NoteTypes::kTempo:
     r = ParseTempoNote();
     break;
-  case NoteTypes::kCommand:
+  case NoteTypes::kEvent:
     r = ParseCommandNote();
     break;
   }
