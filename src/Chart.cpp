@@ -187,6 +187,28 @@ void Chart::InvalidateAllNotePos()
 {
   InvalidateNoteDataPos(notedata_, tempodata_);
   InvalidateNoteDataPos(cmddata_, tempodata_);
+
+  // for longnote ... FIXME it'll may cause rather bad performance.
+  for (auto &n : notedata_)
+  {
+    if (n.IsLongnote())
+    {
+      for (auto &chain : n.chains)
+      {
+        switch (chain.pos.postype())
+        {
+        case NotePosTypes::Bar:
+          chain.pos.beat = tempodata_.GetBeatFromRow(chain.pos.measure);
+        case NotePosTypes::Beat:
+          chain.pos.time_msec = tempodata_.GetTimeFromBeat(chain.pos.beat);
+          break;
+        case NotePosTypes::Time:
+          chain.pos.beat = tempodata_.GetBeatFromTime(chain.pos.time_msec);
+          break;
+        }
+      }
+    }
+  }
 }
 
 void Chart::InvalidateNotePos(Note &nobj)

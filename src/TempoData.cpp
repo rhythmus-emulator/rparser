@@ -355,7 +355,7 @@ void TempoData::SetMeasureLengthChange(uint32_t measure_idx, double barlength)
   // Only use last segment.
   BarObject& b = barobjs_.back();
   ASSERT(measure_idx >= b.baridx_);
-  if (!b.is_implicit_ && measure_idx == b.baridx_) return; /* may be caused do_recover_measure_length */
+  if (!b.is_implicit_ && measure_idx == b.baridx_) return; /* may be caused by do_recover_measure_length */
   if (b.barlength_ == barlength) return;
 
   // Set bar segment
@@ -381,7 +381,7 @@ void TempoData::SetMeasureLengthChange(double beat_pos, double measure_length)
   // Only use last segment.
   const BarObject& b = barobjs_.back();
   ASSERT(beat_pos >= b.beatpos_);
-  if (!b.is_implicit_ && beat_pos == b.beatpos_) return; /* may be caused do_recover_measure_length */
+  if (!b.is_implicit_ && beat_pos == b.beatpos_) return; /* may be caused by do_recover_measure_length */
   SetMeasureLengthChange(b.baridx_ + static_cast<uint32_t>((beat_pos - b.beatpos_) / b.barlength_), measure_length);
 }
 
