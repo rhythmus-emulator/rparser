@@ -11,6 +11,8 @@
 #include "Chart.h"
 #include <stdlib.h>
 #define MAX_READ_SIZE 512000
+//constexpr double kVOSTimeConstant = 0.6;
+constexpr double kVOSTimeConstant = 0.156;
 
 using namespace rutil;
 
@@ -458,13 +460,13 @@ bool ChartLoaderVOS::ParseNoteDataV2()
       vnote = new VOSNoteDataV2();
       /** cannot do memcpy due to struct padding. */
       vnote->dummy = stream.GetUInt8();       // always zero
-      vnote->time = stream.GetUInt32();
+      vnote->time = static_cast<uint32_t>(stream.GetUInt32() * kVOSTimeConstant);
       vnote->pitch = stream.GetUInt16();
       vnote->volume = stream.GetUInt8();
       vnote->istappable = stream.GetUInt8();
       vnote->issoundable = stream.GetUInt8();
       vnote->islongnote = stream.GetUInt8();
-      vnote->duration = stream.GetUInt32();
+      vnote->duration = static_cast<uint32_t>(stream.GetUInt32() * kVOSTimeConstant);
       vnote->dummy2 = stream.GetUInt8();      // 00 ~ 04? unknown
       vnote->lane = 0;
       vnotes.push_back(vnote);
@@ -507,7 +509,7 @@ bool ChartLoaderVOS::ParseNoteDataV2()
     {
       n.SetAsTapNote(0, p->lane);
       if (p->islongnote)
-        n.SetLongnoteLength(p->duration / (double)timedivision_);
+        n.SetLongnoteLength(p->duration); // FIXME setLongnoteLength availablity in Time
     }
     else
       n.SetAsBGM(0);
@@ -534,8 +536,8 @@ bool ChartLoaderVOS::ParseNoteDataV3()
     stream.SeekCur(14);
 
     for (int i=0; i<cnt; i++) {
-      note.time = stream.GetUInt32();
-      note.duration = stream.GetUInt32();
+      note.time = static_cast<uint32_t>(stream.GetUInt32() * kVOSTimeConstant);
+      note.duration = static_cast<uint32_t>(stream.GetUInt32() * kVOSTimeConstant);
       note.midicmd = stream.GetUInt8();
       note.midikey = stream.GetUInt8();
       note.vol = stream.GetUInt8();
@@ -551,7 +553,7 @@ bool ChartLoaderVOS::ParseNoteDataV3()
       {
         n.SetAsTapNote(0, keybits);
         if (islongnote)
-          n.SetLongnoteLength(note.duration / (double)timedivision_);
+          n.SetLongnoteLength(note.duration);
       }
       else
         n.SetAsBGM(0);
@@ -599,14 +601,11 @@ bool ChartLoaderVOS::ParseMIDI()
   ASSERT(format == 1);
   uint16_t trackcount = stream.GetUInt16();
   uint32_t timedivision = stream.GetUInt8();  // tick size
-  // if timedivision != 120, recalculate all notepos
   if (timedivision_ != timedivision)
   {
-    double posmul = timedivision_ / (double)timedivision;
-    for (auto& n : chart_->GetNoteData())
-      n.SetBeatPos(n.beat * posmul);
-    for (auto& n : chart_->GetCmdNoteData())
-      n.SetBeatPos(n.beat * posmul);
+    double ratio = (double)timedivision_ / timedivision;
+    for (auto &n : chart_->GetNoteData())
+      n.SetBeatPos(n.beat * ratio);
     timedivision_ = timedivision;
   }
   double cur_beat = 0;
@@ -649,6 +648,7 @@ bool ChartLoaderVOS::ParseMIDI()
       switch (midisig)
       {
       case MIDISIG::MIDISIG_PROGRAM:
+        cn.SetBeatPos(cur_beat);
         cn.SetMidiCommand(mprog.cmdtype, mprog.cmd[0], mprog.cmd[1]);
         cd.AddNote(cn);
         break;

@@ -80,9 +80,14 @@ NotePos::NotePos()
 
 void NotePos::SetRowPos(uint32_t measure, RowPos deno, RowPos num)
 {
+  if (deno == 0) SetRowPos(measure);
+  else SetRowPos(measure + (double)num / deno);
+}
+
+void NotePos::SetRowPos(double barpos)
+{
   type = NotePosTypes::Bar;
-  if (deno == 0) this->measure = measure;
-  else this->measure = measure + (double)num / deno;
+  this->measure = barpos;
 }
 
 void NotePos::SetBeatPos(double beat)
@@ -246,13 +251,23 @@ void SoundNote::SetAsChainNote()
   set_subtype(NoteSubTypes::kLongNote);
 }
 
-void SoundNote::SetLongnoteLength(double delta_beat)
+void SoundNote::SetLongnoteLength(double delta_value)
 {
   ASSERT(type() == NoteTypes::kTap || type() == NoteTypes::kTouch);
-  ASSERT(postype() == NotePosTypes::Beat);
   if (!IsLongnote())
     chains.emplace_back(NoteChain{ track, *this, 0 });
-  chains.back().pos.SetBeatPos(pos().beat + delta_beat);
+  switch (postype())
+  {
+  case NotePosTypes::Beat:
+    chains.back().pos.SetBeatPos(pos().beat + delta_value);
+    break;
+  case NotePosTypes::Bar:
+    chains.back().pos.SetRowPos(pos().measure + delta_value);
+    break;
+  case NotePosTypes::Time:
+    chains.back().pos.SetTimePos(pos().time_msec + delta_value);
+    break;
+  }
 }
 
 void SoundNote::SetLongnoteEndPos(const NotePos& row_pos)

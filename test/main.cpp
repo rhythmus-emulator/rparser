@@ -363,6 +363,10 @@ TEST(RPARSER, VOSFILE_V2)
     auto &md = c->GetMetaData();
     auto &nd = c->GetNoteData();
     auto &td = c->GetTempoData();
+    md.SetMetaFromAttribute();
+    c->InvalidateTempoData();
+    c->InvalidateAllNotePos();
+    std::cout << "Total time of song " << md.title << " : " << c->GetSongLastScorableObjectTime() << std::endl;
     song.CloseChart();
     song.Close();
   }
@@ -372,9 +376,9 @@ TEST(RPARSER, VOSFILE_V3)
 {
   Song song;
   const auto songlist = {
-    "chart_sample/23.vos",
-    "chart_sample/24.vos",
-    "chart_sample/109.vos"
+    "chart_sample/23.vos",  // lastnote (LN) 2'05 = 125000 ms
+    "chart_sample/24.vos",  // lastnote (LN) 1'23 = 83000ms
+    "chart_sample/109.vos"  // lastnote 4'00 = 240000ms
   };
   for (auto& songpath : songlist)
   {
@@ -384,6 +388,11 @@ TEST(RPARSER, VOSFILE_V3)
     auto &md = c->GetMetaData();
     auto &nd = c->GetNoteData();
     auto &td = c->GetTempoData();
+    md.SetMetaFromAttribute();
+    c->InvalidateTempoData();
+    c->InvalidateAllNotePos();
+
+    std::cout << "Total time of song " << md.title << " : " << c->GetSongLastScorableObjectTime() << std::endl;
     song.CloseChart();
     song.Close();
   }

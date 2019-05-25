@@ -31,6 +31,7 @@ struct NotePos
   uint32_t denominator;
 
   void SetRowPos(uint32_t measure, RowPos deno, RowPos num);
+  void SetRowPos(double barpos);
   void SetBeatPos(double beat);
   void SetTimePos(double time_msec);
   void SetDenominator(uint32_t denominator);
@@ -163,7 +164,7 @@ public:
   void SetAsTouchNote();
   void SetAsTapNote(uint8_t player, uint8_t lane);
   void SetAsChainNote();
-  void SetLongnoteLength(double delta_beat);
+  void SetLongnoteLength(double delta_value);
   void SetLongnoteEndPos(const NotePos& row_pos);
   void SetLongnoteEndValue(Channel v);
   void AddChain(const NotePos& pos, uint8_t col);

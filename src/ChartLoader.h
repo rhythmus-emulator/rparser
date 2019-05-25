@@ -64,7 +64,6 @@ private:
   bool ParseMetaData();
   bool ParseMeasureLength();
   bool ParseNote();
-  bool ParseBgaNote();
   bool ParseSoundNote();
   bool ParseTempoNote();
   bool ParseCommandNote();
