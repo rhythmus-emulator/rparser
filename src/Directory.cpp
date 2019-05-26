@@ -1,6 +1,11 @@
 #include "Directory.h"
 #include "common.h"
 
+#ifdef USE_ZLIB
+# define ZIP_STATIC 1
+# include "zip.h"
+#endif
+
 namespace rparser
 {
 

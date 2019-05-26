@@ -10,8 +10,8 @@
 #include "Error.h"
 
 #ifdef USE_ZLIB
-# define ZIP_STATIC 1
-# include <zip.h>
+struct zip;
+typedef struct zip zip_t;
 #endif
 
 namespace rparser
