@@ -149,6 +149,9 @@ public:
   void SetCodepage(int codepage);
   virtual bool IsReadOnly();
 
+private:
+  int codepage_;
+
 #ifdef USE_ZLIB
 private:
   virtual bool doRead(FileData &d);
@@ -160,7 +163,6 @@ private:
   virtual bool doDelete(const FileData& fd);
   virtual bool doCreate(const std::string& newpath);
 
-  int codepage_;
   zip_t *archive_;
   int zip_error_;
 #endif
