@@ -864,11 +864,12 @@ uint32_t FileData::ReadLE32()
 uint32_t FileData::Read(uint8_t *out, uint32_t len)
 {
   uint32_t copysize = len;
-  if (pos + len > len)
+  if (pos + len > this->len)
   {
-    copysize = len - pos;
+    copysize = this->len - pos;
   }
   memcpy(out, p + pos, copysize);
+  pos += copysize;
   return copysize;
 }
 
