@@ -194,6 +194,22 @@ bool ChartLoaderBMS::ParseCurrentLine()
       memcmp(current_line_.stmt, "*----------------------", 23) == 0)
     return true;
 
+  // zero-size line: ignore
+  if (current_line_.stmt_len == 0) return true;
+
+  // check comment
+  if (current_line_.stmt[0] == ';' ||
+      (current_line_.stmt_len >= 2 && strncmp("//", current_line_.stmt, 2) == 0) )
+    return true;
+
+  // '%' start is ignored
+  if (current_line_.stmt[0] == '%')
+  {
+    std::cerr << "percent starting line is ignored : "
+              << std::string(current_line_.stmt, current_line_.stmt_len) << std::endl;
+    return true;
+  }
+
   // if not header field
   if (*c != '#') return false;
   c++;
