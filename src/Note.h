@@ -31,6 +31,7 @@ struct NotePos
   uint32_t denominator;
 
   void SetRowPos(uint32_t measure, RowPos deno, RowPos num);
+  void SetRowPos(double barpos);
   void SetBeatPos(double beat);
   void SetTimePos(double time_msec);
   void SetDenominator(uint32_t denominator);
@@ -52,6 +53,68 @@ typedef struct
     struct { uint8_t x, y; } touch;
   } lane;
 } NoteTrack;
+
+
+/** @detail Soundable/Renderable, or tappable object. */
+enum NoteTypes
+{
+  kNone,
+  kTap,           // Tappable note object with column position.
+  kTouch,         // Touch note object with x/y coordination.
+  kBGM,           // autoplay & indrawable background sound object.
+  kTempo,         // Tempo related objects
+  kEvent,         // Other event triggering objects (e.g. BGA, MIDI)
+};
+
+/** @detail Subtype of TRACK_TAP / TOUCH / VEFX */
+enum NoteSubTypes
+{
+  kNormalNote,    // general tappable / scorable note
+  kInvisibleNote, // invisible and no damage, but scorable. changes keysound (bms)
+  kLongNote,      // bms-type longnote with start time judging only. (BMS / TECHNICA / osu)
+  kChargeNote,    // general chargenote. (consider keyup judge)
+  kHChargeNote,   // hell chargenote (continous tick)
+  kMineNote,      // shock / mine note.
+  kAutoNote,      // drawn and sound but not judged,
+  kFakeNote,      // drawn but not judged nor sound.
+  kComboNote,     // free combo area (Taigo yellow note / DJMAX stick rotating)
+  kDragNote,      // dragging longnote, check key_is_pressed input only. (TECHNICA / deemo / SDVX VEFX ...)
+  kRepeatNote,    // repeat longnote (TECHNICA)
+};
+
+/** @detail Special object which changes tempo of the chart. */
+enum NoteTempoTypes
+{
+  kBpm,
+  kStop,
+  kWarp,
+  kScroll,
+  kMeasure,
+  kTick,
+  kBmsBpm,          // #BPM / #EXBPM command from metadata 
+  kBmsStop,         // #STOP command from metadata
+};
+
+/** @detail Subtype of TRACK_BGA (for BMS type) */
+enum BgaTypes
+{
+  kBgaMain,
+  kBgaMiss,
+  kBgaLAYER1,
+  kBgaLAYER2, /* on and on ... */
+};
+
+/** @detail Subtype of TRACK_SPECIAL */
+enum NoteEventTypes
+{
+  kBGA,
+  kMIDI,
+  kBmsKeyBind,      // key bind layer (bms #SWBGA)
+  kBmsEXTCHR,       // #EXTCHR cmd from BMS. (not supported)
+  kBmsTEXT,         // #TEXT / #SONG command in BMS
+  kBmsBMSOPTION,    // #CHANGEOPTION command in BMS
+  kBmsARGBLAYER,    // BGA opacity setting (#ARGB channel)
+};
 
 /**
  * @detail Contains base information of a Note, includes type and position data.
@@ -101,7 +164,7 @@ public:
   void SetAsTouchNote();
   void SetAsTapNote(uint8_t player, uint8_t lane);
   void SetAsChainNote();
-  void SetLongnoteLength(double delta_beat);
+  void SetLongnoteLength(double delta_value);
   void SetLongnoteEndPos(const NotePos& row_pos);
   void SetLongnoteEndValue(Channel v);
   void AddChain(const NotePos& pos, uint8_t col);
@@ -142,22 +205,6 @@ struct NoteChain
 
 /**
  * @detail
- * Bga note object
- */
-class BgaNote : public Note
-{
-public:
-  BgaNote();
-
-  uint32_t column;
-  Channel value;
-  bool operator==(const BgaNote &other) const noexcept;
-private:
-  virtual std::string getValueAsString() const;
-};
-
-/**
- * @detail
  * Tempo note object
  */
 class TempoNote : public Note
@@ -173,7 +220,6 @@ public:
   void SetScroll(float scrollspeed);
   void SetTick(int32_t tick);
   void SetWarp(float warp_to);
-  void SetCommand(uint8_t type, uint8_t arg1, uint8_t arg2);
   float GetFloatValue() const;
   int32_t GetIntValue() const;
 
@@ -183,74 +229,30 @@ private:
   {
     float f;
     int32_t i;
-    struct { uint8_t type, arg1, arg2; } cmd;
   } value;
   virtual std::string getValueAsString() const;
 };
 
-/** @detail Soundable/Renderable, or tappable object. */
-enum NoteTypes
+/**
+ * @detail
+ * Other event related objects (not tempo / sound related; BGA, ...)
+ */
+class EventNote : public Note
 {
-  kNone,
-  kTap,           // Tappable note object with column position.
-  kTouch,         // Touch note object with x/y coordination.
-  kBGM,           // autoplay & indrawable background sound object.
-  kBGA,           // drawable object
-  kTempo,         // Tempo related objects
-  kSpecial,       // Special objects (mostly control flow)
+public:
+  EventNote();
+  EventNote(const EventNote&) = default;
+
+  void SetBga(BgaTypes bgatype, Channel channel, uint8_t column = 0);
+  void SetMidiCommand(uint8_t command, uint8_t arg1, uint8_t arg2 = 0);
+  void SetBmsARGBCommand(BgaTypes bgatype, Channel channel);
+
+  bool operator==(const EventNote &other) const noexcept;
+private:
+  int32_t command_, arg1_, arg2_;
+  virtual std::string getValueAsString() const;
 };
 
-/** @detail Subtype of TRACK_TAP / TOUCH / VEFX */
-enum NoteSubTypes
-{
-  kNormalNote,    // general tappable / scorable note
-  kInvisibleNote, // invisible and no damage, but scorable. changes keysound (bms)
-  kLongNote,      // bms-type longnote with start time judging only. (BMS / TECHNICA / osu)
-  kChargeNote,    // general chargenote. (consider keyup judge)
-  kHChargeNote,   // hell chargenote (continous tick)
-  kMineNote,      // shock / mine note.
-  kAutoNote,      // drawn and sound but not judged,
-  kFakeNote,      // drawn but not judged nor sound.
-  kComboNote,     // free combo area (Taigo yellow note / DJMAX stick rotating)
-  kDragNote,      // dragging longnote, check key_is_pressed input only. (TECHNICA / deemo / SDVX VEFX ...)
-  kRepeatNote,    // repeat longnote (TECHNICA)
-};
-
-/** @detail Special object which changes tempo of the chart. */
-enum NoteTempoTypes
-{
-  kBpm,
-  kStop,
-  kWarp,
-  kScroll,
-  kMeasure,
-  kTick,
-  kBmsBpm,          // #BPM / #EXBPM command from metadata 
-  kBmsStop,         // #STOP command from metadata
-};
-
-/** @detail Subtype of TRACK_BGA */
-enum NoteBgaTypes
-{
-  kMainBga,
-  kMissBga,
-  kLAYER1Bga,
-  kLAYER2Bga, /* on and on ... */
-};
-
-/** @detail Subtype of TRACK_SPECIAL */
-enum NoteSpecialTypes
-{
-  kRest,            // osu specific type (REST area)
-  kBmsKeyBind,      // key bind layer (bms #SWBGA)
-  kBmsEXTCHR,       // #EXTCHR cmd from BMS. (not supported)
-  kBmsTEXT,         // #TEXT / #SONG command in BMS
-  kBmsBMSOPTION,    // #CHANGEOPTION command in BMS
-  kBmsARGBBASE,     // BGA opacity setting (#ARGB channel)
-  kBmsARGBMISS,     // BGA opacity setting (#ARGB channel)
-  kBmsARGBLAYER1,   // BGA opacity setting (#ARGB channel)
-  kBmsARGBLAYER2,   // BGA opacity setting (#ARGB channel)
-};
 
 template <typename N>
 class NoteData

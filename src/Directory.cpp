@@ -1,6 +1,11 @@
 #include "Directory.h"
 #include "common.h"
 
+#ifdef USE_ZLIB
+# define ZIP_STATIC 1
+# include "zip.h"
+#endif
+
 namespace rparser
 {
 
@@ -372,27 +377,27 @@ bool Directory::Rename(const std::string& prev_name, const std::string& new_name
   return true;
 }
 
-Directory::data_iter Directory::begin() throw()
+Directory::data_iter Directory::begin() noexcept
 {
   return files_.begin();
 }
 
-Directory::data_iter Directory::end() throw()
+Directory::data_iter Directory::end() noexcept
 {
   return files_.end();
 }
 
-const Directory::data_constiter Directory::begin() const throw()
+const Directory::data_constiter Directory::begin() const noexcept
 {
   return files_.cbegin();
 }
 
-const Directory::data_constiter Directory::end() const throw()
+const Directory::data_constiter Directory::end() const noexcept
 {
   return files_.cend();
 }
 
-size_t Directory::count() const throw()
+size_t Directory::count() const noexcept
 {
   return files_.size();
 }

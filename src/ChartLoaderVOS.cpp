@@ -11,6 +11,8 @@
 #include "Chart.h"
 #include <stdlib.h>
 #define MAX_READ_SIZE 512000
+//constexpr double kVOSTimeConstant = 0.6;
+constexpr double kVOSTimeConstant = 0.156;
 
 using namespace rutil;
 
@@ -35,26 +37,27 @@ struct VOSHeader {
 };
 
 struct VOSNoteDataV2 {
-  uint8_t dummy;
+  uint8_t dummy;        // always zero
   uint32_t time;
   uint16_t pitch;
   uint8_t volume;
-  uint8_t isplayable; // Note or BGM?
+  uint8_t istappable;   // 0 or 1
   uint8_t issoundable;  // soundable; always 1?
   uint8_t islongnote;
   uint32_t duration;
-  uint8_t dummy3;
+  uint8_t dummy2;
+
+  // -- additional information --
+  uint8_t lane;
 };
 
 struct VOSNoteDataV3 {
-  unsigned int time;
-  unsigned short duration;
-  short dummy;
-  unsigned char fan;
-  unsigned char pitch;
-  unsigned char volume;
-  unsigned char channel; // playable note?
-  unsigned char dummy2;
+  uint32_t time;
+  uint32_t duration;
+  uint8_t midicmd;
+  uint8_t midikey;
+  uint8_t vol;
+  uint16_t type;      /* (Bit) 8 : tapnote, 9 : longnote, 15 : longnote */
 };
 
 #define MIDISIG_TYPES 8
@@ -280,6 +283,7 @@ bool ChartLoaderVOS::LoadFromDirectory(ChartListBase& chartlist, Directory& dir)
 bool ChartLoaderVOS::Load( Chart &c, const void* p, int len ) {
   this->chart_ = &c;
   stream.SetSource(p, len);
+  timedivision_ = 120;
 
   if (!ParseVersion()) return false;
 
@@ -372,10 +376,10 @@ bool ChartLoaderVOS::ParseMetaDataV3()
 
   int headersize = stream.GetInt32();
   stream.SeekCur(4);  // inf; static flag
-  stream.SeekCur(12); // unknown null bytes
+  stream.SeekCur(12); // inf offset (not exact)
   vos_v3_midi_offset_ = stream.GetInt32(); // end of inf file pos (start of MID file)
   stream.SeekCur(4);  // mid; static flag
-  stream.SeekCur(12); // unknown null bytes (maybe 64bit long long int?)
+  stream.SeekCur(12); // midi offset (not exact)
   int midpos = stream.GetInt32();
   stream.SeekCur(4);  // EOF flag
   stream.GetChar(buf, 12);  // some unknown bytes
@@ -444,48 +448,75 @@ bool ChartLoaderVOS::ParseNoteDataV2()
 
   // parse note objects per each channels.
   // (includes BGM/autoplay objects)
-  // TODO: make it as structure
-  VOSNoteDataV2 vnote;
-  SoundNote note;
+  std::vector<VOSNoteDataV2*> vnotes;
+  VOSNoteDataV2* vnote_tappable[65536];
+  VOSNoteDataV2* vnote;
+  size_t _tappable_cnt = 0;
   auto &nd = chart_->GetNoteData();
   for (int i=0; i<cnt_inst; i++) {
     int channel = i;
     int notecnt = stream.GetInt32();
     for (int j=0; j<notecnt; j++) {
+      vnote = new VOSNoteDataV2();
       /** cannot do memcpy due to struct padding. */
-      vnote.dummy = stream.GetUInt8();
-      vnote.time = stream.GetUInt32();
-      vnote.pitch = stream.GetUInt16();
-      vnote.volume = stream.GetUInt8();
-      vnote.isplayable = stream.GetUInt8();
-      vnote.issoundable = stream.GetUInt8();
-      vnote.islongnote = stream.GetUInt8();
-      vnote.duration = stream.GetUInt32();
-      vnote.dummy3 = stream.GetUInt8();
-
-      note.SetTimePos(vnote.time);
-      if (vnote.isplayable)
-        note.SetAsTapNote(0, i);
-      else
-        note.SetAsBGM(i);
-      nd.AddNote(note);
+      vnote->dummy = stream.GetUInt8();       // always zero
+      vnote->time = static_cast<uint32_t>(stream.GetUInt32() * kVOSTimeConstant);
+      vnote->pitch = stream.GetUInt16();
+      vnote->volume = stream.GetUInt8();
+      vnote->istappable = stream.GetUInt8();
+      vnote->issoundable = stream.GetUInt8();
+      vnote->islongnote = stream.GetUInt8();
+      vnote->duration = static_cast<uint32_t>(stream.GetUInt32() * kVOSTimeConstant);
+      vnote->dummy2 = stream.GetUInt8();      // 00 ~ 04? unknown
+      vnote->lane = 0;
+      vnotes.push_back(vnote);
+      if (vnote->istappable)
+        vnote_tappable[_tappable_cnt++] = vnote;
     }
   }
 
   /** Actual playable note segment */
   ASSERT(stream.ReadInt32() == 0);
-  stream.SeekCur(4);                      // empty
-  uint32_t seg_cnt = stream.GetUInt32();  // some unknown segment count
-  stream.SeekCur(1);
+  stream.SeekCur(4);                      // empty int32
+  uint32_t seg_cnt = stream.GetUInt32();  // note segment count
+  ASSERT(seg_cnt == _tappable_cnt);
 
   for (size_t i = 0; i < seg_cnt; i++)
   {
-    uint32_t idx = stream.GetUInt32();    // idx
+    uint8_t inst_idx = stream.GetUInt8();   // seems like instrument channel?
+    uint32_t idx = stream.GetUInt32();      // idx for instrument channel
     uint8_t lane = stream.GetUInt8();
-    uint8_t ln_size = stream.GetUInt8();  // seems like instrument channel?
-    //std::cout << idx << "," << (int)lane << " (" << (int)ln_size << ")" << std::endl;
+    //std::cout << (int)lane << "," << (int)ln_size << ",idx:" << (int)idx << std::endl;
+    vnote_tappable[i]->lane = lane;
   }
-  stream.SeekCur(7);
+  stream.SeekCur(4);                      // some unknown bytes
+
+  uint32_t lyrics_cnt = stream.GetUInt32();
+  for (size_t i = 0; i < lyrics_cnt; i++)
+  {
+    uint32_t time = stream.GetUInt32();
+    uint8_t lyric_len = stream.GetUInt8();
+    stream.GetChar(buf, lyric_len);
+  }
+  
+  /** Append data to NoteData and cleanup */
+  SoundNote n;
+  for (auto *p : vnotes)
+  {
+    // TODO ! in midi time
+    n.SetBeatPos(p->time / (double)timedivision_);
+    if (p->istappable)
+    {
+      n.SetAsTapNote(0, p->lane);
+      if (p->islongnote)
+        n.SetLongnoteLength(p->duration); // FIXME setLongnoteLength availablity in Time
+    }
+    else
+      n.SetAsBGM(0);
+    nd.AddNote(n);
+  }
+  for (auto* p : vnotes)
+    delete p;
 
   return true;
 }
@@ -494,24 +525,45 @@ bool ChartLoaderVOS::ParseNoteDataV3()
 {
   // start to read note data
   VOSNoteDataV3 note;
-  uint16_t cnt;
+  SoundNote n;
+  uint32_t cnt;
+  auto &nd = chart_->GetNoteData();
+  size_t segment_idx = 0;   // maybe midi channel no?
 
   while (stream.GetOffset() < vos_v3_midi_offset_) {
     int midiinstrument = stream.GetInt32();
-    cnt = stream.GetUInt16();
-    stream.SeekCur(16);
+    cnt = stream.GetUInt32();
+    stream.SeekCur(14);
+
     for (int i=0; i<cnt; i++) {
-      note.time = stream.GetUInt32();
-      note.duration = stream.GetUInt16();
-      note.dummy = stream.GetUInt16();
-      note.fan= stream.GetUInt8();
-      note.pitch = stream.GetUInt8();
-      note.volume = stream.GetUInt8();
-      note.channel = stream.GetUInt8();
-      note.dummy2 = stream.GetUInt8();
-      //std::cout << note.time << "," << (int)note.channel << "," << (int)note.fan << std::endl;
+      note.time = static_cast<uint32_t>(stream.GetUInt32() * kVOSTimeConstant);
+      note.duration = static_cast<uint32_t>(stream.GetUInt32() * kVOSTimeConstant);
+      note.midicmd = stream.GetUInt8();
+      note.midikey = stream.GetUInt8();
+      note.vol = stream.GetUInt8();
+      note.type = stream.GetUInt16();
+
+      uint8_t istappable = (note.type & 0b010000000) > 0;
+      uint8_t islongnote = (note.type & 0b01000000000000000) > 0;
+      uint8_t keybits = (note.type >> 4) & 0b0111;
+
+      // TODO !!
+      n.SetBeatPos(note.time / (double)timedivision_);
+      if (segment_idx == 16 && istappable)
+      {
+        n.SetAsTapNote(0, keybits);
+        if (islongnote)
+          n.SetLongnoteLength(note.duration);
+      }
+      else
+        n.SetAsBGM(0);
+
+      nd.AddNote(n);
+
     }
+    segment_idx++;
   }
+  ASSERT(segment_idx == 17);
 
   return true;
 }
@@ -548,14 +600,23 @@ bool ChartLoaderVOS::ParseMIDI()
   uint16_t format = stream.GetUInt16();       // always 1
   ASSERT(format == 1);
   uint16_t trackcount = stream.GetUInt16();
-  uint16_t timedivision = stream.GetUInt8();  // tick size
+  uint32_t timedivision = stream.GetUInt8();  // tick size
+  if (timedivision_ != timedivision)
+  {
+    double ratio = (double)timedivision_ / timedivision;
+    for (auto &n : chart_->GetNoteData())
+      n.SetBeatPos(n.beat * ratio);
+    timedivision_ = timedivision;
+  }
   double cur_beat = 0;
 
   TempoNote tn;
   SoundNote sn;
+  EventNote en;
   auto &td = chart_->GetTempoData();
   auto &tnd = td.GetTempoNoteData();
   auto &nd = chart_->GetNoteData();
+  auto &ed = chart_->GetEventNoteData();
   uint32_t val, val2;
 
   int trackidx = 0;
@@ -587,13 +648,15 @@ bool ChartLoaderVOS::ParseMIDI()
       switch (midisig)
       {
       case MIDISIG::MIDISIG_PROGRAM:
-        // TODO
+        en.SetBeatPos(cur_beat);
+        en.SetMidiCommand(mprog.cmdtype, mprog.cmd[0], mprog.cmd[1]);
+        ed.AddNote(en);
         break;
       case MIDISIG::MIDISIG_TEMPO:
         ASSERT(byte_len == 3);
         val = stream.GetMSFixedInt(3);
         tn.SetBeatPos(cur_beat);
-        tn.SetBpm((double)val / timedivision / 500000 * 120);
+        tn.SetBpm(60'000'000 / timedivision * 120 / (double)val);
         tnd.AddNote(tn);
         break;
       case MIDISIG::MIDISIG_MEASURE:

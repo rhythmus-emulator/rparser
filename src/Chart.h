@@ -36,11 +36,11 @@ public:
   ~Chart();
 
   NoteData<SoundNote>& GetNoteData();
-  NoteData<BgaNote>& GetBgaNoteData();
+  NoteData<EventNote>& GetEventNoteData();
   MetaData& GetMetaData();
   TempoData& GetTempoData();
   const NoteData<SoundNote>& GetNoteData() const;
-  const NoteData<BgaNote>& GetBgaNoteData() const;
+  const NoteData<EventNote>& GetEventNoteData() const;
   const MetaData& GetMetaData() const;
   const TempoData& GetTempoData() const;
 
@@ -73,7 +73,7 @@ public:
 
 private:
   NoteData<SoundNote> notedata_;
-  NoteData<BgaNote> bgadata_;
+  NoteData<EventNote> cmddata_;
   MetaData metadata_;
   TempoData tempodata_;
   std::vector<ConditionalChart> stmtdata_;

@@ -17,9 +17,9 @@ Chart::Chart(const Chart &nd)
   {
     notedata_.AddNote(SoundNote(note));
   }
-  for (const auto& note : nd.bgadata_)
+  for (const auto& note : nd.cmddata_)
   {
-    bgadata_.AddNote(BgaNote(note));
+    cmddata_.AddNote(EventNote(note));
   }
   for (const auto& stmt : nd.stmtdata_)
   {
@@ -84,9 +84,9 @@ NoteData<SoundNote>& Chart::GetNoteData()
   return notedata_;
 }
 
-NoteData<BgaNote>& Chart::GetBgaNoteData()
+NoteData<EventNote>& Chart::GetEventNoteData()
 {
-  return bgadata_;
+  return cmddata_;
 }
 
 MetaData& Chart::GetMetaData()
@@ -104,9 +104,9 @@ const NoteData<SoundNote>& Chart::GetNoteData() const
   return notedata_;
 }
 
-const NoteData<BgaNote>& Chart::GetBgaNoteData() const
+const NoteData<EventNote>& Chart::GetEventNoteData() const
 {
-  return bgadata_;
+  return cmddata_;
 }
 
 const TempoData& Chart::GetTempoData() const
@@ -186,7 +186,29 @@ void InvalidateNoteDataPos(NoteData<N>& nd, const TempoData& tempodata_)
 void Chart::InvalidateAllNotePos()
 {
   InvalidateNoteDataPos(notedata_, tempodata_);
-  InvalidateNoteDataPos(bgadata_, tempodata_);
+  InvalidateNoteDataPos(cmddata_, tempodata_);
+
+  // for longnote ... FIXME it'll may cause rather bad performance.
+  for (auto &n : notedata_)
+  {
+    if (n.IsLongnote())
+    {
+      for (auto &chain : n.chains)
+      {
+        switch (chain.pos.postype())
+        {
+        case NotePosTypes::Bar:
+          chain.pos.beat = tempodata_.GetBeatFromRow(chain.pos.measure);
+        case NotePosTypes::Beat:
+          chain.pos.time_msec = tempodata_.GetTimeFromBeat(chain.pos.beat);
+          break;
+        case NotePosTypes::Time:
+          chain.pos.beat = tempodata_.GetBeatFromTime(chain.pos.time_msec);
+          break;
+        }
+      }
+    }
+  }
 }
 
 void Chart::InvalidateNotePos(Note &nobj)

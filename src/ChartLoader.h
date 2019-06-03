@@ -45,7 +45,7 @@ private:
   std::vector<Chart*> chart_context_stack_;
   ConditionalChart* condstmt_;
   uint32_t longnote_idx_per_lane[36];
-  double previous_measure_length_;
+  std::map<int, uint8_t> bga_column_idx_per_measure_;
   struct LineContext {
     const char* stmt;
     size_t stmt_len;
@@ -64,9 +64,9 @@ private:
   bool ParseMetaData();
   bool ParseMeasureLength();
   bool ParseNote();
-  bool ParseBgaNote();
   bool ParseSoundNote();
   bool ParseTempoNote();
+  bool ParseCommandNote();
 };
 
 enum VOS_VERSION {
@@ -86,6 +86,7 @@ private:
   Chart *chart_;
   int vos_version_;
   size_t vos_v3_midi_offset_;
+  uint32_t timedivision_;
   bool ParseVersion();
   bool ParseMetaDataV2();
   bool ParseMetaDataV3();

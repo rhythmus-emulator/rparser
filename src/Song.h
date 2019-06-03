@@ -66,6 +66,7 @@ public:
   void DeleteChart(int i);
 
   bool SetSongType(SONGTYPE songtype);
+  SONGTYPE GetSongType() const;
 
   bool Open(const std::string &path, bool onlyreadchart = false, SONGTYPE songtype = SONGTYPE::NONE);
   bool Save();

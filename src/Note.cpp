@@ -1,4 +1,5 @@
 #include "Note.h"
+#include <math.h>
 
 namespace rparser
 {
@@ -79,9 +80,14 @@ NotePos::NotePos()
 
 void NotePos::SetRowPos(uint32_t measure, RowPos deno, RowPos num)
 {
+  if (deno == 0) SetRowPos(measure);
+  else SetRowPos(measure + (double)num / deno);
+}
+
+void NotePos::SetRowPos(double barpos)
+{
   type = NotePosTypes::Bar;
-  if (deno == 0) this->measure = measure;
-  else this->measure = measure + (double)num / deno;
+  this->measure = barpos;
 }
 
 void NotePos::SetBeatPos(double beat)
@@ -245,13 +251,23 @@ void SoundNote::SetAsChainNote()
   set_subtype(NoteSubTypes::kLongNote);
 }
 
-void SoundNote::SetLongnoteLength(double delta_beat)
+void SoundNote::SetLongnoteLength(double delta_value)
 {
   ASSERT(type() == NoteTypes::kTap || type() == NoteTypes::kTouch);
-  ASSERT(postype() == NotePosTypes::Beat);
   if (!IsLongnote())
     chains.emplace_back(NoteChain{ track, *this, 0 });
-  chains.back().pos.SetBeatPos(pos().beat + delta_beat);
+  switch (postype())
+  {
+  case NotePosTypes::Beat:
+    chains.back().pos.SetBeatPos(pos().beat + delta_value);
+    break;
+  case NotePosTypes::Bar:
+    chains.back().pos.SetRowPos(pos().measure + delta_value);
+    break;
+  case NotePosTypes::Time:
+    chains.back().pos.SetTimePos(pos().time_msec + delta_value);
+    break;
+  }
 }
 
 void SoundNote::SetLongnoteEndPos(const NotePos& row_pos)
@@ -350,21 +366,51 @@ bool SoundNote::operator==(const SoundNote &other) const noexcept
   return Note::operator==(other) && value == other.value;
 }
 
-std::string BgaNote::getValueAsString() const
+std::string EventNote::getValueAsString() const
 {
   std::stringstream ss;
-  ss << "Value (channel): " << value << std::endl;
+  ss << "Command: " << command_;
+  if (arg1_) ss << ", arg1: " << arg1_;
+  if (arg2_) ss << ", arg2: " << arg2_;
+  ss << std::endl;
   return ss.str();
 }
 
-BgaNote::BgaNote() : value(0)
+EventNote::EventNote() : command_(0), arg1_(0), arg2_(0)
 {
-  set_type(NoteTypes::kBGA);
+  set_type(NoteTypes::kEvent);
 }
 
-bool BgaNote::operator==(const BgaNote &other) const noexcept
+void EventNote::SetBga(BgaTypes bgatype, Channel channel, uint8_t column)
 {
-  return Note::operator==(other) && value == other.value;
+  set_type(NoteEventTypes::kBGA);
+  command_ = bgatype;
+  arg1_ = static_cast<decltype(arg1_)>(channel);
+  arg2_ = column;
+}
+
+void EventNote::SetMidiCommand(uint8_t command, uint8_t arg1, uint8_t arg2)
+{
+  set_type(NoteEventTypes::kMIDI);
+  command_ = command;
+  arg1_ = arg1;
+  arg2_ = arg2;
+}
+
+void EventNote::SetBmsARGBCommand(BgaTypes bgatype, Channel channel)
+{
+  set_type(NoteEventTypes::kBmsARGBLAYER);
+  command_ = bgatype;
+  arg1_ = static_cast<decltype(arg1_)>(channel);
+  arg2_ = 0;
+}
+
+bool EventNote::operator==(const EventNote &other) const noexcept
+{
+  return Note::operator==(other) &&
+         command_ == other.command_ &&
+         arg1_ == other.arg1_ &&
+         arg2_ == other.arg2_;
 }
 
 TempoNote::TempoNote()
