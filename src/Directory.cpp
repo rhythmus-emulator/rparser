@@ -277,18 +277,27 @@ Directory::FileDataSegment* Directory::GetSegment(const std::string& name, bool 
   return 0;
 }
 
-const rutil::FileData * Directory::Get(const std::string & name, bool use_alternative_search) const
+bool Directory::Exist(const std::string & name, bool use_alternative_search) const
 {
-  const auto *ii = GetSegment(name);
+  return GetSegment(name, use_alternative_search) != 0;
+}
+
+rutil::FileData * Directory::Get(const std::string & name, bool use_alternative_search)
+{
+  auto *ii = GetSegment(name, use_alternative_search);
   if (ii == 0)
     return 0;
   else
+  {
+    // file is automatically read here
+    Read(ii->d);
     return &ii->d;
+  }
 }
 
-const uint8_t * Directory::Get(const std::string & name, int & len, bool use_alternative_search) const
+uint8_t * Directory::Get(const std::string & name, int & len, bool use_alternative_search)
 {
-  const rutil::FileData* d = Get(name);
+  rutil::FileData* d = Get(name, use_alternative_search);
   len = d->len;
   return d->GetPtr();
 }
