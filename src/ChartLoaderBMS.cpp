@@ -333,11 +333,11 @@ bool ChartLoaderBMS::ParseMetaData()
 
 # define CHKCMD(cmd_const, len) (strncmp(current_line_.command, cmd_const, len) == 0)
   if (CHKCMD("BMP",3)) {
-    unsigned int key = atoi_bms_channel(current_line_.value + 3);
+    unsigned int key = atoi_bms_channel(current_line_.command + 3);
     md.GetBGAChannel()->bga[key] = { value, 0,0,0,0, 0,0,0,0 };
   }
   else if (CHKCMD("WAV",3)) {
-    unsigned int key = atoi_bms_channel(current_line_.value + 3);
+    unsigned int key = atoi_bms_channel(current_line_.command + 3);
     md.GetSoundChannel()->fn[key] = value;
   }
   else if (cmd.size() > 3 && (CHKCMD("EXBPM",5) || CHKCMD("BPM",3))) {
@@ -349,7 +349,7 @@ bool ChartLoaderBMS::ParseMetaData()
     md.GetBPMChannel()->bpm[key] = static_cast<float>(atof( value.c_str() ));
   }
   else if (CHKCMD("STOP",4)) {
-    unsigned int key = atoi_bms_channel(current_line_.value  + 4);
+    unsigned int key = atoi_bms_channel(current_line_.command + 4);
     md.GetSTOPChannel()->stop[key] = static_cast<float>(atoi(value.c_str()));  // 1/192nd
   }
   // TODO: WAVCMD, EXWAV
