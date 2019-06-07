@@ -64,6 +64,7 @@ public:
   void InvalidateAllNotePos();
   void InvalidateNotePos(Note &n);
   void InvalidateTempoData();
+  void Invalidate();
 
   bool IsEmpty();
   std::string GetHash() const;

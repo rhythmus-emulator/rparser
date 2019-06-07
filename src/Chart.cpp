@@ -232,6 +232,13 @@ void Chart::InvalidateTempoData()
   tempodata_.Invalidate(GetMetaData());
 }
 
+void Chart::Invalidate()
+{
+  metadata_.SetMetaFromAttribute();
+  InvalidateTempoData();
+  InvalidateAllNotePos();
+}
+
 std::string Chart::toString() const
 {
   std::stringstream ss;
