@@ -405,6 +405,14 @@ void EventNote::SetBmsARGBCommand(BgaTypes bgatype, Channel channel)
   arg2_ = 0;
 }
 
+void EventNote::GetMidiCommand(uint8_t &command, uint8_t &arg1, uint8_t &arg2)
+{
+  ASSERT(type() == NoteEventTypes::kMIDI);
+  command = (uint8_t)command_;
+  arg1 = (uint8_t)arg1_;
+  arg2 = (uint8_t)arg2_;
+}
+
 bool EventNote::operator==(const EventNote &other) const noexcept
 {
   return Note::operator==(other) &&

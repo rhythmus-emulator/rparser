@@ -247,6 +247,8 @@ public:
   void SetMidiCommand(uint8_t command, uint8_t arg1, uint8_t arg2 = 0);
   void SetBmsARGBCommand(BgaTypes bgatype, Channel channel);
 
+  void GetMidiCommand(uint8_t &command, uint8_t &arg1, uint8_t &arg2);
+
   bool operator==(const EventNote &other) const noexcept;
 private:
   int32_t command_, arg1_, arg2_;
