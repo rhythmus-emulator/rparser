@@ -221,7 +221,7 @@ bool Note::operator==(const Note &other) const noexcept
   return NotePos::operator==(other) && type() == other.type() && subtype() == other.subtype();
 }
 
-SoundNote::SoundNote() : value(0), volume(1.0f), pitch(0), restart(false)
+SoundNote::SoundNote() : value(0), channel_type(0), effect{ 0, 0, 1.0f, false }
 {
   SetAsBGM(0);
 }
@@ -249,6 +249,14 @@ void SoundNote::SetAsTapNote(uint8_t player, uint8_t lane)
 void SoundNote::SetAsChainNote()
 {
   set_subtype(NoteSubTypes::kLongNote);
+}
+
+void SoundNote::SetMidiNote(float duration_ms, int32_t key, float volume)
+{
+  effect.duration_ms = duration_ms;
+  effect.key = key;
+  effect.volume = volume;
+  channel_type = 1; // mark source as MIDI
 }
 
 void SoundNote::SetLongnoteLength(double delta_value)
@@ -355,9 +363,9 @@ std::string SoundNote::getValueAsString() const
   std::stringstream ss;
   ss << "Track (note - player, lane): " << track.lane.note.player << "," << track.lane.note.lane << std::endl;
   ss << "Track (touch - x, y): " << track.lane.touch.x << "," << track.lane.touch.y << std::endl;
-  ss << "Volume: " << volume << std::endl;
-  ss << "Pitch: " << pitch << std::endl;
-  ss << "Restart (sound) ?: " << restart << std::endl;
+  ss << "Volume: " << effect.volume << std::endl;
+  ss << "Key (Pitch): " << effect.key << std::endl;
+  ss << "Restart (sound) ?: " << effect.restart << std::endl;
   return ss.str();
 }
 

@@ -164,6 +164,7 @@ public:
   void SetAsTouchNote();
   void SetAsTapNote(uint8_t player, uint8_t lane);
   void SetAsChainNote();
+  void SetMidiNote(float duration_ms, int32_t key, float volume = 1.0f);
   void SetLongnoteLength(double delta_value);
   void SetLongnoteEndPos(const NotePos& row_pos);
   void SetLongnoteEndValue(Channel v);
@@ -181,16 +182,27 @@ public:
 
   // basic note attributes
   NoteTrack track;
+  // track / channel of sound source.
   Channel value;
-  float volume;
-  int32_t pitch;
+  // indicates channel source type : WAVE or MIDI (or somewhat other?)
+  int channel_type;
+  
+  // midi related properties (or somewhat sound effector)
+  struct {
+    // sound wave duration
+    float duration_ms;
+    // pitch diff or base pitch of sound
+    int32_t key;
+    // volume of sound (default 1.0f)
+    float volume;
+    // bmson attribute. (loop)
+    bool restart;
+  } effect;
 
   // longnote / chain data
   // main reason why SoundNote object requires move constructor.
   std::vector<NoteChain> chains;
 
-  // @description bmson attribute. (loop)
-  bool restart;
   bool operator==(const SoundNote &other) const noexcept;
 private:
   virtual std::string getValueAsString() const;

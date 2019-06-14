@@ -49,6 +49,7 @@ struct VOSNoteDataV2 {
 
   // -- additional information --
   uint8_t lane;
+  uint8_t inst;
 };
 
 struct VOSNoteDataV3 {
@@ -469,6 +470,7 @@ bool ChartLoaderVOS::ParseNoteDataV2()
       vnote->duration = static_cast<uint32_t>(stream.GetUInt32() * kVOSTimeConstant);
       vnote->dummy2 = stream.GetUInt8();      // 00 ~ 04? unknown
       vnote->lane = 0;
+      vnote->inst = channel;
       vnotes.push_back(vnote);
       if (vnote->istappable)
         vnote_tappable[_tappable_cnt++] = vnote;
@@ -503,8 +505,10 @@ bool ChartLoaderVOS::ParseNoteDataV2()
   SoundNote n;
   for (auto *p : vnotes)
   {
-    // TODO ! in midi time
+    // XXX in midi time ... time pos or beat pos?
     n.SetBeatPos(p->time / (double)timedivision_);
+    n.SetMidiNote(p->duration, p->pitch, p->volume / 127.0f);
+    n.value = p->inst;
     if (p->istappable)
     {
       n.SetAsTapNote(0, p->lane);
@@ -547,8 +551,9 @@ bool ChartLoaderVOS::ParseNoteDataV3()
       uint8_t islongnote = (note.type & 0b01000000000000000) > 0;
       uint8_t keybits = (note.type >> 4) & 0b0111;
 
-      // TODO !!
       n.SetBeatPos(note.time / (double)timedivision_);
+      n.SetMidiNote(note.duration, note.midikey, note.vol / 127.0f);
+      n.value = midiinstrument;
       if (segment_idx == 16 && istappable)
       {
         n.SetAsTapNote(0, keybits);
