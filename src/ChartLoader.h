@@ -95,8 +95,9 @@ private:
   bool ParseMIDI();
 
   struct MIDIProgramInfo {
-    uint8_t cmdtype;
-    char cmd[2];
+    uint8_t lastcmd, cmd, a, b;
+    int len;
+    std::string text;
   };
 
   class BinaryStream {

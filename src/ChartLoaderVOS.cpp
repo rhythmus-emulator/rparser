@@ -65,17 +65,6 @@ struct VOSNoteDataV3 {
 #define MIDISIG_LENGTH 2
 #define MIDISIG_NULLCMPR 0xFF /* this byte wont be compared */
 
-unsigned char MIDISIG_BYTE[MIDISIG_TYPES][MIDISIG_LENGTH] = {
-  {0xFF, 0x21},
-  {0xFF, 0x03},
-  {0xFF, 0x2F},
-  {0xFF, 0x51},
-  {0xFF, 0x58},
-  {0xFF, 0x59},
-  {0xFF, 0x20},
-  {0xFF, 0x00},
-};
-
 // https://www.csie.ntu.edu.tw/~r92092/ref/midi/#sysex_event
 enum class MIDISIG: int {
   MIDISIG_DUMMY=0, // output port
@@ -83,9 +72,8 @@ enum class MIDISIG: int {
   MIDISIG_END,
   MIDISIG_TEMPO,
   MIDISIG_MEASURE,
-  MIDISIG_KEYSIG,
-  MIDISIG_CHANNEL,
-  MIDISIG_SEQNUM,
+  MIDISIG_META_OTHERS,
+  MIDISIG_SYSEX,
   // -- below is for program --
   MIDISIG_PROGRAM,
   MIDISIG_PROGRAM_RUNNING,
@@ -105,13 +93,13 @@ void ChartLoaderVOS::BinaryStream::SetSource(const void* p, size_t len)
 void ChartLoaderVOS::BinaryStream::SeekSet(size_t cnt)
 {
   offset_ = cnt;
-  ASSERT(offset_ < len_);
+  ASSERT(offset_ <= len_);
 }
 
 void ChartLoaderVOS::BinaryStream::SeekCur(size_t cnt)
 {
   offset_ += cnt;
-  ASSERT(offset_ < len_);
+  ASSERT(offset_ <= len_);
 }
 
 int32_t ChartLoaderVOS::BinaryStream::ReadInt32()
@@ -128,7 +116,7 @@ int32_t ChartLoaderVOS::BinaryStream::GetInt32()
 {
   int32_t r = *reinterpret_cast<const int32_t*>((uint8_t*)p_ + offset_);
   offset_ += sizeof(int32_t);
-  ASSERT(offset_ < len_);
+  ASSERT(offset_ <= len_);
   return r;
 }
 
@@ -136,7 +124,7 @@ uint32_t ChartLoaderVOS::BinaryStream::GetUInt32()
 {
   uint32_t r = *reinterpret_cast<const uint32_t*>((uint8_t*)p_ + offset_);
   offset_ += sizeof(uint32_t);
-  ASSERT(offset_ < len_);
+  ASSERT(offset_ <= len_);
   return r;
 }
 
@@ -144,7 +132,7 @@ uint16_t ChartLoaderVOS::BinaryStream::GetUInt16()
 {
   uint16_t r = *reinterpret_cast<const uint16_t*>((uint8_t*)p_ + offset_);
   offset_ += sizeof(uint16_t);
-  ASSERT(offset_ < len_);
+  ASSERT(offset_ <= len_);
   return r;
 }
 
@@ -152,7 +140,7 @@ uint8_t ChartLoaderVOS::BinaryStream::GetUInt8()
 {
   uint8_t r = *reinterpret_cast<const uint8_t*>((uint8_t*)p_ + offset_);
   offset_ += sizeof(uint8_t);
-  ASSERT(offset_ < len_);
+  ASSERT(offset_ <= len_);
   return r;
 }
 
@@ -160,7 +148,7 @@ void ChartLoaderVOS::BinaryStream::GetChar(char *out, size_t cnt)
 {
   memcpy(out, (uint8_t*)p_ + offset_, cnt);
   offset_ += cnt;
-  ASSERT(offset_ < len_);
+  ASSERT(offset_ <= len_);
 }
 
 int ChartLoaderVOS::BinaryStream::GetOffset()
@@ -168,14 +156,21 @@ int ChartLoaderVOS::BinaryStream::GetOffset()
   return offset_;
 }
 
-int ChartLoaderVOS::BinaryStream::GetMSFixedInt(uint8_t bytesize)
+inline int GetMSFixedInt_internal(const uint8_t *p, uint8_t len)
 {
   int r = 0;
-  for (int i = 0; i < bytesize; i++)
+  for (int i = 0; i < len; i++)
   {
-    r = (r << 8) + *((uint8_t*)p_ + offset_);
-    offset_++;
+    r = (r << 8) + *p;
+    p++;
   }
+  return r;
+}
+
+int ChartLoaderVOS::BinaryStream::GetMSFixedInt(uint8_t bytesize)
+{
+  int r = GetMSFixedInt_internal((uint8_t*)p_ + offset_, bytesize);
+  offset_ += bytesize;
   return r;
 }
 
@@ -194,56 +189,66 @@ int ChartLoaderVOS::BinaryStream::GetMSInt()
 
 MIDISIG ChartLoaderVOS::BinaryStream::GetMidiSignature(MIDIProgramInfo &mprog)
 {
-  uint8_t buf[20];
-  GetChar((char*)buf, MIDISIG_LENGTH);
   MIDISIG r = MIDISIG::MIDISIG_OTHERS;
-  if (buf[0] < 0xF0)
+  mprog.cmd = GetUInt8();
+  mprog.a = mprog.b = 0;
+  mprog.len = 0;
+  mprog.text.clear();
+  char buf[256];
+
+  // check SYSEX event first
+  if (mprog.cmd == 0xF0 || mprog.cmd == 0xF7)
   {
-    /** Channel Message */
-    r = MIDISIG::MIDISIG_PROGRAM;
-    uint8_t *st_buf = buf + 1;
-    uint8_t st_len = 2;
+    // XXX: informing necessary?
+    std::cerr << "MIDI Sysex event found, going to be ignored." << std::endl;
+    mprog.len = GetMSInt();
+    GetChar(buf, mprog.len);
+    mprog.text.assign(buf, mprog.len);
+    return MIDISIG::MIDISIG_SYSEX;
+  }
 
-    if (buf[0] <= 0x80)
-    {
-      /** MUST BE RUNNING STATUS */
-      ASSERT(mprog.cmdtype != 0);
-      st_buf = buf;
-    }
-    else
-    {
-      mprog.cmdtype = buf[0];
-      buf[2] = GetUInt8();
-    }
-
-    if ((0xC0 < mprog.cmdtype) && (mprog.cmdtype < 0xE0))
-    {
-      st_len = 1;
-      offset_--;
-    }
-
-    mprog.cmd[0] = st_buf[0];
-    mprog.cmd[1] = (st_len == 1) ? 0 : st_buf[1];
+  if (mprog.cmd < 0x80)
+  {
+    // running status. use previous command
+    ASSERT(mprog.lastcmd > 0);
+    mprog.a = mprog.cmd;
+    mprog.cmd = mprog.lastcmd;
   }
   else
   {
-    /** Event Message */
-    mprog.cmdtype = 0;  // clear running status flag
-
-    if (buf[0] == 0xF0 || buf[0] == 0xF7)
-    {
-      std::cerr << "MIDI Sysex event found, going to be ignored." << std::endl;
-      return r;
-    }
-
-    for (int i = 0; i < MIDISIG_TYPES; i++) {
-      if (memcmp(buf, MIDISIG_BYTE[i], MIDISIG_LENGTH) == 0)
-      {
-        r = (MIDISIG)i;
-        break;
-      }
-    }
+    mprog.lastcmd = mprog.cmd;
+    mprog.a = GetUInt8();
   }
+
+  // check for meta event
+  if (mprog.cmd == 0xFF)
+  {
+    // basic form of meta event
+    mprog.len = GetMSInt();
+    GetChar(buf, mprog.len);
+    mprog.text.assign(buf, mprog.len);
+
+    // check for some special commands (TEMPO, EOT)
+    if (mprog.a == 0x2F) return MIDISIG::MIDISIG_END;
+    else if (mprog.a == 0x51) return MIDISIG::MIDISIG_TEMPO;
+    else if (mprog.a == 0x58) return MIDISIG::MIDISIG_MEASURE;
+    else return MIDISIG::MIDISIG_META_OTHERS;
+  }
+
+  // check voice message: if it is necessary to parse second parameter
+  switch ((mprog.cmd >> 4) & 0x07)
+  {
+  case 0: /* Note off */
+  case 1: /* Note on */
+  case 2: /* Key pressure */
+  case 3: /* Control change */
+  case 6: /* Pitch wheel */
+    mprog.b = GetUInt8();
+    break;
+  }
+
+  if (mprog.cmd < 0xF0)
+    r = MIDISIG::MIDISIG_PROGRAM;
 
   return r;
 }
@@ -625,7 +630,7 @@ bool ChartLoaderVOS::ParseMIDI()
   uint32_t val, val2;
 
   int trackidx = 0;
-  do {
+  do {  /* loop for each MIDI file */
     stream.GetChar(buf, 4);
     if (memcmp(buf, "MTrk", 4) != 0)
       break;
@@ -635,60 +640,54 @@ bool ChartLoaderVOS::ParseMIDI()
 
     MIDISIG midisig = MIDISIG::MIDISIG_DUMMY;
     MIDIProgramInfo mprog;
-    mprog.cmdtype = 0;
+    memset(&mprog, 0, sizeof(MIDIProgramInfo));
     int delta = 0;  // delta tick(position) from previous event.
     int ticks = 0;  // current midi event position (tick). 480 tick: 1 measure (4 beat), mostly.
-    int byte_len = 0;
     bool is_midisegment_end = false;
-    do {
+
+    do { /* loop for each MIDI command in MIDI file */
       delta = stream.GetMSInt();
       midisig = stream.GetMidiSignature(mprog);
-      ASSERT(stream.GetOffset() < offset_cur + tracksize);
       ticks += delta;
       cur_beat = (double)ticks / timedivision;
-
-      if (midisig != MIDISIG::MIDISIG_PROGRAM)
-        byte_len = stream.GetMSInt();
+#if 0
+      std::cout << (int)mprog.cmd << " "
+        << (int)mprog.a << " "
+        << (int)mprog.b << std::endl;
+#endif
+      ASSERT(stream.GetOffset() <= offset_cur + tracksize);
 
       switch (midisig)
       {
-      case MIDISIG::MIDISIG_PROGRAM:
-        en.SetBeatPos(cur_beat);
-        en.SetMidiCommand(mprog.cmdtype, mprog.cmd[0], mprog.cmd[1]);
-        ed.AddNote(en);
-        break;
       case MIDISIG::MIDISIG_TEMPO:
-        ASSERT(byte_len == 3);
-        val = stream.GetMSFixedInt(3);
+        val = GetMSFixedInt_internal((uint8_t*)mprog.text.c_str(), 3);
         tn.SetBeatPos(cur_beat);
         tn.SetBpm(60'000'000 / timedivision * 120 / (double)val);
         tnd.AddNote(tn);
         break;
       case MIDISIG::MIDISIG_MEASURE:
-        val = stream.GetUInt8();
-        val2 = stream.GetUInt8();
-        stream.GetUInt8();  // useless
-        stream.GetUInt8();  // useless
+        val = mprog.text.c_str()[0];
+        val2 = mprog.text.c_str()[1];
         tn.SetBeatPos(cur_beat);
         tn.SetMeasure(4.0 * val / val2);
         tnd.AddNote(tn);
         break;
-      case MIDISIG::MIDISIG_KEYSIG:
-        // TODO: special object
-        break;
-      case MIDISIG::MIDISIG_CHANNEL:
-        // TODO: special object
-        break;
-      case MIDISIG::MIDISIG_SEQNUM:
-        // TODO: special object
-        break;
       case MIDISIG::MIDISIG_END:
-        ASSERT(byte_len == 0);
         is_midisegment_end = true;
         break;
+      case MIDISIG::MIDISIG_SYSEX:
+        // ignore
+        break;
+      case MIDISIG::MIDISIG_META_OTHERS:
+      case MIDISIG::MIDISIG_PROGRAM:
+      case MIDISIG::MIDISIG_OTHERS:
+        // all of other metas & program info
+        en.SetBeatPos(cur_beat);
+        en.SetMidiCommand(mprog.cmd, mprog.a, mprog.b);
+        ed.AddNote(en);
+        break;
       default:
-        // do nothing
-        stream.GetChar(buf_midi, byte_len);
+        ASSERT(0);
       }
     } while (!is_midisegment_end);
     trackidx ++;
