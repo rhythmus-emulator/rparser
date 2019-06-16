@@ -203,7 +203,7 @@ MIDISIG ChartLoaderVOS::BinaryStream::GetMidiSignature(MIDIProgramInfo &mprog)
     std::cerr << "MIDI Sysex event found, going to be ignored." << std::endl;
     mprog.len = GetMSInt();
     GetChar(buf, mprog.len);
-    mprog.text.assign(buf, mprog.len);
+    mprog.text = std::string(buf, mprog.len);
     return MIDISIG::MIDISIG_SYSEX;
   }
 
@@ -226,7 +226,7 @@ MIDISIG ChartLoaderVOS::BinaryStream::GetMidiSignature(MIDIProgramInfo &mprog)
     // basic form of meta event
     mprog.len = GetMSInt();
     GetChar(buf, mprog.len);
-    mprog.text.assign(buf, mprog.len);
+    mprog.text = std::string(buf, mprog.len);
 
     // check for some special commands (TEMPO, EOT)
     if (mprog.a == 0x2F) return MIDISIG::MIDISIG_END;
@@ -247,8 +247,10 @@ MIDISIG ChartLoaderVOS::BinaryStream::GetMidiSignature(MIDIProgramInfo &mprog)
     break;
   }
 
+#if 0
   if (mprog.cmd < 0xF0)
     r = MIDISIG::MIDISIG_PROGRAM;
+#endif
 
   return r;
 }
@@ -558,7 +560,7 @@ bool ChartLoaderVOS::ParseNoteDataV3()
 
       n.SetBeatPos(note.time / (double)timedivision_);
       n.SetMidiNote(note.duration, note.midikey, note.vol / 127.0f);
-      n.value = midiinstrument;
+      n.value = (note.midicmd & 0x0F);
       if (segment_idx == 16 && istappable)
       {
         n.SetAsTapNote(0, keybits);
@@ -651,7 +653,7 @@ bool ChartLoaderVOS::ParseMIDI()
       ticks += delta;
       cur_beat = (double)ticks / timedivision;
 #if 0
-      std::cout << (int)mprog.cmd << " "
+      std::cout << (int)ticks << "/" << (int)mprog.cmd << " "
         << (int)mprog.a << " "
         << (int)mprog.b << std::endl;
 #endif
@@ -679,6 +681,8 @@ bool ChartLoaderVOS::ParseMIDI()
         // ignore
         break;
       case MIDISIG::MIDISIG_META_OTHERS:
+        // ignore other metas
+        break;
       case MIDISIG::MIDISIG_PROGRAM:
       case MIDISIG::MIDISIG_OTHERS:
         // all of other metas & program info
