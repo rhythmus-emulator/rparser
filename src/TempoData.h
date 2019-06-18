@@ -69,6 +69,7 @@ public:
   void clear();
   void swap(TempoData& tempodata);
   NoteData<TempoNote>& GetTempoNoteData();
+  const NoteData<TempoNote>& GetTempoNoteData() const;
   void Invalidate(const MetaData& m);
 
   void SetFirstObjectFromMetaData(const MetaData &md);

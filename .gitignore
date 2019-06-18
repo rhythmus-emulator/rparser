@@ -9,3 +9,4 @@ lib_*/
 CMakeFiles
 test/lib/
 test/rutil/test
+test/out_*

@@ -174,11 +174,11 @@ public:
   bool IsLongnote() const;
   bool IsScoreable() const;
 
-  uint8_t GetPlayer();
-  uint8_t GetLane();
-  uint8_t GetBGMCol();
-  uint8_t GetX();
-  uint8_t GetY();
+  uint8_t GetPlayer() const;
+  uint8_t GetLane() const;
+  uint8_t GetBGMCol() const;
+  uint8_t GetX() const;
+  uint8_t GetY() const;
 
   // basic note attributes
   NoteTrack track;

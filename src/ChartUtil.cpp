@@ -29,6 +29,145 @@ void NoteSelection::Clear()
 	m_vNotes.clear();
 }
 
+class HTMLExporter
+{
+public:
+  HTMLExporter();
+  void PushIndent();
+  void PopIndent();
+  std::stringstream& line();
+private:
+  unsigned indentlevel_;
+  std::stringstream ss_;
+};
+
+HTMLExporter::HTMLExporter()
+  : indentlevel_(0) {}
+
+void HTMLExporter::PushIndent() { indentlevel_++; }
+void HTMLExporter::PopIndent() { if (indentlevel_ > 0) indentlevel_--; }
+std::stringstream& HTMLExporter::line()
+{
+  ss_ << std::endl;
+  for (unsigned i = 0; i < indentlevel_; ++i)
+    ss_ << "\t";
+  return ss_;
+}
+
+void ExportToHTML(const Chart &c, std::string& out)
+{
+  HTMLExporter e;
+
+  auto &md = c.GetMetaData();
+  auto &nd = c.GetNoteData();
+  auto &ed = c.GetEventNoteData();
+  auto &td = c.GetTempoData();
+  auto &tnd = td.GetTempoNoteData();
+
+  // STEP 1. Metadata
+  {
+    e.line() << "<div id='metadata' class='content metadata'>";
+    e.PushIndent();
+    e.line() << "<span class='title'>Metadata Info</span>";
+    // meta related with metadata
+    e.line() << "<span class='desc meta_title'><span class='label'>Title</span><span class='text'>" << md.title <<
+      "<span class='meta_subtitle'>" << md.subtitle << "</span>" << "</span></span>";
+    e.line() << "<span class='desc meta_artist'><span class='label'>Artist</span><span class='text'>" << md.artist <<
+      "<span class='meta_subartist'>" << md.subartist << "</span>" << "</span></span>";
+    e.line() << "<span class='desc meta_level'><span class='label'>Level</span><span class='text'>" << md.level << "</span></span>";
+    e.line() << "<span class='desc meta_bpm'><span class='label'>BPM</span><span class='text'>" << md.bpm << "</span></span>";
+    e.line() << "<span class='desc meta_total'><span class='label'>Gauge Total</span><span class='text'>" << md.gauge_total << "</span></span>";
+    e.line() << "<span class='desc meta_diff'><span class='label'>Difficulty</span><span class='text'>" << md.difficulty << "</span></span>";
+    // meta related with notedata
+    e.line() << "<span class='desc meta_notecount'><span class='label'>Note Count</span><span class='text'>" << c.GetScoreableNoteCount() << "</span></span>";
+    // meta related with eventdata
+    e.line() << "<span class='desc meta_eventcount'><span class='label'>Event Count</span><span class='text'>" << ed.size() << "</span></span>";
+    // meta related with tempodata
+    e.line() << "<span class='desc meta_maxbpm'><span class='label'>Max BPM</span><span class='text'>" << td.GetMaxBpm() << "</span></span>";
+    e.line() << "<span class='desc meta_minbpm'><span class='label'>Min BPM</span><span class='text'>" << td.GetMinBpm() << "</span></span>";
+    e.line() << "<span class='desc meta_isbpmchange'><span class='label'>BPM Change?</span><span class='text'>" << (td.HasBpmChange() ? "Yes" : "No") << "</span></span>";
+    e.line() << "<span class='desc meta_hasstop'><span class='label'>BPM Change?</span><span class='text'>" << (td.HasStop() ? "Yes" : "No") << "</span></span>";
+    e.line() << "<span class='desc meta_haswarp'><span class='label'>STOP?</span><span class='text'>" << (td.HasWarp() ? "Yes" : "No") << "</span></span>";
+    e.line() << "<span class='desc meta_haswarp'><span class='label'>WARP?</span><span class='text'>" << (td.HasWarp() ? "Yes" : "No") << "</span></span>";
+    uint32_t lasttime = static_cast<uint32_t>(c.GetSongLastObjectTime());
+    char lasttime_str[3][3];
+    sprintf(lasttime_str[0], "%02d", lasttime / 3600000);
+    sprintf(lasttime_str[1], "%02d", lasttime / 60000 % 60);
+    sprintf(lasttime_str[2], "%02d", lasttime / 1000 % 60);
+    e.line() << "<span class='desc meta_songlength'><span class='label'>Song Length</span><span class='text'>" <<
+      lasttime_str[0] << ":" << lasttime_str[1] << ":" << lasttime_str[2] << "</span></span>";
+    e.PopIndent();
+    e.line() << "</div>";
+  }
+
+  // STEP 2. Render objects
+  {
+    e.line() << "<div id='notedata' class='content notedata'>";
+    e.PushIndent();
+
+    // each measure has each div box
+    uint32_t measure_idx = 1;
+    uint32_t nd_idx = 0, ed_idx = 0, td_idx = 0;
+    while (nd_idx < nd.size() && ed_idx < ed.size() && td_idx < tnd.size())
+    {
+      double beat = td.GetBeatFromRow(measure_idx);
+
+      // measure start.
+      e.line() << "<div id='measure" << measure_idx << "' class='measurebox'" <<
+        " data-length=" << td.GetMeasureFromBeat(beat) << " data-beat=" << beat << ">";
+      e.PushIndent();
+
+      // STEP 2-1. NoteData
+      while (nd_idx < nd.size() && nd.get(nd_idx).pos().measure < measure_idx)
+      {
+        /* XXX: don't use continue here; MUST go through full loop. */
+        auto &n = nd.get(nd_idx);
+        if (n.type() == NoteTypes::kTap)
+        {
+          double ypos = (n.pos().measure - (int)n.pos().measure) * 100;
+          e.line() << "<div id='nd" << nd_idx << "' class='chartobject noteobject lane" << (int)n.GetLane() <<
+            "' style='top:" << (int)ypos << "%'" << /* style end */
+            " data-x=" << (int)n.GetLane() << " data-y=" << (int)ypos << " data-beat=" << n.beat << /* data end */
+            "></div>";
+        }
+        nd_idx++;
+      }
+      // STEP 2-2. TempoData
+      while (td_idx < tnd.size() && tnd.get(td_idx).pos().measure < measure_idx)
+      {
+        auto &n = tnd.get(td_idx);
+        double ypos = (n.pos().measure - (int)n.pos().measure) * 100;
+        e.line() << "<div id='td" << td_idx << "' class='chartobject tempoobject" <<
+          "' style='top:" << (int)ypos << "%'" << /* style end */
+          " data-y=" << (int)ypos << " data-beat=" << n.beat << /* data end */
+          "></div>";
+        td_idx++;
+      }
+      // STEP 2-3. EventData
+      while (ed_idx < ed.size() && ed.get(ed_idx).pos().measure < measure_idx)
+      {
+        auto &n = ed.get(ed_idx);
+        double ypos = (n.pos().measure - (int)n.pos().measure) * 100;
+        e.line() << "<div id='ed" << ed_idx << "' class='chartobject eventobject" <<
+          "' style='top:" << (int)ypos << "%'" << /* style end */
+          " data-y=" << (int)ypos << " data-beat=" << n.beat << /* data end */
+          "></div>";
+        ed_idx++;
+      }
+
+      // measure end.
+      e.PopIndent();
+      e.line() << "</div>";
+      measure_idx++;
+    }
+
+    e.PopIndent();
+    e.line() << "</div>";
+  }
+
+  out = e.line().str();
+}
+
 void ClipRange(Chart &c, double beat_start, double beat_end)
 {
   // TODO

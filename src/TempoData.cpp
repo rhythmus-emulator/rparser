@@ -578,4 +578,9 @@ NoteData<TempoNote>& TempoData::GetTempoNoteData()
   return temponotedata_;
 }
 
+const NoteData<TempoNote>& TempoData::GetTempoNoteData() const
+{
+  return const_cast<TempoData*>(this)->GetTempoNoteData();
+}
+
 }

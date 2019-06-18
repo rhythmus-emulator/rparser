@@ -327,31 +327,31 @@ bool SoundNote::IsScoreable() const
   return type() == NoteTypes::kTap || type() == NoteTypes::kTouch;
 }
 
-uint8_t SoundNote::GetPlayer()
+uint8_t SoundNote::GetPlayer() const
 {
   ASSERT(type() == NoteTypes::kTap);
   return track.lane.note.player;
 }
 
-uint8_t SoundNote::GetLane()
+uint8_t SoundNote::GetLane() const
 {
   ASSERT(type() == NoteTypes::kTap);
   return track.lane.note.lane;
 }
 
-uint8_t SoundNote::GetBGMCol()
+uint8_t SoundNote::GetBGMCol() const
 {
   ASSERT(type() == NoteTypes::kBGM);
   return track.lane.note.lane;
 }
 
-uint8_t SoundNote::GetX()
+uint8_t SoundNote::GetX() const
 {
   ASSERT(type() == NoteTypes::kTouch);
   return track.lane.touch.x;
 }
 
-uint8_t SoundNote::GetY()
+uint8_t SoundNote::GetY() const
 {
   ASSERT(type() == NoteTypes::kTouch);
   return track.lane.touch.y;

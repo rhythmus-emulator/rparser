@@ -37,6 +37,12 @@ void AddNote(const Note& n, bool overwrite = true);
 void AddTapNote(RowPos iRow, unsigned int lane);
 void AddLongNote(RowPos iRow, unsigned int lane, RowPos iLength);
 
+/**
+ * Export chart data (metadata, notedata, events etc ...) to HTML format.
+ * CSS and other necessary things should be made by oneself ...
+ */
+void ExportToHTML(const Chart &c, std::string& out);
+
 struct SortedNoteObjects
 {
   std::vector<Note*> nobj_by_beat;

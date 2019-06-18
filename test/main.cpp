@@ -1,6 +1,7 @@
 ﻿#include <iostream>
 #include <gtest/gtest.h>
 #include "Song.h"
+#include "ChartUtil.h"
 using namespace std;
 using namespace rparser;
 
@@ -515,6 +516,25 @@ TEST(RPARSER, BMS_STRESS)
     /** Comment: Beat of last note is nearly 179.5 ~= 180 */
     EXPECT_NEAR(78'000, c->GetSongLastScorableObjectTime(), 1'000);    // about 1m'18s
   }
+
+  song.Close();
+}
+
+TEST(RPARSER, BMS_HTML_EXPORT)
+{
+  const auto songpath = "chart_sample/103.vos";
+  Song song;
+  ASSERT_TRUE(song.Open(BASE_DIR + songpath));
+  Chart *c = song.GetChart(0);
+  c->Invalidate();
+
+  std::string html;
+  ExportToHTML(*c, html);
+
+  FILE *fp = rutil::fopen_utf8(BASE_DIR + "out_103_vos.html", "wb");
+  ASSERT_TRUE(fp);
+  fwrite(html.c_str(), 1, html.size(), fp);
+  fclose(fp);
 
   song.Close();
 }
