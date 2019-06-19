@@ -181,6 +181,11 @@ void InvalidateNoteDataPos(NoteData<N>& nd, const TempoData& tempodata_)
     nobj->pos().time_msec = v_beat_to_time[t_idx++];
   for (Note* nobj : sorted.nobj_by_tempo)
     nobj->pos().beat = v_time_to_beat[b_idx++];
+  // Fill beat --> row if beat pos type
+  const std::vector<double>&& v_beat_to_row = tempodata_.GetMeasureFromBeatArr(v_beat);
+  t_idx = 0;
+  for (Note* nobj : sorted.nobj_by_beat)
+    nobj->pos().measure = v_beat_to_row[t_idx++];
 }
 
 void Chart::InvalidateAllNotePos()
@@ -221,8 +226,11 @@ void Chart::InvalidateNotePos(Note &nobj)
       break;
     case NotePosTypes::Bar:
       npos.beat = tempodata_.GetBeatFromRow(npos.measure);
+      npos.time_msec = tempodata_.GetTimeFromBeat(npos.beat);
+      break;
     case NotePosTypes::Beat:
       npos.time_msec = tempodata_.GetTimeFromBeat(npos.beat);
+      npos.measure = tempodata_.GetMeasureFromBeat(npos.beat);
       break;
   }
 }
@@ -235,6 +243,7 @@ void Chart::InvalidateTempoData()
 void Chart::Invalidate()
 {
   metadata_.SetMetaFromAttribute();
+  metadata_.SetUtf8Encoding();
   InvalidateTempoData();
   InvalidateAllNotePos();
 }

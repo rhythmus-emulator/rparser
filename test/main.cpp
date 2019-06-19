@@ -522,7 +522,7 @@ TEST(RPARSER, BMS_STRESS)
 
 TEST(RPARSER, BMS_HTML_EXPORT)
 {
-  const auto songpath = "chart_sample/103.vos";
+  const auto songpath = "chart_sample/24.vos";
   Song song;
   ASSERT_TRUE(song.Open(BASE_DIR + songpath));
   Chart *c = song.GetChart(0);
@@ -533,7 +533,16 @@ TEST(RPARSER, BMS_HTML_EXPORT)
 
   FILE *fp = rutil::fopen_utf8(BASE_DIR + "out_103_vos.html", "wb");
   ASSERT_TRUE(fp);
+
+  std::string t;
+  t = "<html><head><link rel='stylesheet' href='style.css' type='text/css'></head><body>";
+  fwrite(t.c_str(), 1, t.size(), fp);
+
   fwrite(html.c_str(), 1, html.size(), fp);
+
+  t = "</body></html>";
+  fwrite(t.c_str(), 1, t.size(), fp);
+
   fclose(fp);
 
   song.Close();

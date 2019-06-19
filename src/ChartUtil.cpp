@@ -69,6 +69,8 @@ void ExportToHTML(const Chart &c, std::string& out)
     e.line() << "<div id='metadata' class='content metadata'>";
     e.PushIndent();
     e.line() << "<span class='title'>Metadata Info</span>";
+    // meta related with song
+    e.line() << "<span class='desc meta_title'><span class='label'>Filename</span><span class='text'>" << c.GetFilename() << "</span></span>";
     // meta related with metadata
     e.line() << "<span class='desc meta_title'><span class='label'>Title</span><span class='text'>" << md.title <<
       "<span class='meta_subtitle'>" << md.subtitle << "</span>" << "</span></span>";
@@ -108,7 +110,7 @@ void ExportToHTML(const Chart &c, std::string& out)
     // each measure has each div box
     uint32_t measure_idx = 1;
     uint32_t nd_idx = 0, ed_idx = 0, td_idx = 0;
-    while (nd_idx < nd.size() && ed_idx < ed.size() && td_idx < tnd.size())
+    while (nd_idx < nd.size() || ed_idx < ed.size() || td_idx < tnd.size())
     {
       double beat = td.GetBeatFromRow(measure_idx);
 
@@ -116,6 +118,7 @@ void ExportToHTML(const Chart &c, std::string& out)
       e.line() << "<div id='measure" << measure_idx << "' class='measurebox'" <<
         " data-length=" << td.GetMeasureFromBeat(beat) << " data-beat=" << beat << ">";
       e.PushIndent();
+      e.line() << "<div class='measureno'>" << measure_idx << "</div>";
 
       // STEP 2-1. NoteData
       while (nd_idx < nd.size() && nd.get(nd_idx).pos().measure < measure_idx)

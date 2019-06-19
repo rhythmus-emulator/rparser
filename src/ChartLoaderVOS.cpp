@@ -307,6 +307,8 @@ bool ChartLoaderVOS::Load( Chart &c, const void* p, int len ) {
 
   if (!ParseMIDI()) return false;
 
+  c.GetNoteData().SortByBeat();
+
   return true;
 }
 

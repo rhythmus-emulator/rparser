@@ -311,6 +311,19 @@ std::vector<double> TempoData::GetTimeFromBeatArr(const std::vector<double>& sor
   return r_time;
 }
 
+std::vector<double> TempoData::GetMeasureFromBeatArr(const std::vector<double>& sorted_beat) const
+{
+  std::vector<double> r_m;
+  size_t idx = 0;
+  for (double beat : sorted_beat)
+  {
+    // go to next segment if available.
+    if (idx + 1 < barobjs_.size() && beat > barobjs_[idx + 1].beatpos_) idx++;
+    r_m.push_back(barobjs_[idx].baridx_ + (beat - barobjs_[idx].beatpos_) / barobjs_[idx].barlength_);
+  }
+  return r_m;
+}
+
 std::vector<double> TempoData::GetBeatFromTimeArr(const std::vector<double>& sorted_time) const
 {
   std::vector<double> r_beat;

@@ -56,6 +56,7 @@ public:
   double GetBeatFromTime(double time) const;
   double GetBeatFromRow(double row) const;
   std::vector<double> GetTimeFromBeatArr(const std::vector<double>& sorted_beat) const;
+  std::vector<double> GetMeasureFromBeatArr(const std::vector<double>& sorted_beat) const;
   std::vector<double> GetBeatFromTimeArr(const std::vector<double>& sorted_time) const;
   std::vector<double> GetBeatFromBarArr(const std::vector<double>& sorted_row) const;
   double GetMeasureFromBeat(double beat) const;
