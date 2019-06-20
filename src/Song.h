@@ -91,6 +91,9 @@ private:
   std::string errormsg_detailed_;
 };
 
+SONGTYPE GetSongTypeByName(const std::string& filename);
+const char* GetExtensionBySongType(SONGTYPE iType);
+
 }
 
 #endif

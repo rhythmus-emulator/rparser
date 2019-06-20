@@ -1,5 +1,6 @@
 #include "Chart.h"
 #include "ChartUtil.h"
+#include "Song.h"
 #include "rutil.h"
 
 using namespace rutil;
@@ -7,11 +8,16 @@ using namespace rutil;
 namespace rparser
 {
 
-Chart::Chart()
+Chart::Chart() : parent_song_(nullptr)
 {
 }
 
+/*
+ * This copy constructor should be used when making duplicated chart
+ * So, set same parent as original one.
+ */
 Chart::Chart(const Chart &nd)
+  : parent_song_(nd.parent_song_)
 {
   for (const auto& note : nd.notedata_)
   {
@@ -151,6 +157,15 @@ bool Chart::HasLongnote() const
   return false;
 }
 
+uint8_t Chart::GetPlayLaneCount() const
+{
+  uint8_t r = 0;
+  for (auto &nd : notedata_)
+    if (nd.IsScoreable() && r < nd.GetLane())
+      r = nd.GetLane() + 1;
+  return r;
+}
+
 template<typename N>
 void InvalidateNoteDataPos(NoteData<N>& nd, const TempoData& tempodata_)
 {
@@ -280,6 +295,18 @@ std::string Chart::GetFilename() const
 void Chart::SetFilename(const std::string& filename)
 {
   filename_ = filename;
+}
+
+void Chart::SetParent(Song *song)
+{
+  parent_song_ = song;
+}
+
+SONGTYPE Chart::GetSongType() const
+{
+  if (parent_song_)
+    return parent_song_->GetSongType();
+  else return SONGTYPE::NONE;
 }
 
 void ConditionalChart::AddSentence(unsigned int cond, Chart* chartdata)

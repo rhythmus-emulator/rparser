@@ -55,8 +55,8 @@ body
 #notedata .measurebox
 {
     position: relative; /* for each of noteobject */
-    display: inline-block;
-    width: 600px; height: 480px;
+    overflow: hidden; clear: both;
+    width: 360px; height: 520px;
     background: #0e0e0e;
     border: 1px solid #999;
     border-top: none;
@@ -84,20 +84,31 @@ body
     height: 8px;
     margin-top: -8px;
 }
-#notedata .measurebox .noteobject.lane1
-{ left: 12%; width: 12%; }
-#notedata .measurebox .noteobject.lane2
-{ left: 24%; width: 12%; }
-#notedata .measurebox .noteobject.lane3
-{ left: 36%; width: 12%; }
-#notedata .measurebox .noteobject.lane4
-{ left: 48%; width: 12%; }
-#notedata .measurebox .noteobject.lane5
-{ left: 60%; width: 12%; }
-#notedata .measurebox .noteobject.lane6
-{ left: 72%; width: 12%; }
-#notedata .measurebox .noteobject.lane7
-{ left: 84%; width: 12%; }
+
+/* VOS / O2JAM */
+.playlane-7key #notedata .measurebox .noteobject.lane0
+{ left: 0%; width: 14%; }
+.playlane-7key #notedata .measurebox .noteobject.lane1
+{ left: 14%; width: 14%; }
+.playlane-7key #notedata .measurebox .noteobject.lane2
+{ left: 28%; width: 14%; }
+.playlane-7key #notedata .measurebox .noteobject.lane3
+{ left: 42%; width: 16%; }
+.playlane-7key #notedata .measurebox .noteobject.lane4
+{ left: 58%; width: 14%; }
+.playlane-7key #notedata .measurebox .noteobject.lane5
+{ left: 72%; width: 14%; }
+.playlane-7key #notedata .measurebox .noteobject.lane6
+{ left: 86%; width: 14%; }
+.playlane-7key #notedata .measurebox .noteobject.lane0,
+.playlane-7key #notedata .measurebox .noteobject.lane2,
+.playlane-7key #notedata .measurebox .noteobject.lane4,
+.playlane-7key #notedata .measurebox .noteobject.lane6
+{ background: #9090a0; }
+.playlane-7key #notedata .measurebox .noteobject.lane1,
+.playlane-7key #notedata .measurebox .noteobject.lane3,
+.playlane-7key #notedata .measurebox .noteobject.lane5
+{ background: #a0a0a0; }
 
 #notedata .measurebox .eventobject,
 #notedata .measurebox .tempoobject

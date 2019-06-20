@@ -36,6 +36,9 @@ SONGTYPE GetSongTypeByName(const std::string& filename)
 
 const char* GetExtensionBySongType(SONGTYPE iType)
 {
+  if (iType == SONGTYPE::NONE)
+    return "none";
+
 #define BMS(a,b) {a,b}
   static const std::map<SONGTYPE, const char*> type_2_str_ = {
     BMSTYPES
@@ -77,14 +80,18 @@ Chart* Song::NewChart()
 {
   if (!chartlist_) return 0;
   chartlist_->CloseChartData();
-  return chartlist_->GetChartData(chartlist_->AddNewChart());
+  Chart *c = chartlist_->GetChartData(chartlist_->AddNewChart());
+  c->SetParent(this);   // Set ownership before returning object
+  return c;
 }
 
 Chart* Song::GetChart(int i)
 {
   if (!chartlist_) return 0;
   chartlist_->CloseChartData();
-  return chartlist_->GetChartData(i);
+  Chart *c = chartlist_->GetChartData(i);
+  c->SetParent(this);   // Set ownership before returning object
+  return c;
 }
 
 void Song::CloseChart()

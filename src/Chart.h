@@ -15,6 +15,8 @@ namespace rparser
 {
 
 class ConditionalChart;
+class Song;
+enum class SONGTYPE;
 
 /*
  * @detail
@@ -48,6 +50,7 @@ public:
   double GetSongLastObjectTime() const;
   double GetSongLastScorableObjectTime() const;
   bool HasLongnote() const;
+  uint8_t GetPlayLaneCount() const;
   
   void Clear();
 
@@ -71,12 +74,15 @@ public:
   void SetHash(const std::string& hash);
   std::string GetFilename() const;
   void SetFilename(const std::string& filename);
+  void SetParent(Song *song);
+  SONGTYPE GetSongType() const;
 
 private:
   NoteData<SoundNote> notedata_;
   NoteData<EventNote> cmddata_;
   MetaData metadata_;
   TempoData tempodata_;
+  Song* parent_song_;
   std::vector<ConditionalChart> stmtdata_;
   std::string hash_;
   std::string filename_;

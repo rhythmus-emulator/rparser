@@ -64,6 +64,11 @@ void ExportToHTML(const Chart &c, std::string& out)
   auto &td = c.GetTempoData();
   auto &tnd = td.GetTempoNoteData();
 
+  // STEP 0. Container
+  e.line() << "<div id='rhythmus-container' class='playtype-" << GetExtensionBySongType(c.GetSongType()) <<
+    " playlane-" << (int)c.GetPlayLaneCount() << "key'>";
+  e.PushIndent();
+
   // STEP 1. Metadata
   {
     e.line() << "<div id='metadata' class='content metadata'>";
@@ -71,6 +76,8 @@ void ExportToHTML(const Chart &c, std::string& out)
     e.line() << "<span class='title'>Metadata Info</span>";
     // meta related with song
     e.line() << "<span class='desc meta_title'><span class='label'>Filename</span><span class='text'>" << c.GetFilename() << "</span></span>";
+    e.line() << "<span class='desc meta_filetype'><span class='label'>Filetype</span><span class='text'>" << GetExtensionBySongType(c.GetSongType()) << "</span></span>";
+    e.line() << "<span class='desc meta_playmode'><span class='label'>PlayMode</span><span class='text'>" << (int)c.GetPlayLaneCount() << "Key</span></span>";
     // meta related with metadata
     e.line() << "<span class='desc meta_title'><span class='label'>Title</span><span class='text'>" << md.title <<
       "<span class='meta_subtitle'>" << md.subtitle << "</span>" << "</span></span>";
@@ -134,7 +141,7 @@ void ExportToHTML(const Chart &c, std::string& out)
             "></div>";
         }
         nd_idx++;
-      }
+      } /* TODO: LONGNOTE */
       // STEP 2-2. TempoData
       while (td_idx < tnd.size() && tnd.get(td_idx).pos().measure < measure_idx)
       {
@@ -167,6 +174,9 @@ void ExportToHTML(const Chart &c, std::string& out)
     e.PopIndent();
     e.line() << "</div>";
   }
+
+  e.PopIndent();
+  e.line() << "</div>";
 
   out = e.line().str();
 }
