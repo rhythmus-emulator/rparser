@@ -1,5 +1,6 @@
 #include "ChartUtil.h"
 #include "Song.h"
+#include <list>
 
 /*
  * XXX: rand() method could be distrubed by other program/threads seed reseting.
@@ -164,6 +165,7 @@ void ExportToHTML(const Chart &c, std::string& out)
   {
     e.line() << "<div id='notedata' class='content notedata'>";
     e.PushIndent();
+    std::list<const SoundNote*> longnotes;
 
     // each measure has each div box
     uint32_t measure_idx = 1;
@@ -179,33 +181,35 @@ void ExportToHTML(const Chart &c, std::string& out)
       e.line() << "<div class='measureno'>" << measure_idx << "</div>";
 
       // STEP 2-1-0. NoteData (Continuing Longnote)
-      if (nd_idx > 0)
+      auto lii = longnotes.begin();
+      while (lii != longnotes.end())
       {
-        auto &n = nd.get(nd_idx-1);
-        if (n.IsLongnote() && n.endpos().measure > measure_idx)
+        auto &n = **lii;
+        double endrow = n.endpos().measure;
+        bool is_longnote_end_here = true;
+        if (endrow > measure_idx)
         {
-          double endrow = n.endpos().measure;
-          bool is_longnote_end_here = false;
-          if (endrow > measure_idx + 1)
-          {
-            endrow = measure_idx + 1;
-            is_longnote_end_here = true;
-          }
-          double endpos = (endrow - measure_idx) * 100;
-          e.line() << "<div class='chartobject noteobject longnote longnote_body lane" << (int)n.GetLane() <<
-            "' style='top:0%; height:" << (int)endpos << "%'" << /* style end */
-            " data-x=" << (int)n.GetLane() << " data-beat=" << n.beat <<
+          endrow = measure_idx;
+          is_longnote_end_here = false;
+        }
+        double endpos = (measure_idx - endrow) * 100 + 1 /* round-up */;
+        e.line() << "<div class='chartobject noteobject longnote longnote_body lane" << (int)n.GetLane() <<
+          "' style='top:0%; height:" << (int)endpos << "%'" << /* style end */
+          " data-x=" << (int)n.GetLane() << " data-beat=" << n.beat << " data-time=" << n.time_msec <<
+          " data-id=" << nd_idx-1 << " data-value=" << n.value << /* data end */
+          "></div>";
+        if (is_longnote_end_here)
+        {
+          e.line() << "<div class='chartobject noteobject longnote longnote_end lane" << (int)n.GetLane() <<
+            "' style='top:" << (int)endpos << "%'" << /* style end */
+            " data-x=" << (int)n.GetLane() << " data-beat=" << n.beat << " data-time=" << n.time_msec <<
             " data-id=" << nd_idx-1 << " data-value=" << n.value << /* data end */
             "></div>";
-          if (is_longnote_end_here)
-          {
-            e.line() << "<div class='chartobject noteobject longnote longnote_end lane" << (int)n.GetLane() <<
-              "' style='top:" << (int)endpos << "%'" << /* style end */
-              " data-x=" << (int)n.GetLane() << " data-beat=" << n.beat <<
-              " data-id=" << nd_idx-1 << " data-value=" << n.value << /* data end */
-              "></div>";
-          }
         }
+
+        auto preii = lii++;
+        if (is_longnote_end_here)
+          longnotes.erase(preii);
       }
 
       // STEP 2-1-1. NoteData (General)
@@ -230,23 +234,24 @@ void ExportToHTML(const Chart &c, std::string& out)
           {
             // draw longnote body & end
             double endrow = n.endpos().measure;
-            bool is_longnote_end_here = false;
-            if (endrow > measure_idx + 1)
+            bool is_longnote_end_here = true;
+            if (endrow > measure_idx)
             {
-              endrow = measure_idx + 1;
-              is_longnote_end_here = true;
+              endrow = measure_idx;
+              is_longnote_end_here = false;
+              longnotes.push_back(&n);
             }
-            double endpos = (endrow - measure_idx) * 100;
+            double endpos = (endrow - n.pos().measure) * 100 + 1 /* round-up */;
             e.line() << "<div class='chartobject noteobject longnote longnote_body lane" << (int)n.GetLane() <<
               "' style='top:" << (int)ypos << "%; height:" << (int)endpos << "%'" << /* style end */
-              " data-x=" << (int)n.GetLane() << " data-beat=" << n.beat <<
+              " data-x=" << (int)n.GetLane() << " data-beat=" << n.beat << " data-time=" << n.time_msec <<
               " data-id=" << nd_idx << " data-value=" << n.value << /* data end */
               "></div>";
             if (is_longnote_end_here)
             {
               e.line() << "<div class='chartobject noteobject longnote longnote_end lane" << (int)n.GetLane() <<
                 "' style='top:" << (int)(ypos + endpos) << "%'" << /* style end */
-                " data-x=" << (int)n.GetLane() << " data-beat=" << n.beat <<
+                " data-x=" << (int)n.GetLane() << " data-beat=" << n.beat << " data-time=" << n.time_msec <<
                 " data-id=" << nd_idx << " data-value=" << n.value << /* data end */
                 "></div>";
             }

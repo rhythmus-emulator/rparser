@@ -363,13 +363,13 @@ uint8_t SoundNote::GetY() const
 
 NotePos& SoundNote::endpos()
 {
-  return const_cast<SoundNote*>(this)->endpos();
+  if (!IsLongnote()) return pos();
+  else return chains.back().pos;
 }
 
 const NotePos& SoundNote::endpos() const
 {
-  if (!IsLongnote()) return pos();
-  else return chains.back().pos;
+  return const_cast<SoundNote*>(this)->endpos();
 }
 
 

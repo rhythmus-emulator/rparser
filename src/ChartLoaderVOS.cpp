@@ -514,6 +514,9 @@ bool ChartLoaderVOS::ParseNoteDataV2()
   SoundNote n;
   for (auto *p : vnotes)
   {
+    // clear previous longnote info
+    n.ClearChain();
+
     // XXX in midi time ... time pos or beat pos?
     n.SetBeatPos(p->time / (double)timedivision_);
     n.SetMidiNote(p->duration, p->pitch, p->volume / 127.0f);
@@ -522,7 +525,7 @@ bool ChartLoaderVOS::ParseNoteDataV2()
     {
       n.SetAsTapNote(0, p->lane);
       if (p->islongnote)
-        n.SetLongnoteLength(p->duration); // FIXME setLongnoteLength availablity in Time
+        n.SetLongnoteLength(p->duration / (double)timedivision_);
     }
     else
       n.SetAsBGM(0);
@@ -560,6 +563,9 @@ bool ChartLoaderVOS::ParseNoteDataV3()
       uint8_t islongnote = (note.type & 0b01000000000000000) > 0;
       uint8_t keybits = (note.type >> 4) & 0b0111;
 
+      // clear previous longnote info
+      n.ClearChain();
+
       n.SetBeatPos(note.time / (double)timedivision_);
       n.SetMidiNote(note.duration, note.midikey, note.vol / 127.0f);
       n.value = (note.midicmd & 0x0F);
@@ -567,7 +573,7 @@ bool ChartLoaderVOS::ParseNoteDataV3()
       {
         n.SetAsTapNote(0, keybits);
         if (islongnote)
-          n.SetLongnoteLength(note.duration);
+          n.SetLongnoteLength(note.duration / (double)timedivision_);
       }
       else
         n.SetAsBGM(0);
@@ -619,7 +625,15 @@ bool ChartLoaderVOS::ParseMIDI()
   {
     double ratio = (double)timedivision_ / timedivision;
     for (auto &n : chart_->GetNoteData())
+    {
       n.SetBeatPos(n.beat * ratio);
+      if (n.IsLongnote())
+      {
+        NotePos p;
+        p.SetBeatPos(n.endpos().beat * ratio);
+        n.SetLongnoteEndPos(p);
+      }
+    }
     timedivision_ = timedivision;
   }
   double cur_beat = 0;

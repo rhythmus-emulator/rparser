@@ -130,6 +130,7 @@ body
 { left: 87%; width: 12%; }
 
 .playlane-7key #notedata .measurebox .noteobject.longnote_body { opacity: 0.6; }
+.playlane-7key #notedata .measurebox .noteobject.longnote_end { margin-top: -8px; }
 
 .playlane-7key #notedata .measurebox .noteobject.lane0,
 .playlane-7key #notedata .measurebox .noteobject.lane2,
