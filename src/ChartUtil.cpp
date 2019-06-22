@@ -69,7 +69,7 @@ void ExportToHTML(const Chart &c, std::string& out)
     " playlane-" << (int)c.GetPlayLaneCount() << "key'>";
   e.PushIndent();
 
-  // STEP 1. Metadata
+  // STEP 1-1. Metadata
   {
     e.line() << "<div id='metadata' class='content metadata'>";
     e.PushIndent();
@@ -109,6 +109,57 @@ void ExportToHTML(const Chart &c, std::string& out)
     e.line() << "</div>";
   }
 
+  // STEP 1-2. Metadata (Resource)
+  {
+    e.line() << "<div id='resourcedata' class='content resourcedata'>";
+    e.PushIndent();
+
+    e.line() << "<span class='title'>Resource Info</span>";
+
+    e.line() << "<ul id='soundresource'>";
+    e.PushIndent();
+    for (auto ii : md.GetSoundChannel()->fn)
+    {
+      e.line() << "<li data-channel='" << ii.first << "' data-value='" << ii.second <<
+        "' >Channel " << ii.first << ", " << ii.second << "</li>";
+    }
+    e.PopIndent();
+    e.line() << "</ul>";
+
+    e.line() << "<ul id='bgaresource'>";
+    e.PushIndent();
+    for (auto ii : md.GetBGAChannel()->bga)
+    {
+      e.line() << "<li data-channel='" << ii.first << "' data-value='" << ii.second.fn <<
+        "' >Channel " << ii.first << ", " << ii.second.fn << "</li>";
+    }
+    e.PopIndent();
+    e.line() << "</ul>";
+
+    e.line() << "<ul id='bpmresource'>";
+    e.PushIndent();
+    for (auto ii : md.GetBPMChannel()->bpm)
+    {
+      e.line() << "<li data-channel='" << ii.first << "' data-value='" << ii.second <<
+        "' >Channel " << ii.first << ", " << ii.second << "</li>";
+    }
+    e.PopIndent();
+    e.line() << "</ul>";
+
+    e.line() << "<ul id='stopresource'>";
+    e.PushIndent();
+    for (auto ii : md.GetSTOPChannel()->stop)
+    {
+      e.line() << "<li data-channel='" << ii.first << "' data-value='" << ii.second <<
+        "' >Channel " << ii.first << ", " << ii.second << "</li>";
+    }
+    e.PopIndent();
+    e.line() << "</ul>";
+
+    e.PopIndent();
+    e.line() << "</div>";
+  }
+
   // STEP 2. Render objects
   {
     e.line() << "<div id='notedata' class='content notedata'>";
@@ -123,11 +174,41 @@ void ExportToHTML(const Chart &c, std::string& out)
 
       // measure start.
       e.line() << "<div id='measure" << measure_idx << "' class='measurebox'" <<
-        " data-length=" << td.GetMeasureFromBeat(beat) << " data-beat=" << beat << ">";
+        " data-length=" << td.GetMeasureFromBeat(beat) << " data-beat=" << beat << "><div class='inner'>";
       e.PushIndent();
       e.line() << "<div class='measureno'>" << measure_idx << "</div>";
 
-      // STEP 2-1. NoteData
+      // STEP 2-1-0. NoteData (Continuing Longnote)
+      if (nd_idx > 0)
+      {
+        auto &n = nd.get(nd_idx-1);
+        if (n.IsLongnote() && n.endpos().measure > measure_idx)
+        {
+          double endrow = n.endpos().measure;
+          bool is_longnote_end_here = false;
+          if (endrow > measure_idx + 1)
+          {
+            endrow = measure_idx + 1;
+            is_longnote_end_here = true;
+          }
+          double endpos = (endrow - measure_idx) * 100;
+          e.line() << "<div class='chartobject noteobject longnote longnote_body lane" << (int)n.GetLane() <<
+            "' style='top:0%; height:" << (int)endpos << "%'" << /* style end */
+            " data-x=" << (int)n.GetLane() << " data-beat=" << n.beat <<
+            " data-id=" << nd_idx-1 << " data-value=" << n.value << /* data end */
+            "></div>";
+          if (is_longnote_end_here)
+          {
+            e.line() << "<div class='chartobject noteobject longnote longnote_end lane" << (int)n.GetLane() <<
+              "' style='top:" << (int)endpos << "%'" << /* style end */
+              " data-x=" << (int)n.GetLane() << " data-beat=" << n.beat <<
+              " data-id=" << nd_idx-1 << " data-value=" << n.value << /* data end */
+              "></div>";
+          }
+        }
+      }
+
+      // STEP 2-1-1. NoteData (General)
       while (nd_idx < nd.size() && nd.get(nd_idx).pos().measure < measure_idx)
       {
         /* XXX: don't use continue here; MUST go through full loop. */
@@ -135,39 +216,82 @@ void ExportToHTML(const Chart &c, std::string& out)
         if (n.type() == NoteTypes::kTap)
         {
           double ypos = (n.pos().measure - (int)n.pos().measure) * 100;
-          e.line() << "<div id='nd" << nd_idx << "' class='chartobject noteobject lane" << (int)n.GetLane() <<
+          std::string cls = "chartobject noteobject";
+          if (n.IsLongnote())
+            cls += " longnote longnote_begin";
+          else
+            cls += " tapnote";
+          e.line() << "<div id='nd" << nd_idx << "' class='" << cls << " lane" << (int)n.GetLane() <<
             "' style='top:" << (int)ypos << "%'" << /* style end */
-            " data-x=" << (int)n.GetLane() << " data-y=" << (int)ypos << " data-beat=" << n.beat << /* data end */
+            " data-x=" << (int)n.GetLane() << " data-y=" << (int)ypos << " data-beat=" << n.beat << " data-time=" << n.time_msec <<
+            " data-id=" << nd_idx << " data-value=" << n.value << /* data end */
+            "></div>";
+          if (n.IsLongnote())
+          {
+            // draw longnote body & end
+            double endrow = n.endpos().measure;
+            bool is_longnote_end_here = false;
+            if (endrow > measure_idx + 1)
+            {
+              endrow = measure_idx + 1;
+              is_longnote_end_here = true;
+            }
+            double endpos = (endrow - measure_idx) * 100;
+            e.line() << "<div class='chartobject noteobject longnote longnote_body lane" << (int)n.GetLane() <<
+              "' style='top:" << (int)ypos << "%; height:" << (int)endpos << "%'" << /* style end */
+              " data-x=" << (int)n.GetLane() << " data-beat=" << n.beat <<
+              " data-id=" << nd_idx << " data-value=" << n.value << /* data end */
+              "></div>";
+            if (is_longnote_end_here)
+            {
+              e.line() << "<div class='chartobject noteobject longnote longnote_end lane" << (int)n.GetLane() <<
+                "' style='top:" << (int)(ypos + endpos) << "%'" << /* style end */
+                " data-x=" << (int)n.GetLane() << " data-beat=" << n.beat <<
+                " data-id=" << nd_idx << " data-value=" << n.value << /* data end */
+                "></div>";
+            }
+          }
+        }
+        else
+        {
+          // mainly BGM object ...
+          double ypos = (n.pos().measure - (int)n.pos().measure) * 100;
+          e.line() << "<div id='nd" << nd_idx << "' class='chartobject soundobject soundtype" << (int)n.subtype() <<
+            "' style='top:" << (int)ypos << "%'" << /* style end */
+            " data-y=" << (int)ypos << " data-beat=" << n.beat << " data-time=" << n.time_msec <<
+            " data-id=" << nd_idx << " data-value=" << n.value << /* data end */
             "></div>";
         }
         nd_idx++;
-      } /* TODO: LONGNOTE */
+      }
+
       // STEP 2-2. TempoData
       while (td_idx < tnd.size() && tnd.get(td_idx).pos().measure < measure_idx)
       {
         auto &n = tnd.get(td_idx);
         double ypos = (n.pos().measure - (int)n.pos().measure) * 100;
-        e.line() << "<div id='td" << td_idx << "' class='chartobject tempoobject" <<
+        e.line() << "<div id='td" << td_idx << "' class='chartobject tempoobject tempotype" << (int)n.subtype() <<
           "' style='top:" << (int)ypos << "%'" << /* style end */
-          " data-y=" << (int)ypos << " data-beat=" << n.beat << /* data end */
+          " data-y=" << (int)ypos << " data-beat=" << n.beat << " data-time=" << n.time_msec << /* data end */
           "></div>";
         td_idx++;
       }
+
       // STEP 2-3. EventData
       while (ed_idx < ed.size() && ed.get(ed_idx).pos().measure < measure_idx)
       {
         auto &n = ed.get(ed_idx);
         double ypos = (n.pos().measure - (int)n.pos().measure) * 100;
-        e.line() << "<div id='ed" << ed_idx << "' class='chartobject eventobject" <<
+        e.line() << "<div id='ed" << ed_idx << "' class='chartobject eventobject eventtype" << (int)n.subtype() <<
           "' style='top:" << (int)ypos << "%'" << /* style end */
-          " data-y=" << (int)ypos << " data-beat=" << n.beat << /* data end */
+          " data-y=" << (int)ypos << " data-beat=" << n.beat << " data-time=" << n.time_msec << /* data end */
           "></div>";
         ed_idx++;
       }
 
       // measure end.
       e.PopIndent();
-      e.line() << "</div>";
+      e.line() << "</div></div>";
       measure_idx++;
     }
 
@@ -184,6 +308,7 @@ void ExportToHTML(const Chart &c, std::string& out)
 void ClipRange(Chart &c, double beat_start, double beat_end)
 {
   // TODO
+  // XXX: Add "CopyRange" ?
   ASSERT(0);
 }
 

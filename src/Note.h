@@ -122,7 +122,7 @@ enum NoteEventTypes
 class Note : public NotePos
 {
 public:
-  Note() = default;
+  Note();
   Note(const Note&) = default;
   Note& operator=(const Note &) = default;
 
@@ -179,6 +179,8 @@ public:
   uint8_t GetBGMCol() const;
   uint8_t GetX() const;
   uint8_t GetY() const;
+  NotePos& endpos();
+  const NotePos& endpos() const;
 
   // basic note attributes
   NoteTrack track;

@@ -1,0 +1,198 @@
+* { padding:0; margin:0; }
+
+body
+{
+    line-height: 1.5em;
+    font-size: 12pt;
+    font-family: 'Malgun Gothic';
+    background: #333;
+    color: #f0f0f0;
+    padding: 15px;
+}
+
+#metadata
+{
+    position: fixed; /* or absolute .. */
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 5px;
+    border-style: 2px solid #fff;
+    width: 200px;
+}
+
+#metadata .title
+{
+    font-weight: bold;
+    display: block;
+    clear: both;
+    font-size: 13pt;
+}
+
+#metadata .meta_subtitle, #metadata .meta_subartist { font-size: 8pt; color: #999; padding-left: 5px; }
+
+#metadata .desc
+{
+    display: block;
+    clear: both;
+    font-size: 10pt;
+    color: #ccc;
+}
+
+#metadata .desc .label
+{
+    font-weight: bold;
+    display: block;
+    width: 100px;
+    float: left;
+}
+
+#notedata
+{
+    margin-top: 5px;
+    margin-left: 280px;
+}
+
+#notedata .measurebox
+{
+    overflow: hidden; clear: both;
+    width: 420px; height: 520px;
+    background: #1e1e1e;
+    border: 1px solid #999;
+    border-top: none;
+    margin-bottom: 1px;
+}
+
+#notedata .measurebox:first-child
+{
+    border-top: 1px solid #999;
+}
+
+/* the inner div which actual size for displaying note */
+#notedata .measurebox .inner
+{
+    display: inline-block; /* to preserve 100% height */
+    position: relative;
+    background: #0e0e0e;
+    width: 90%;
+    height: 100%;
+}
+
+#notedata .measurebox .measureno
+{
+    text-align: center;
+    cursor: default;
+    position:relative; top: 50%;
+    width: 100%; height: 30px; margin-top: -15px;
+    color: #1e1e1e; font-size: 16em; font-weight: bold;
+}
+
+#notedata .measurebox .noteobject 
+{
+    position: absolute;
+    background: #ccc;
+    height: 8px;
+}
+
+#notedata .measurebox .tapnote 
+{
+    height: 8px;
+}
+
+/* VOS / O2JAM */
+.playlane-7key #notedata .measurebox .noteobject.lane0
+{ left: 0%; width: 14%; }
+.playlane-7key #notedata .measurebox .noteobject.lane1
+{ left: 14%; width: 14%; }
+.playlane-7key #notedata .measurebox .noteobject.lane2
+{ left: 28%; width: 14%; }
+.playlane-7key #notedata .measurebox .noteobject.lane3
+{ left: 42%; width: 16%; }
+.playlane-7key #notedata .measurebox .noteobject.lane4
+{ left: 58%; width: 14%; }
+.playlane-7key #notedata .measurebox .noteobject.lane5
+{ left: 72%; width: 14%; }
+.playlane-7key #notedata .measurebox .noteobject.lane6
+{ left: 86%; width: 14%; }
+
+.playlane-7key #notedata .measurebox .noteobject.longnote_body.lane0
+{ left: 1%; width: 12%; }
+.playlane-7key #notedata .measurebox .noteobject.longnote_body.lane1
+{ left: 15%; width: 12%; }
+.playlane-7key #notedata .measurebox .noteobject.longnote_body.lane2
+{ left: 29%; width: 12%; }
+.playlane-7key #notedata .measurebox .noteobject.longnote_body.lane3
+{ left: 43%; width: 14%; }
+.playlane-7key #notedata .measurebox .noteobject.longnote_body.lane4
+{ left: 59%; width: 12%; }
+.playlane-7key #notedata .measurebox .noteobject.longnote_body.lane5
+{ left: 73%; width: 12%; }
+.playlane-7key #notedata .measurebox .noteobject.longnote_body.lane6
+{ left: 87%; width: 12%; }
+
+.playlane-7key #notedata .measurebox .noteobject.longnote_body { opacity: 0.6; }
+
+.playlane-7key #notedata .measurebox .noteobject.lane0,
+.playlane-7key #notedata .measurebox .noteobject.lane2,
+.playlane-7key #notedata .measurebox .noteobject.lane4,
+.playlane-7key #notedata .measurebox .noteobject.lane6
+{ background: #6a6a7b; }
+.playlane-7key #notedata .measurebox .noteobject.lane1,
+.playlane-7key #notedata .measurebox .noteobject.lane3,
+.playlane-7key #notedata .measurebox .noteobject.lane5
+{ background: #a0a0a0; }
+
+/* event objects */
+#notedata .measurebox .eventobject
+{
+    position: absolute;
+    background: #ffff99;
+    width: 10%;
+    left: 100%;
+
+    padding: 2px;
+    height: 5px;
+    font-size: 5px;
+    line-height: 2px;
+    overflow: hidden;
+    color: #000;
+
+    /* too nasty... hide here */
+    display: none;
+}
+#notedata .measurebox .eventtype0:before { content: 'BGA'; display: none; /* too much */ }
+#notedata .measurebox .eventtype1:before { content: 'MIDI'; display: none; /* too much */ }
+#notedata .measurebox .eventtype2:before { content: '#SWBGA'; }
+#notedata .measurebox .eventtype3:before { content: '#EXTCHR'; }
+#notedata .measurebox .eventtype4:before { content: '#TEXT'; }
+#notedata .measurebox .eventtype5:before { content: '#BMSOPTION'; }
+#notedata .measurebox .eventtype6:before { content: '#ARGB'; }
+
+/* tempo objects */
+#notedata .measurebox .tempoobject
+{
+    position: absolute;
+    background: #99ccff;
+    width: 10%;
+    left: 100%;
+
+    padding: 2px 4px;
+    height: 5px;
+    font-size: 5px;
+    line-height: 2px;
+    overflow: hidden;
+    color: #000;
+}
+#notedata .measurebox .tempotype0:before { content: 'BPM'; }
+#notedata .measurebox .tempotype1:before { content: 'STOP'; }
+#notedata .measurebox .tempotype2:before { content: 'WARP'; }
+#notedata .measurebox .tempotype3:before { content: 'SCROLL'; }
+#notedata .measurebox .tempotype4:before { content: 'TICK'; }
+#notedata .measurebox .tempotype5:before { content: 'BPM (BMS)'; }
+#notedata .measurebox .tempotype6:before { content: 'STOP (BMS)'; }
+
+/* sound objects */
+#notedata .measurebox .soundobject
+{ display: none; }
+
+/* won't show resource info. just for mouse hovering. */
+#resourcedata { display: none; }

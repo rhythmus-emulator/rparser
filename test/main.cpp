@@ -535,7 +535,11 @@ TEST(RPARSER, BMS_HTML_EXPORT)
   ASSERT_TRUE(fp);
 
   std::string t;
-  t = "<html><head><link rel='stylesheet' href='style.css' type='text/css'></head><body>";
+  t = "<html><head>"\
+    "<link rel='stylesheet' href='rhythmus.css' type='text/css'>"\
+    "<script src='http://code.jquery.com/jquery-latest.min.js'></script>"\
+    "<script src='rhythmus.js'></script>"\
+    "</head><body>";
   fwrite(t.c_str(), 1, t.size(), fp);
 
   fwrite(html.c_str(), 1, html.size(), fp);

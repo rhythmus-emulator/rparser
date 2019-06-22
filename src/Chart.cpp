@@ -219,8 +219,11 @@ void Chart::InvalidateAllNotePos()
         {
         case NotePosTypes::Bar:
           chain.pos.beat = tempodata_.GetBeatFromRow(chain.pos.measure);
+          chain.pos.time_msec = tempodata_.GetTimeFromBeat(chain.pos.beat);
+          break;
         case NotePosTypes::Beat:
           chain.pos.time_msec = tempodata_.GetTimeFromBeat(chain.pos.beat);
+          chain.pos.measure = tempodata_.GetMeasureFromBeat(chain.pos.beat);
           break;
         case NotePosTypes::Time:
           chain.pos.beat = tempodata_.GetBeatFromTime(chain.pos.time_msec);

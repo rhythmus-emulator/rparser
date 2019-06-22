@@ -196,6 +196,10 @@ bool NotePos::operator==(const NotePos &other) const noexcept
 }
 #endif
 
+Note::Note()
+  : NotePos(), type_(0), subtype_(0)
+{ }
+
 NoteType Note::type() const
 {
   return type_;
@@ -357,6 +361,17 @@ uint8_t SoundNote::GetY() const
   return track.lane.touch.y;
 }
 
+NotePos& SoundNote::endpos()
+{
+  return const_cast<SoundNote*>(this)->endpos();
+}
+
+const NotePos& SoundNote::endpos() const
+{
+  if (!IsLongnote()) return pos();
+  else return chains.back().pos;
+}
+
 
 std::string SoundNote::getValueAsString() const
 {
@@ -391,7 +406,7 @@ EventNote::EventNote() : command_(0), arg1_(0), arg2_(0)
 
 void EventNote::SetBga(BgaTypes bgatype, Channel channel, uint8_t column)
 {
-  set_type(NoteEventTypes::kBGA);
+  set_subtype(NoteEventTypes::kBGA);
   command_ = bgatype;
   arg1_ = static_cast<decltype(arg1_)>(channel);
   arg2_ = column;
@@ -399,7 +414,7 @@ void EventNote::SetBga(BgaTypes bgatype, Channel channel, uint8_t column)
 
 void EventNote::SetMidiCommand(uint8_t command, uint8_t arg1, uint8_t arg2)
 {
-  set_type(NoteEventTypes::kMIDI);
+  set_subtype(NoteEventTypes::kMIDI);
   command_ = command;
   arg1_ = arg1;
   arg2_ = arg2;
@@ -407,7 +422,7 @@ void EventNote::SetMidiCommand(uint8_t command, uint8_t arg1, uint8_t arg2)
 
 void EventNote::SetBmsARGBCommand(BgaTypes bgatype, Channel channel)
 {
-  set_type(NoteEventTypes::kBmsARGBLAYER);
+  set_subtype(NoteEventTypes::kBmsARGBLAYER);
   command_ = bgatype;
   arg1_ = static_cast<decltype(arg1_)>(channel);
   arg2_ = 0;
