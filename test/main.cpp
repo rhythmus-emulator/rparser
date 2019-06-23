@@ -556,6 +556,5 @@ TEST(RPARSER, BMS_HTML_EXPORT)
 int main(int argc, char **argv)
 {
 	::testing::InitGoogleTest(&argc, argv);
-  ::testing::FLAGS_gtest_filter = "RPARSER.BMS_HTML_EXPORT";
   return RUN_ALL_TESTS();
 }

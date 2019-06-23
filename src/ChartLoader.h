@@ -75,6 +75,7 @@ private:
     unsigned int value_len;
     unsigned int measure;
     unsigned int bms_channel;
+    char terminator_type;
 
     void clear();
     LineContext();

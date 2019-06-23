@@ -455,6 +455,7 @@ bool DirectoryFolder::doOpen()
 bool DirectoryFolder::doRead(FileData &d)
 {
   if (!d.IsEmpty()) return true;
+  std::string orgfilename = d.GetFilename();
   const std::string fullpath(std::string(GetDirectoryPath()) + "/" + std::string(d.GetFilename()));
   d = rutil::ReadFileData(fullpath);
   if (d.IsEmpty())
@@ -462,6 +463,8 @@ bool DirectoryFolder::doRead(FileData &d)
     SetError(ERROR::OPEN_INVALID_FILE);
     return false;
   }
+  // recover original path
+  d.fn = orgfilename;
   return true;
 }
 

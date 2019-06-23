@@ -19,6 +19,7 @@ void ChartLoaderBMS::LineContext::clear()
   value_len = 0;
   measure = 0;
   bms_channel = 0;
+  terminator_type = 0;
 }
 
 ChartLoaderBMS::ChartLoaderBMS()
@@ -122,6 +123,13 @@ void ChartLoaderBMS::ProcessCommand(Chart &chart, const char* chr, int len)
       current_line_ = new LineContext();
       current_line_->stmt = chr + pos;
       current_line_->stmt_len = stmtlen;
+      if (!ParseCurrentLine())
+      {
+        delete current_line_;
+        current_line_ = 0;
+        pos = nextpos;
+        continue;
+      }
 
       // First check for conditional statement
       // Conditional statement is processed first and stored in FlushParsingBuffer.
@@ -150,8 +158,8 @@ void ChartLoaderBMS::ProcessCommand(Chart &chart, const char* chr, int len)
   /* Process parsed commands */
   FlushParsingBuffer();
 
-  /* Sorting */
-  chart.GetNoteData().SortByBeat();
+  /* Sorting - TODO: not by row but measure */
+  //chart.GetNoteData().SortByBeat();
 }
 
 void ChartLoaderBMS::ProcessConditionalStatement(bool do_process)
@@ -225,28 +233,28 @@ bool ChartLoaderBMS::ParseCurrentLine()
   char terminator_type;
   c = p = current_line_->stmt;
 
-  // check field separation message
-  if (current_line_->stmt_len > 23 &&
-      memcmp(current_line_->stmt, "*----------------------", 23) == 0)
-    return true;
+  // check field separation message: ignored
+  if (current_line_->stmt_len > 10 &&
+      memcmp(current_line_->stmt, "*---------", 10) == 0)
+    return false;
 
   // zero-size line: ignore
-  if (current_line_->stmt_len == 0) return true;
+  if (current_line_->stmt_len == 0) return false;
 
-  // check comment
+  // check comment: ignored
   if (current_line_->stmt[0] == ';' ||
       (current_line_->stmt_len >= 2 && strncmp("//", current_line_->stmt, 2) == 0) )
-    return true;
+    return false;
 
   // '%' start is ignored
   if (current_line_->stmt[0] == '%')
   {
     std::cerr << "percent starting line is ignored : "
               << std::string(current_line_->stmt, current_line_->stmt_len) << std::endl;
-    return true;
+    return false;
   }
 
-  // if not header field
+  // if not header field: ignored
   if (*c != '#') return false;
   c++;
   while (*c != ' ' && *c != ':' && c-p < len)
@@ -267,20 +275,7 @@ bool ChartLoaderBMS::ParseCurrentLine()
     terminator_type = *c;
   }
   current_line_->value = c + 1;
-
-  if (terminator_type == ':')
-  {
-    current_line_->measure = atoi_bms_measure(current_line_->command, 3);
-    current_line_->bms_channel = atoi_bms_channel(current_line_->command + 3, 2);
-    if (!ParseNote())
-      return false;
-  }
-  else if (terminator_type == ' ')
-  {
-    if (!ParseControlFlow() && !ParseMetaData())
-      return false;
-  }
-  else return false;
+  current_line_->terminator_type = terminator_type;
 
   return true;
 }
@@ -752,16 +747,28 @@ bool ChartLoaderBMS::ParseTempoNote()
 
 void ChartLoaderBMS::FlushParsingBuffer()
 {
+  char terminator_type;
   for (auto &ii : parsing_buffer_)
   {
     current_line_ = ii;
-    if (!ParseCurrentLine())
+    terminator_type = current_line_->terminator_type;
+
+    if (terminator_type == ':')
     {
-      // XXX: for debug
-      std::string de(current_line_->stmt, current_line_->stmt_len);
-      std::cerr << "parse failed: " << de.c_str() << std::endl;
+      current_line_->measure = atoi_bms_measure(current_line_->command, 3);
+      current_line_->bms_channel = atoi_bms_channel(current_line_->command + 3, 2);
+      if (!ParseNote())
+        std::cerr << "BMSParser: note parsing failed " << std::string(current_line_->stmt, current_line_->stmt_len) << std::endl;
     }
-    delete current_line_;
+    else if (terminator_type == ' ')
+    {
+      if (!ParseMetaData())
+        std::cerr << "BMSParser: meta parsing failed " << std::string(current_line_->stmt, current_line_->stmt_len) << std::endl;
+    }
+    else
+    {
+      std::cerr << "BMSParser: unknown terminator " << std::string(current_line_->stmt, current_line_->stmt_len) << std::endl;
+    }
   }
   cond_.clear();
 }
