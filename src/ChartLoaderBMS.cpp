@@ -9,6 +9,7 @@ using namespace rutil;
 namespace rparser {
 
 ChartLoaderBMS::LineContext::LineContext() { clear(); }
+
 void ChartLoaderBMS::LineContext::clear()
 {
   stmt = 0;
@@ -21,6 +22,7 @@ void ChartLoaderBMS::LineContext::clear()
 }
 
 ChartLoaderBMS::ChartLoaderBMS()
+  : chart_context_(0), process_conditional_statement_(true)
 {
 
 }
@@ -72,41 +74,8 @@ inline bool IsCharacterTrimmable(char c)
 
 bool ChartLoaderBMS::Load(Chart &c, const void* p, int iLen)
 {
-  /** Initialize global context */
-  const char* const chr = static_cast<const char*>(p);
-  chart_context_ = &c;
-  memset(longnote_idx_per_lane, 0xffffffff, sizeof(longnote_idx_per_lane));
-  bga_column_idx_per_measure_.clear();
-
-  size_t pos = 0;
-  size_t stmtlen = 0;
-  size_t nextpos = 0;
-  while (pos < iLen)
-  {
-    if (!IsCharacterTrimmable(chr[pos]))
-    {
-      stmtlen = 0;
-      while (pos + stmtlen < iLen && chr[pos + stmtlen] != '\n')
-        stmtlen++;
-      nextpos = stmtlen + pos + 1;
-      while (stmtlen > 0 && IsCharacterTrimmable(chr[pos + stmtlen - 1]))
-        stmtlen--;
-
-      current_line_.clear();
-      current_line_.stmt = chr + pos;
-      current_line_.stmt_len = stmtlen;
-
-      if (!ParseCurrentLine())
-      {
-        // XXX: for debug
-        std::string de(current_line_.stmt, current_line_.stmt_len);
-        std::cerr << "parse failed: " << de.c_str() << std::endl;
-      }
-
-      pos = nextpos;
-    } else pos++;
-  }
-
+  c.Clear();
+  ProcessCommand(c, static_cast<const char*>(p), iLen);
   return true;
 }
 
@@ -121,6 +90,73 @@ bool ChartLoaderBMS::Test(const void* p, int iLen)
       return true;
   }
   return false;
+}
+
+void ChartLoaderBMS::ProcessCommand(Chart &chart, const char* chr, int len)
+{
+  /** Initialize global context */
+  memset(longnote_idx_per_lane, 0xffffffff, sizeof(longnote_idx_per_lane));
+  bga_column_idx_per_measure_.clear();
+  cond_.clear();
+  cond_.emplace_back(CondContext{ 0, -1, 0, 0, true });
+  random_.SetSeed(seed_);
+  chart_context_ = &chart;
+
+
+  size_t pos = 0;
+  size_t stmtlen = 0;
+  size_t nextpos = 0;
+
+  while (pos < len)
+  {
+    if (!IsCharacterTrimmable(chr[pos]))
+    {
+      stmtlen = 0;
+      while (pos + stmtlen < len && chr[pos + stmtlen] != '\n')
+        stmtlen++;
+      nextpos = stmtlen + pos + 1;
+      while (stmtlen > 0 && IsCharacterTrimmable(chr[pos + stmtlen - 1]))
+        stmtlen--;
+
+      // prepare for line
+      current_line_ = new LineContext();
+      current_line_->stmt = chr + pos;
+      current_line_->stmt_len = stmtlen;
+
+      // First check for conditional statement
+      // Conditional statement is processed first and stored in FlushParsingBuffer.
+      // If it's conditional statement and should not be processed,
+      // It'll be stored in metadata area.
+      if (IsCurrentLineIsConditionalStatement())
+      {
+        if (!process_conditional_statement_)
+        {
+          chart.GetMetaData().script +=
+            std::string(current_line_->stmt, current_line_->stmt_len) + "\n";
+        }
+        else ParseControlFlow();
+      }
+      else if (cond_.back().parseable) /* parsable condition */
+      {
+        parsing_buffer_.push_back(current_line_);
+      }
+
+      current_line_ = 0;
+      pos = nextpos;
+    }
+    else pos++;
+  }
+
+  /* Process parsed commands */
+  FlushParsingBuffer();
+
+  /* Sorting */
+  chart.GetNoteData().SortByBeat();
+}
+
+void ChartLoaderBMS::ProcessConditionalStatement(bool do_process)
+{
+  process_conditional_statement_ = do_process;
 }
 
 inline char upperchr(char c)
@@ -184,29 +220,29 @@ int atoi_bms16(const char* p, int length)
 bool ChartLoaderBMS::ParseCurrentLine()
 {
   const char *c, *p;
-  size_t len = current_line_.stmt_len;
-  char *cw = current_line_.command;
+  size_t len = current_line_->stmt_len;
+  char *cw = current_line_->command;
   char terminator_type;
-  c = p = current_line_.stmt;
+  c = p = current_line_->stmt;
 
   // check field separation message
-  if (current_line_.stmt_len > 23 &&
-      memcmp(current_line_.stmt, "*----------------------", 23) == 0)
+  if (current_line_->stmt_len > 23 &&
+      memcmp(current_line_->stmt, "*----------------------", 23) == 0)
     return true;
 
   // zero-size line: ignore
-  if (current_line_.stmt_len == 0) return true;
+  if (current_line_->stmt_len == 0) return true;
 
   // check comment
-  if (current_line_.stmt[0] == ';' ||
-      (current_line_.stmt_len >= 2 && strncmp("//", current_line_.stmt, 2) == 0) )
+  if (current_line_->stmt[0] == ';' ||
+      (current_line_->stmt_len >= 2 && strncmp("//", current_line_->stmt, 2) == 0) )
     return true;
 
   // '%' start is ignored
-  if (current_line_.stmt[0] == '%')
+  if (current_line_->stmt[0] == '%')
   {
     std::cerr << "percent starting line is ignored : "
-              << std::string(current_line_.stmt, current_line_.stmt_len) << std::endl;
+              << std::string(current_line_->stmt, current_line_->stmt_len) << std::endl;
     return true;
   }
 
@@ -222,20 +258,20 @@ bool ChartLoaderBMS::ParseCurrentLine()
   // check an attribute has no value
   if (c - p == len)
   {
-    current_line_.value_len = 0;
+    current_line_->value_len = 0;
     terminator_type = ' ';
   }
   else
   {
-    current_line_.value_len = len-(c-p)-1;
+    current_line_->value_len = len-(c-p)-1;
     terminator_type = *c;
   }
-  current_line_.value = c + 1;
+  current_line_->value = c + 1;
 
   if (terminator_type == ':')
   {
-    current_line_.measure = atoi_bms_measure(current_line_.command, 3);
-    current_line_.bms_channel = atoi_bms_channel(current_line_.command + 3, 2);
+    current_line_->measure = atoi_bms_measure(current_line_->command, 3);
+    current_line_->bms_channel = atoi_bms_channel(current_line_->command + 3, 2);
     if (!ParseNote())
       return false;
   }
@@ -249,31 +285,37 @@ bool ChartLoaderBMS::ParseCurrentLine()
   return true;
 }
 
-#define CMDCMP(x) (strcmp(current_line_.command, (x)) == 0)
+#define CMDCMP(x) (strcmp(current_line_->command, (x)) == 0)
+
+bool ChartLoaderBMS::IsCurrentLineIsConditionalStatement()
+{
+  return (CMDCMP("SWITCH") ||
+    CMDCMP("RANDOM") || CMDCMP("RONDOM") || CMDCMP("SETRANDOM") ||
+    CMDCMP("ENDRANDOM") || CMDCMP("ENDRONDOM") ||
+    CMDCMP("IF") || CMDCMP("ELSE") || CMDCMP("ELSEIF") ||
+    CMDCMP("ENDIF") || CMDCMP("END"));
+}
+
 bool ChartLoaderBMS::ParseControlFlow()
 {
-  unsigned int cond = atoi_bms_measure(current_line_.value, current_line_.value_len);
+  unsigned int cond = atoi_bms_measure(current_line_->value, current_line_->value_len);
 
   if (CMDCMP("SWITCH"))
   {
     // check start of the stmt
-    chart_context_stack_.push_back(chart_context_);
-    condstmt_ = chart_context_->CreateStmt(cond, true, false);
-    chart_context_ = 0;
+    cond_.emplace_back(
+      CondContext{ (int)cond, random_.Next(1, cond), 0, 0, true /* true for orphanized common part */ });
   }
   else if (CMDCMP("RANDOM") || CMDCMP("RONDOM") || CMDCMP("SETRANDOM"))
   {
     // check start of the stmt
-    chart_context_stack_.push_back(chart_context_);
-    condstmt_ = chart_context_->CreateStmt(cond, false, true);
-    chart_context_ = 0;
+    cond_.emplace_back(
+      CondContext{ (int)cond, random_.Next(1, cond), 0, 0, true /* true for orphanized common part */ });
   }
   else if (CMDCMP("ENDRANDOM") || CMDCMP("ENDRONDOM"))
   {
     // restore chart context.
-    chart_context_ = chart_context_stack_.back();
-    condstmt_ = chart_context_->GetLastStmt();
-    chart_context_stack_.pop_back();
+    cond_.pop_back();
   }
   else if (CMDCMP("IF"))
   {
@@ -282,25 +324,40 @@ bool ChartLoaderBMS::ParseControlFlow()
      * So comment out assert below:
      * ASSERT(condstmt_->GetSentenceCount() == 0);
      */
-    // TODO: no ELSE statement should exist
-    chart_context_ = condstmt_->CreateSentence(cond);
+     // JUST warning: no statement after ELSE
+    if (cond_.back().condprocessed < 0)
+      std::cerr << "BMSParser : IF clause after ELSE statement." << std::endl;
+    cond_.back().parseable = cond_.back().condcur == (int)cond;
+    cond_.back().condprocessed++;
+    cond_.back().condcheckedcount += cond_.back().parseable;
   }
   else if (CMDCMP("ELSE"))
   {
-    ASSERT(condstmt_->GetSentenceCount() > 0);
-    chart_context_ = condstmt_->CreateSentence(-1);
+    cond_.back().parseable =
+      (cond_.back().condcheckedcount == 0 && cond_.back().condprocessed > 0);
+    cond_.back().condprocessed = -9999; /* else state */
   }
   else if (CMDCMP("ELSEIF"))
   {
-    // TODO: no ELSE statement should exist
-    ASSERT(condstmt_->GetSentenceCount() > 0);
-    chart_context_ = condstmt_->CreateSentence(cond);
+    // JUST warning: no statement after ELSE
+    if (cond_.back().condprocessed < 0)
+      std::cerr << "BMSParser : IF clause after ELSE statement." << std::endl;
+    // JUST warning: IF statement must placed before ELSEIF
+    if (cond_.back().condprocessed == 0)
+      std::cerr << "BMSParser : ELSEIF clause before IF statement." << std::endl;
+    cond_.back().parseable = cond_.back().condcur == (int)cond;
+    cond_.back().condprocessed++;
+    cond_.back().condcheckedcount += cond_.back().parseable;
   }
   else if (CMDCMP("ENDIF") || CMDCMP("END"))
   {
-    // just clear chart context (unparse-able state)
-    ASSERT(condstmt_->GetSentenceCount() > 0);
-    chart_context_ = 0;
+    // JUST warning: ENDIF without IF clause.
+    if (cond_.back().condprocessed == 0)
+      std::cerr << "BMSParser : ENDIF clause without IF statement." << std::endl;
+    // just clear(init) chart context (unparse-able state)
+    cond_.back().parseable = false;
+    cond_.back().condprocessed = 0;
+    cond_.back().condcheckedcount = 0;
   }
   else return false;
   return true;
@@ -310,17 +367,17 @@ bool ChartLoaderBMS::ParseControlFlow()
 bool ChartLoaderBMS::ParseMetaData()
 {
   // check contains value
-  if (current_line_.value_len == 0)
+  if (current_line_->value_len == 0)
   {
-    std::cerr << "Warning: Command #" << current_line_.command << " has no value, ignored." << std::endl;
+    std::cerr << "Warning: Command #" << current_line_->command << " has no value, ignored." << std::endl;
     return true;
   }
 
   // cannot parse between control flow stmt
   if (!chart_context_) return false;
   MetaData& md = chart_context_->GetMetaData();
-  std::string cmd(current_line_.command);
-  std::string value(current_line_.value, current_line_.value_len);
+  std::string cmd(current_line_->command);
+  std::string value(current_line_->value, current_line_->value_len);
 
   /**
    * @warn
@@ -331,13 +388,13 @@ bool ChartLoaderBMS::ParseMetaData()
   else if (cmd == "LNOBJ")
     md.bms_longnote_object = atoi(value.c_str());
 
-# define CHKCMD(cmd_const, len) (strncmp(current_line_.command, cmd_const, len) == 0)
+# define CHKCMD(cmd_const, len) (strncmp(current_line_->command, cmd_const, len) == 0)
   if (CHKCMD("BMP",3)) {
-    unsigned int key = atoi_bms_channel(current_line_.command + 3);
+    unsigned int key = atoi_bms_channel(current_line_->command + 3);
     md.GetBGAChannel()->bga[key] = { value, 0,0,0,0, 0,0,0,0 };
   }
   else if (CHKCMD("WAV",3)) {
-    unsigned int key = atoi_bms_channel(current_line_.command + 3);
+    unsigned int key = atoi_bms_channel(current_line_->command + 3);
     md.GetSoundChannel()->fn[key] = value;
   }
   else if (cmd.size() > 3 && (CHKCMD("EXBPM",5) || CHKCMD("BPM",3))) {
@@ -349,7 +406,7 @@ bool ChartLoaderBMS::ParseMetaData()
     md.GetBPMChannel()->bpm[key] = static_cast<float>(atof( value.c_str() ));
   }
   else if (CHKCMD("STOP",4)) {
-    unsigned int key = atoi_bms_channel(current_line_.command + 4);
+    unsigned int key = atoi_bms_channel(current_line_->command + 4);
     md.GetSTOPChannel()->stop[key] = static_cast<float>(atoi(value.c_str()));  // 1/192nd
   }
   // TODO: WAVCMD, EXWAV
@@ -485,9 +542,9 @@ uint8_t GetNoteColFromBmsChannel(unsigned int bms_channel)
 
 bool ChartLoaderBMS::ParseMeasureLength()
 {
-  std::string v(current_line_.value, current_line_.value_len);
+  std::string v(current_line_->value, current_line_->value_len);
   TempoNote n;
-  n.SetRowPos(current_line_.measure, 0, 0);
+  n.SetRowPos(current_line_->measure, 0, 0);
   n.SetMeasure(atof(v.c_str()) * kDefaultMeasureLength);
   chart_context_->GetTempoData().GetTempoNoteData().AddNote(n);
   return true;
@@ -496,8 +553,8 @@ bool ChartLoaderBMS::ParseMeasureLength()
 bool ChartLoaderBMS::ParseNote()
 {
   bool r = false;
-  const unsigned int channel = current_line_.bms_channel;
-  unsigned int len = current_line_.value_len;
+  const unsigned int channel = current_line_->bms_channel;
+  unsigned int len = current_line_->value_len;
 
   // cannot parse between control flow stmt
   if (!chart_context_) return false;
@@ -510,13 +567,13 @@ bool ChartLoaderBMS::ParseNote()
   // warn for incorrect length
   if (len % 2 == 1)
   {
-    std::cerr << "Warning: incorrect measure length detected. (" << current_line_.command << ")" << std::endl;
+    std::cerr << "Warning: incorrect measure length detected. (" << current_line_->command << ")" << std::endl;
     len--;
   }
   if (len == 0) return false;
 
   // parse various types of note
-  switch (GetNoteTypeFromBmsChannel(current_line_.bms_channel))
+  switch (GetNoteTypeFromBmsChannel(current_line_->bms_channel))
   {
   case NoteTypes::kBGM:
   case NoteTypes::kTap:
@@ -536,10 +593,10 @@ bool ChartLoaderBMS::ParseNote()
 
 bool ChartLoaderBMS::ParseCommandNote()
 {
-  const unsigned int measure = current_line_.measure;
-  const unsigned int channel = current_line_.bms_channel;
-  const char* value = current_line_.value;
-  unsigned int len = current_line_.value_len;
+  const unsigned int measure = current_line_->measure;
+  const unsigned int channel = current_line_->bms_channel;
+  const char* value = current_line_->value;
+  unsigned int len = current_line_->value_len;
   unsigned int value_u;
   static uint8_t bga_per_bms_channel[] = { 4, 6, 7, 10 };
   static uint8_t bmsargb_per_bms_channel[] = { 11, 12, 13, 14 };
@@ -583,10 +640,10 @@ bool ChartLoaderBMS::ParseSoundNote()
 {
   unsigned int value_u;
   SoundNote n;
-  const unsigned int measure = current_line_.measure;
-  const unsigned int channel = current_line_.bms_channel;
-  const char* value = current_line_.value;
-  unsigned int len = current_line_.value_len;
+  const unsigned int measure = current_line_->measure;
+  const unsigned int channel = current_line_->bms_channel;
+  const char* value = current_line_->value;
+  unsigned int len = current_line_->value_len;
   bool register_longnote;
   uint32_t curlane;
 
@@ -609,6 +666,7 @@ bool ChartLoaderBMS::ParseSoundNote()
       continue;
     }
 
+    n.ClearChain();
     npos.SetRowPos(measure, len, i);
     n.value = static_cast<Channel>(value_u);
 
@@ -655,10 +713,10 @@ bool ChartLoaderBMS::ParseSoundNote()
 bool ChartLoaderBMS::ParseTempoNote()
 {
   unsigned int value_u;
-  const unsigned int measure = current_line_.measure;
-  const unsigned int channel = current_line_.bms_channel;
-  const char* value = current_line_.value;
-  unsigned int len = current_line_.value_len;
+  const unsigned int measure = current_line_->measure;
+  const unsigned int channel = current_line_->bms_channel;
+  const char* value = current_line_->value;
+  unsigned int len = current_line_->value_len;
   TempoNote n;
 
   n.SetDenominator(len);
@@ -690,6 +748,22 @@ bool ChartLoaderBMS::ParseTempoNote()
   }
 
   return true;
+}
+
+void ChartLoaderBMS::FlushParsingBuffer()
+{
+  for (auto &ii : parsing_buffer_)
+  {
+    current_line_ = ii;
+    if (!ParseCurrentLine())
+    {
+      // XXX: for debug
+      std::string de(current_line_->stmt, current_line_->stmt_len);
+      std::cerr << "parse failed: " << de.c_str() << std::endl;
+    }
+    delete current_line_;
+  }
+  cond_.clear();
 }
 
 } /* rparser */

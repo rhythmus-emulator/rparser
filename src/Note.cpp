@@ -197,7 +197,7 @@ bool NotePos::operator==(const NotePos &other) const noexcept
 #endif
 
 Note::Note()
-  : NotePos(), type_(0), subtype_(0)
+  : NotePos(), type_(0), subtype_(0), is_conditional_object_(0)
 { }
 
 NoteType Note::type() const

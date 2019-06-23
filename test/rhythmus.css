@@ -50,21 +50,43 @@ body
 {
     margin-top: 5px;
     margin-left: 280px;
+    width: 420px;
 }
+
+#notedata .condition-navigator
+{
+    color: #999;
+    font-size: 9px;
+}
+
+#notedata .condition-navigator ul
+{
+    list-style: none;
+}
+
+#notedata .condition-navigator li
+{
+    display: block;
+    min-width: 120px;
+    float: left;
+    cursor: pointer;
+}
+
+#notedata .condition-navigator li:hover { color: #fff; }
 
 #notedata .measurebox
 {
     overflow: hidden; clear: both;
-    width: 420px; height: 520px;
+    height: 520px;
     background: #1e1e1e;
     border: 1px solid #999;
-    border-top: none;
+    border-bottom: none;
     margin-bottom: 1px;
 }
 
-#notedata .measurebox:first-child
+#notedata .measurebox:last-child
 {
-    border-top: 1px solid #999;
+    border-bottom: 1px solid #999;
 }
 
 /* the inner div which actual size for displaying note */
@@ -197,3 +219,6 @@ body
 
 /* won't show resource info. just for mouse hovering. */
 #resourcedata { display: none; }
+
+/* general css */
+.hide { display: none; }

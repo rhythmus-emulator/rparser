@@ -94,6 +94,14 @@ Chart* Song::GetChart(int i)
   return c;
 }
 
+Chart* Song::GetChart(const std::string& filename)
+{
+  if (!chartlist_) return 0;
+  int idx = chartlist_->GetChartIndexByName(filename);
+  if (idx < 0) return 0;
+  else return GetChart(idx);
+}
+
 void Song::CloseChart()
 {
   if (!chartlist_) return;

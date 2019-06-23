@@ -59,6 +59,7 @@ public:
   void AppendStmt(ConditionalChart& stmt);
   // evaluate all stmt and generate objects (process control flow)
   void EvaluateStmt(rutil::Random &random);
+  const std::vector<ConditionalChart>& GetStmts() const;
 
   void swap(Chart& c);
 
@@ -83,31 +84,8 @@ private:
   MetaData metadata_;
   TempoData tempodata_;
   Song* parent_song_;
-  std::vector<ConditionalChart> stmtdata_;
   std::string hash_;
   std::string filename_;
-};
-
-/*
- * @detail
- * Conditional Flow Statements for BMS file type
- */
-class ConditionalChart
-{
-public:
-  void AddSentence(unsigned int cond, Chart* chartdata);
-  Chart* EvaluateSentence(rutil::Random& random) const;
-  size_t GetSentenceCount();
-  Chart* CreateSentence(unsigned int cond);
-
-  ConditionalChart(int value, bool israndom, bool isswitchstmt);
-  ConditionalChart(const ConditionalChart& cs);
-  ~ConditionalChart();
-private:
-  mutable int value_;
-  bool israndom_;
-  bool isswitchstmt_;
-  std::map<int, Chart*> sentences_;
 };
 
 /**
@@ -139,6 +117,7 @@ public:
   virtual void DeleteChart(int idx) = 0;
   virtual bool IsChartOpened() = 0;
   virtual void UpdateTempoData() = 0;
+  virtual int GetChartIndexByName(const std::string& filename) = 0;
 protected:
   ChartListBase() = default;
 };
@@ -161,6 +140,7 @@ public:
   virtual void DeleteChart(int idx);
   virtual bool IsChartOpened();
   virtual void UpdateTempoData();
+  virtual int GetChartIndexByName(const std::string& filename);
 
   void AppendChart(Chart* chart);
   Chart* GetChart(int idx);
@@ -187,6 +167,7 @@ public:
   virtual void DeleteChart(int idx);
   virtual bool IsChartOpened();
   virtual void UpdateTempoData();
+  virtual int GetChartIndexByName(const std::string& filename);
 private:
   std::vector<NoteData<SoundNote> > note_charts_;
   mutable int cur_edit_idx;

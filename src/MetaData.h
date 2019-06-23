@@ -139,6 +139,7 @@ public:
   #undef META_STR
 
   int encoding;                   // (internal use) encoding of current metadata.
+  std::string script;             // (internal use) BMS edit script
 
   std::string toString() const;
   void swap(MetaData &md);

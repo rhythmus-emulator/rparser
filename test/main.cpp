@@ -231,39 +231,6 @@ TEST(RPARSER, CHART)
   EXPECT_NEAR(1333.33, nd.back().GetTimePos(), 0.01);
 }
 
-TEST(RPARSER, CHART_CONDITIONAL_SEGMENT)
-{
-  Chart c;
-  c.GetMetaData().title = "Hi";
-  auto &RandomStmt = *c.CreateStmt(5, true, false);
-  Chart *c2 = RandomStmt.CreateSentence(2);
-  c2->GetMetaData().SetAttribute("TITLE", "Hello");
-  SoundNote n;
-  n.SetBeatPos(0);
-  n.SetAsTapNote(0, 1);
-  c2->GetNoteData().AddNote(n);
-  n.SetAsTapNote(0, 3);
-  c2->GetNoteData().AddNote(n);
-  TempoNote tn;
-  tn.SetBeatPos(0);
-  tn.SetBpm(90);
-  c2->GetTempoData().GetTempoNoteData().AddNote(tn);
-  tn.SetBeatPos(10);
-  tn.SetBpm(180);
-  c2->GetTempoData().GetTempoNoteData().AddNote(tn);
-
-  rutil::Random random;
-  random.SetSeed(14);
-  c.EvaluateStmt(random);
-  c.GetMetaData().SetMetaFromAttribute();
-  c.InvalidateTempoData();
-
-  EXPECT_STREQ("Hello", c.GetMetaData().title.c_str());
-  EXPECT_EQ(2, c.GetNoteData().size());
-  EXPECT_EQ(180, c.GetTempoData().GetMaxBpm());
-  EXPECT_EQ(90, c.GetTempoData().GetMinBpm());
-}
-
 TEST(RPARSER, LONGNOTE)
 {
   Chart c;
@@ -520,18 +487,52 @@ TEST(RPARSER, BMS_STRESS)
   song.Close();
 }
 
-TEST(RPARSER, BMS_HTML_EXPORT)
+TEST(RPARSER, VOS_HTML_EXPORT)
 {
   const auto songpath = "chart_sample/24.vos";
   Song song;
   ASSERT_TRUE(song.Open(BASE_DIR + songpath));
   Chart *c = song.GetChart(0);
+  ASSERT_TRUE(c);
   c->Invalidate();
 
   std::string html;
   ExportToHTML(*c, html);
 
-  FILE *fp = rutil::fopen_utf8(BASE_DIR + "out_103_vos.html", "wb");
+  FILE *fp = rutil::fopen_utf8(BASE_DIR + "out_to_html.html", "wb");
+  ASSERT_TRUE(fp);
+
+  std::string t;
+  t = "<html><head>"\
+    "<link rel='stylesheet' href='rhythmus.css' type='text/css'>"\
+    "<script src='http://code.jquery.com/jquery-latest.min.js'></script>"\
+    "<script src='rhythmus.js'></script>"\
+    "</head><body>";
+  fwrite(t.c_str(), 1, t.size(), fp);
+
+  fwrite(html.c_str(), 1, html.size(), fp);
+
+  t = "</body></html>";
+  fwrite(t.c_str(), 1, t.size(), fp);
+
+  fclose(fp);
+
+  song.Close();
+}
+
+TEST(RPARSER, BMS_HTML_EXPORT)
+{
+  const auto songpath = "chart_sample_bms";
+  Song song;
+  ASSERT_TRUE(song.Open(BASE_DIR + songpath));
+  Chart *c = song.GetChart("l-for-nanasi.bms");
+  ASSERT_TRUE(c);
+  c->Invalidate();
+
+  std::string html;
+  ExportToHTML(*c, html);
+
+  FILE *fp = rutil::fopen_utf8(BASE_DIR + "out_to_html_bms.html", "wb");
   ASSERT_TRUE(fp);
 
   std::string t;
@@ -555,5 +556,6 @@ TEST(RPARSER, BMS_HTML_EXPORT)
 int main(int argc, char **argv)
 {
 	::testing::InitGoogleTest(&argc, argv);
+  ::testing::FLAGS_gtest_filter = "RPARSER.BMS_HTML_EXPORT";
   return RUN_ALL_TESTS();
 }

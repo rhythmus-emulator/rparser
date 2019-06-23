@@ -137,6 +137,10 @@ private:
   virtual std::string getValueAsString() const = 0;
   NoteType type_;
   NoteType subtype_;
+
+  // A flag whether this note is created by some conditional options, not by default.
+  // Default is 0.
+  int is_conditional_object_;
 };
 
 struct NoteChain;

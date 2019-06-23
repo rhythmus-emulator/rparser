@@ -27,10 +27,6 @@ Chart::Chart(const Chart &nd)
   {
     cmddata_.AddNote(EventNote(note));
   }
-  for (const auto& stmt : nd.stmtdata_)
-  {
-    stmtdata_.push_back(ConditionalChart(stmt));
-  }
   tempodata_ = std::move(TempoData(nd.tempodata_));
 }
 
@@ -41,7 +37,6 @@ Chart::~Chart()
 void Chart::swap(Chart& c)
 {
   notedata_.swap(c.notedata_);
-  stmtdata_.swap(c.stmtdata_);
   tempodata_.swap(c.tempodata_);
   metadata_.swap(c.metadata_);
 }
@@ -50,39 +45,8 @@ void Chart::swap(Chart& c)
 void Chart::Clear()
 {
   notedata_.clear();
-  stmtdata_.clear();
   tempodata_.clear();
   metadata_.clear();
-}
-
-ConditionalChart* Chart::CreateStmt(int value, bool israndom, bool isswitchstmt)
-{
-  stmtdata_.emplace_back(ConditionalChart(value, israndom, isswitchstmt));
-  return GetLastStmt();
-}
-
-ConditionalChart* Chart::GetLastStmt()
-{
-  return &stmtdata_.back();
-}
-
-void Chart::AppendStmt(ConditionalChart& stmt)
-{
-  stmtdata_.push_back(stmt);
-}
-
-void Chart::EvaluateStmt(rutil::Random &random)
-{
-  for (const ConditionalChart& stmt : stmtdata_)
-  {
-    Chart *c = stmt.EvaluateSentence(random);
-    if (c)
-    {
-      notedata_.Merge(c->GetNoteData());
-      GetTempoData().GetTempoNoteData().Merge(c->GetTempoData().GetTempoNoteData());
-      GetMetaData().MergeAttributes(c->GetMetaData());
-    }
-  }
 }
 
 NoteData<SoundNote>& Chart::GetNoteData()
@@ -312,55 +276,7 @@ SONGTYPE Chart::GetSongType() const
   else return SONGTYPE::NONE;
 }
 
-void ConditionalChart::AddSentence(unsigned int cond, Chart* chartdata)
-{
-  sentences_[cond] = chartdata;
-}
 
-Chart* ConditionalChart::EvaluateSentence(rutil::Random& random) const
-{
-  uint32_t idx = static_cast<uint32_t>(random.Next()) % value_;
-  auto it = sentences_.find(idx);
-  if (it == sentences_.end())
-    return 0;
-  return it->second;
-}
-
-size_t ConditionalChart::GetSentenceCount()
-{
-  return sentences_.size();
-}
-
-Chart* ConditionalChart::CreateSentence(unsigned int cond)
-{
-  auto ii = sentences_.find(cond);
-  if (ii == sentences_.end())
-    sentences_.emplace(cond, new Chart());
-  return sentences_[cond];
-}
-
-ConditionalChart::ConditionalChart(int value, bool israndom, bool isswitchstmt)
-  : value_(value), israndom_(israndom), isswitchstmt_(isswitchstmt)
-{
-  assert(value_ > 0);
-}
-
-ConditionalChart::ConditionalChart(const ConditionalChart& cs)
-  : value_(cs.value_), israndom_(cs.israndom_), isswitchstmt_(cs.isswitchstmt_)
-{
-  for (auto p : cs.sentences_)
-  {
-    sentences_[p.first] = new Chart(*p.second);
-  }
-}
-
-ConditionalChart::~ConditionalChart()
-{
-  for (auto& p : sentences_)
-  {
-    delete p.second;
-  }
-}
 
 ChartList::ChartList() : cur_edit_idx(-1) {}
 
@@ -430,6 +346,18 @@ bool ChartList::IsChartOpened()
   return cur_edit_idx >= 0;
 }
 
+int ChartList::GetChartIndexByName(const std::string& filename)
+{
+  int i = 0;
+  for (auto *c : charts_)
+  {
+    if (c->GetFilename() == filename)
+      return i;
+    i++;
+  }
+  return -1;
+}
+
 ChartNoteList::ChartNoteList() : cur_edit_idx(-1) {}
 
 ChartNoteList::~ChartNoteList() { }
@@ -483,6 +411,12 @@ bool ChartNoteList::IsChartOpened()
 void ChartNoteList::UpdateTempoData()
 {
   InvalidateTempoData();
+}
+
+int ChartNoteList::GetChartIndexByName(const std::string& filename)
+{
+  // not supported.
+  return -1;
 }
 
 

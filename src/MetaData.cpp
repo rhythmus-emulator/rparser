@@ -212,6 +212,7 @@ void MetaData::clear()
   #undef META_DBL
   #undef META_STR
 
+  script.clear();
   bpm = kDefaultBpm;
   player_count = 1;
 }

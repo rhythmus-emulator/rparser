@@ -8,6 +8,7 @@
 #include "Song.h"
 #include "Chart.h"
 #include "Directory.h"
+#include "rutil.h"
 
 namespace rparser {
 
@@ -23,14 +24,21 @@ class Chart;
  */
 class ChartLoader {
 public:
-  ChartLoader(): error_(0) {};
+  ChartLoader(): error_(0), seed_(0) {};
   virtual bool LoadFromDirectory(ChartListBase& chartlist, Directory& dir) = 0;
   virtual bool Load(Chart &c, const void* p, int iLen) = 0;
   virtual bool Test(const void* p, int iLen);
+  virtual void SetSeed(int seed = -1);
 
   static ChartLoader* Create(SONGTYPE songtype);
+
+  // XXX: A global setting whether to load BMS file in edit mode or not.
+  //      It's a kind of internal variable so it's roughly in temp static variable.
+  //      Should be fixed later.
+  static bool bOpenBmsFileWithoutProcessing;
 protected:
   int error_;
+  int seed_;
 };
 
 
@@ -40,12 +48,25 @@ public:
   virtual bool LoadFromDirectory(ChartListBase& chartlist, Directory& dir);
   virtual bool Load(Chart &c, const void* p, int iLen);
   virtual bool Test(const void* p, int iLen);
+
+  // Process command to chart data without clearing.
+  void ProcessCommand(Chart &c, const char* p, int len);
+
+  void ProcessConditionalStatement(bool do_process = true);
 private:
   Chart * chart_context_;
-  std::vector<Chart*> chart_context_stack_;
-  ConditionalChart* condstmt_;
   uint32_t longnote_idx_per_lane[36];
   std::map<int, uint8_t> bga_column_idx_per_measure_;
+
+  struct CondContext {
+    int condblock;
+    int condcur;
+    int condprocessed;
+    int condcheckedcount;
+    bool parseable;
+  };
+  std::vector<CondContext> cond_;
+
   struct LineContext {
     const char* stmt;
     size_t stmt_len;
@@ -57,8 +78,13 @@ private:
 
     void clear();
     LineContext();
-  } current_line_;
+  };
+  std::vector<LineContext*> parsing_buffer_;
+  LineContext* current_line_;
+  rutil::Random random_;
+  bool process_conditional_statement_;
 
+  bool IsCurrentLineIsConditionalStatement();
   bool ParseCurrentLine();
   bool ParseControlFlow();
   bool ParseMetaData();
@@ -67,6 +93,9 @@ private:
   bool ParseSoundNote();
   bool ParseTempoNote();
   bool ParseCommandNote();
+
+  // Finish parsing by flush parsing buffer to chart data.
+  void FlushParsingBuffer();
 };
 
 enum VOS_VERSION {

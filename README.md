@@ -41,3 +41,8 @@ song.Close();
   * VOS
   * Archived BMS (.zip)
 - Currently under-development; Writing chart file is not available now..
+
+### Limitation
+- Parsing Bms file in modification state with conditional statement including longnote may produce wrong parsing result.
+  - Bms Longnote uses two object, and two object might placed between conditional statement, which is cannot be expressed in general chart data form.
+  - Though it can be edited if chart loaded without processing conditional statement (Use ChartLoaderBMS directly), but it can cause badly parsed note data as written above.
