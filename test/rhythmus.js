@@ -1,4 +1,15 @@
 $(function() {
+    /* measure length */
+    $('.measurebox').each(function() {
+        var l = $(this).data('length');
+        var height = $(this).height();
+        if (l != 4.0)
+        {
+            $(this).height(height * l / 4.0);
+        }
+    });
+
+    /* hover information */
     var m = $("<div id='message'></div>");
     $('body').append(m);
     m.css({

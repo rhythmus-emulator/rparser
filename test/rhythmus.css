@@ -164,6 +164,52 @@ body
 .playlane-7key #notedata .measurebox .noteobject.lane5
 { background: #a0a0a0; }
 
+
+/* BMS */
+.playlane-8key #notedata .measurebox .noteobject.lane0
+{ left: 0%; width: 14%; }
+.playlane-8key #notedata .measurebox .noteobject.lane1
+{ left: 14%; width: 14%; }
+.playlane-8key #notedata .measurebox .noteobject.lane2
+{ left: 28%; width: 14%; }
+.playlane-8key #notedata .measurebox .noteobject.lane3
+{ left: 42%; width: 16%; }
+.playlane-8key #notedata .measurebox .noteobject.lane4
+{ left: 58%; width: 14%; }
+.playlane-8key #notedata .measurebox .noteobject.lane5
+{ left: 72%; width: 14%; }
+.playlane-8key #notedata .measurebox .noteobject.lane6
+{ left: 86%; width: 14%; }
+
+.playlane-8key #notedata .measurebox .noteobject.longnote_body.lane0
+{ left: 1%; width: 12%; }
+.playlane-8key #notedata .measurebox .noteobject.longnote_body.lane1
+{ left: 15%; width: 12%; }
+.playlane-8key #notedata .measurebox .noteobject.longnote_body.lane2
+{ left: 29%; width: 12%; }
+.playlane-8key #notedata .measurebox .noteobject.longnote_body.lane3
+{ left: 43%; width: 14%; }
+.playlane-8key #notedata .measurebox .noteobject.longnote_body.lane4
+{ left: 59%; width: 12%; }
+.playlane-8key #notedata .measurebox .noteobject.longnote_body.lane5
+{ left: 73%; width: 12%; }
+.playlane-8key #notedata .measurebox .noteobject.longnote_body.lane6
+{ left: 87%; width: 12%; }
+
+.playlane-8key #notedata .measurebox .noteobject.longnote_body { opacity: 0.6; }
+.playlane-8key #notedata .measurebox .noteobject.longnote_end { margin-top: -8px; }
+
+.playlane-8key #notedata .measurebox .noteobject.lane0,
+.playlane-8key #notedata .measurebox .noteobject.lane2,
+.playlane-8key #notedata .measurebox .noteobject.lane4,
+.playlane-8key #notedata .measurebox .noteobject.lane6
+{ background: #6a6a7b; }
+.playlane-8key #notedata .measurebox .noteobject.lane1,
+.playlane-8key #notedata .measurebox .noteobject.lane3,
+.playlane-8key #notedata .measurebox .noteobject.lane5
+{ background: #a0a0a0; }
+
+
 /* event objects */
 #notedata .measurebox .eventobject
 {
@@ -182,8 +228,8 @@ body
     /* too nasty... hide here */
     display: none;
 }
-#notedata .measurebox .eventtype0:before { content: 'BGA'; display: none; /* too much */ }
-#notedata .measurebox .eventtype1:before { content: 'MIDI'; display: none; /* too much */ }
+#notedata .measurebox .eventtype0:before { content: 'BGA'; }
+#notedata .measurebox .eventtype1:before { content: 'MIDI'; }
 #notedata .measurebox .eventtype2:before { content: '#SWBGA'; }
 #notedata .measurebox .eventtype3:before { content: '#EXTCHR'; }
 #notedata .measurebox .eventtype4:before { content: '#TEXT'; }
@@ -213,12 +259,21 @@ body
 #notedata .measurebox .tempotype5:before { content: 'BPM (BMS)'; }
 #notedata .measurebox .tempotype6:before { content: 'STOP (BMS)'; }
 
+#notedata .measurebox .eventtype0 { display: none; /* too much */ }
+#notedata .measurebox .eventtype1 { display: none; /* too much */ }
+#notedata .measurebox .tempotype4 { display: none; /* measure length change... note necessary to show */ }
+
 /* sound objects */
 #notedata .measurebox .soundobject
 { display: none; }
 
 /* won't show resource info. just for mouse hovering. */
 #resourcedata { display: none; }
+
+/* in case of flipping notedata */
+#notedata.flip,
+#notedata.flip .chartobject,
+#notedata.flip .measureno { transform: scale(1, -1); }
 
 /* general css */
 .hide { display: none; }

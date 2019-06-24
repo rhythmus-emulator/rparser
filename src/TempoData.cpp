@@ -596,4 +596,9 @@ const NoteData<TempoNote>& TempoData::GetTempoNoteData() const
   return const_cast<TempoData*>(this)->GetTempoNoteData();
 }
 
+const std::vector<BarObject>& TempoData::GetBarObjects() const
+{
+  return barobjs_;
+}
+
 }

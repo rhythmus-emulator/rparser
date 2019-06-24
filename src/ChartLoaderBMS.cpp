@@ -426,7 +426,7 @@ bool ChartLoaderBMS::ParseMetaData()
 
 constexpr unsigned int radix_16_2_36(unsigned int radix_16)
 {
-  return (radix_16 / 16) * 36 + (radix_16 % 16);
+  return (radix_16 >> 4 /* / 16 */) * 36 + (radix_16 & 0b1111 /* % 16 */);
 }
 
 int GetNoteTypeFromBmsChannel(unsigned int bms_channel)
@@ -527,7 +527,7 @@ uint8_t GetNotePlayerFromBmsChannel(unsigned int bms_channel)
 /* XXX: pedal is 9th ch, but when it would be in progress? */
 uint8_t GetNoteColFromBmsChannel(unsigned int bms_channel)
 {
-  if (bms_channel < radix_16_2_36(0x20)) return 0;  // special channel
+  if (bms_channel < radix_16_2_36(0x10)) return 0;  // special channel
   unsigned int channel_mod_16 = bms_channel % 36;
   if (channel_mod_16 >= 16) return 0;
   unsigned int channel_remap[16] = 

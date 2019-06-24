@@ -61,21 +61,24 @@ void ExportNoteToHTML(const Chart &c, HTMLExporter &e)
   auto &ed = c.GetEventNoteData();
   auto &td = c.GetTempoData();
   auto &tnd = td.GetTempoNoteData();
+  auto &bars = td.GetBarObjects();
   std::list<const SoundNote*> longnotes;
 
-  e.line() << "<div class='content notedata' id='notedata'>";
+  e.line() << "<div class='content notedata flip' id='notedata'>";
   e.PushIndent();
 
   // each measure has each div box
-  uint32_t measure_idx = 1;
+  uint32_t measure_idx = 1, bar_idx = 0;
   uint32_t nd_idx = 0, ed_idx = 0, td_idx = 0;
   while (nd_idx < nd.size() || ed_idx < ed.size() || td_idx < tnd.size())
   {
     double beat = td.GetBeatFromRow(measure_idx);
+    while (bar_idx + 1 < bars.size() && bars[bar_idx + 1].baridx_ <= measure_idx)
+      bar_idx++;
 
     // measure start.
     e.line() << "<div id='measure" << measure_idx << "' class='measurebox'" <<
-      " data-length=" << td.GetMeasureFromBeat(beat) << " data-beat=" << beat << "><div class='inner'>";
+      " data-measure=" << measure_idx << " data-length=" << bars[bar_idx].barlength_ << " data-beat=" << beat << "><div class='inner'>";
     e.PushIndent();
     e.line() << "<div class='measureno'>" << measure_idx << "</div>";
 

@@ -522,10 +522,10 @@ TEST(RPARSER, VOS_HTML_EXPORT)
 
 TEST(RPARSER, BMS_HTML_EXPORT)
 {
-  const auto songpath = "chart_sample_bms";
+  const auto songpath = "bms_sample_angelico.zip";
   Song song;
   ASSERT_TRUE(song.Open(BASE_DIR + songpath));
-  Chart *c = song.GetChart("l-for-nanasi.bms");
+  Chart *c = song.GetChart(0);
   ASSERT_TRUE(c);
   c->Invalidate();
 
@@ -556,5 +556,6 @@ TEST(RPARSER, BMS_HTML_EXPORT)
 int main(int argc, char **argv)
 {
 	::testing::InitGoogleTest(&argc, argv);
+  ::testing::FLAGS_gtest_filter = "*.BMS_HTML_EXPORT";
   return RUN_ALL_TESTS();
 }

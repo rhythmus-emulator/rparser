@@ -71,6 +71,7 @@ public:
   void swap(TempoData& tempodata);
   NoteData<TempoNote>& GetTempoNoteData();
   const NoteData<TempoNote>& GetTempoNoteData() const;
+  const std::vector<BarObject>& GetBarObjects() const;
   void Invalidate(const MetaData& m);
 
   void SetFirstObjectFromMetaData(const MetaData &md);
