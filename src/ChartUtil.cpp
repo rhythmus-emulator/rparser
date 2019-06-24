@@ -73,7 +73,7 @@ void ExportNoteToHTML(const Chart &c, HTMLExporter &e)
   while (nd_idx < nd.size() || ed_idx < ed.size() || td_idx < tnd.size())
   {
     double beat = td.GetBeatFromRow(measure_idx);
-    while (bar_idx + 1 < bars.size() && bars[bar_idx + 1].baridx_ <= measure_idx)
+    while (bar_idx + 1 < bars.size() && bars[bar_idx + 1].baridx_ <= measure_idx - 1)
       bar_idx++;
 
     // measure start.

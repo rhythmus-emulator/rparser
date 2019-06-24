@@ -53,7 +53,6 @@ bool ChartLoaderBMS::LoadFromDirectory(ChartListBase& chartlist, Directory& dir)
 
     c->SetFilename(filename);
     c->SetHash(rutil::md5_str(f.d.GetPtr(), f.d.GetFileSize()));
-    c->GetTempoData().SetMeasureLengthRecover(true);  // enable by default
     bool r = Load(*c, f.d.p, f.d.len);
 
     chartlist.CloseChartData();
@@ -101,6 +100,7 @@ void ChartLoaderBMS::ProcessCommand(Chart &chart, const char* chr, int len)
   cond_.clear();
   cond_.emplace_back(CondContext{ 0, -1, 0, 0, true });
   random_.SetSeed(seed_);
+  chart.GetTempoData().SetMeasureLengthRecover(true);  // enable by default
   chart_context_ = &chart;
 
 
@@ -770,6 +770,11 @@ void ChartLoaderBMS::FlushParsingBuffer()
       std::cerr << "BMSParser: unknown terminator " << std::string(current_line_->stmt, current_line_->stmt_len) << std::endl;
     }
   }
+
+  for (auto &ii : parsing_buffer_)
+    delete ii;
+  parsing_buffer_.clear();
+
   cond_.clear();
 }
 

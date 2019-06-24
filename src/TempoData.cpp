@@ -367,7 +367,7 @@ void TempoData::SetMeasureLengthChange(uint32_t measure_idx, double barlength)
   }
   // Only use last segment.
   BarObject& b = barobjs_.back();
-  ASSERT(measure_idx >= b.baridx_);
+  ASSERT(measure_idx >= b.baridx_); /* same bar editing with do_recover_measure_length */
   if (!b.is_implicit_ && measure_idx == b.baridx_) return; /* may be caused by do_recover_measure_length */
   if (b.barlength_ == barlength) return;
 
@@ -379,10 +379,10 @@ void TempoData::SetMeasureLengthChange(uint32_t measure_idx, double barlength)
   new_obj.is_implicit_ = false;
 
   // If same measure_idx, then update previous one.
-  if (measure_idx == b.baridx_)
-    barobjs_.back() = new_obj;
-  else
+  if (measure_idx > b.baridx_)
     barobjs_.push_back(new_obj);
+  else
+    barobjs_.back() = new_obj;
 
   // If need to recover measure length (BMS type)
   if (do_recover_measure_length_)
