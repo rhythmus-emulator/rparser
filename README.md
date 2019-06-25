@@ -11,6 +11,7 @@ MIT License.
 - Support placing object without loss of resolution
 - Support archived file format
 - Support various edit/modifying functions(utilities).
+- Python support. (add -DPYTHONLIB=true flag)
 
 ### Usage
 ```cpp

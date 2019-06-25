@@ -54,13 +54,6 @@ public:
   
   void Clear();
 
-  ConditionalChart* CreateStmt(int value, bool israndom, bool isswitchstmt);
-  ConditionalChart* GetLastStmt();
-  void AppendStmt(ConditionalChart& stmt);
-  // evaluate all stmt and generate objects (process control flow)
-  void EvaluateStmt(rutil::Random &random);
-  const std::vector<ConditionalChart>& GetStmts() const;
-
   void swap(Chart& c);
 
   virtual std::string toString() const;
