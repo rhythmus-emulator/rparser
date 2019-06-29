@@ -147,24 +147,33 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 	Close();
 
 	// Read file binaries.
-  DirectoryFactory &df = DirectoryFactory::Create(path);
-  if (!df.Open())
+  DirectoryFactory *df = &DirectoryFactory::Create(path);
+  if (!df->Open())
   {
 		error_ = ERROR::OPEN_NO_FILE;
 		songtype_ = SONGTYPE::NONE;
+    delete df;
 		return false;
 	}
-  directory_ = df.GetDirectory();
+  directory_ = df->GetDirectory();
 
   // Detect song type and prepare chartlist.
   if (songtype == SONGTYPE::NONE) SetSongType(DetectSongtype());
   else SetSongType(songtype);
+  if (GetSongType() == SONGTYPE::NONE)
+    return false;
 
   // Load binary into chartloader
 	ChartLoader *cl = ChartLoader::Create(songtype_);
   r = cl->LoadFromDirectory(*chartlist_, *directory_);
-	delete cl;
 
+  // If chart file requires resource data (total directory),
+  // Read resource file together.
+  if (rutil::GetExtension(path) != "vos")
+    directory_->OpenCurrentDirectory();
+
+	delete cl;
+  delete df;
 	return r;
 }
 

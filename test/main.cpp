@@ -395,6 +395,24 @@ TEST(RPARSER, BMSARCHIVE)
   song.Close();
 }
 
+TEST(RPARSER, BMS_SINGLE)
+{
+  using namespace rparser;
+  const std::string fpath(BASE_DIR + "chart_sample_bms/l-for-nanasi.bms");
+  Song song;
+
+  ASSERT_TRUE(song.Open(fpath));
+
+  Chart *c = song.GetChart();
+  ASSERT_TRUE(c);
+  EXPECT_TRUE(song.GetDirectory()->count() > 1);
+
+  c->Invalidate();
+  std::cout << c->GetMetaData().title << std::endl;
+
+  song.Close();
+}
+
 TEST(RPARSER, BMS_STRESS)
 {
   EXPECT_EQ(255, rutil::atoi_16("FF"));

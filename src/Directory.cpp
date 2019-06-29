@@ -23,7 +23,7 @@ Directory::Directory(DIRECTORY_TYPE restype) :
 
 Directory::~Directory()
 {
-  ReleaseMemory();
+  UnloadFiles();
 }
 
 void Directory::SetDirectoryType(DIRECTORY_TYPE restype)
@@ -39,6 +39,11 @@ bool Directory::Open(const std::string& filepath)
   SetPath(filepath.c_str());
   return doOpen();
 };
+
+void Directory::OpenCurrentDirectory()
+{
+  // do nothing.
+}
 
 bool Directory::Save()
 {
@@ -81,12 +86,12 @@ bool Directory::Clear(bool flush)
   if (!Close(flush))
     return false;
 
-  ReleaseMemory();
+  UnloadFiles();
 
   return true;
 }
 
-void Directory::ReleaseMemory()
+void Directory::UnloadFiles()
 {
   for (auto &ii : files_)
   {
@@ -440,8 +445,13 @@ bool DirectoryFolder::doOpen()
   if (!rutil::IsDirectory(GetPath()))
     return false;
 
+  return doOpenDirectory(GetPath());
+}
+
+bool DirectoryFolder::doOpenDirectory(const std::string& dirpath)
+{
   rutil::DirFileList files;
-  rutil::GetDirectoryFiles(GetPath(), files);
+  rutil::GetDirectoryFiles(dirpath, files);
   for (auto ii : files)
   {
     // check extension
@@ -643,7 +653,7 @@ bool DirectoryArchive::IsReadOnly()
 
 #endif
 
-DirectoryBinary::DirectoryBinary()
+DirectoryBinary::DirectoryBinary() : allow_multiple_files_(false)
 {
   SetDirectoryType(DIRECTORY_TYPE::BINARY);
 }
@@ -660,16 +670,14 @@ rutil::FileData* DirectoryBinary::GetDataPtr()
 
 bool DirectoryBinary::AddFileData(FileData& d, bool setdirty, bool copy)
 {
-  // only allow single file
-  if (count() == 0) return Directory::AddFileData(d, setdirty, copy);
-  return false;
+  if (allow_multiple_files_ || count() == 0) return Directory::AddFileData(d, setdirty, copy);
+  else return false;
 }
 
 bool DirectoryBinary::AddFile(const std::string &relpath, bool setdirty)
 {
-  // only allow single file
-  if (count() == 0) return Directory::AddFile(relpath, setdirty);
-  else  return false;
+  if (allow_multiple_files_ || count() == 0) return Directory::AddFile(relpath, setdirty);
+  else return false;
 }
 
 bool DirectoryBinary::doOpen()
@@ -678,6 +686,16 @@ bool DirectoryBinary::doOpen()
     return false;
   CreateEmptyFileData(rutil::GetFilename(GetPath()));
   return true;
+}
+
+void DirectoryBinary::OpenCurrentDirectory()
+{
+  // First allow multiple files as we decided to load full directory.
+  allow_multiple_files_ = true;
+
+  // Use simple tricks - Unload all files, and reload all.
+  UnloadFiles();
+  doOpenDirectory(rutil::GetDirectory(GetPath()));
 }
 
 
@@ -691,10 +709,13 @@ DirectoryFactory& DirectoryFactory::Create(const std::string& path)
 DirectoryFactory::DirectoryFactory(const std::string& path)
   : path_(path), directory_(nullptr), is_directory_fetched_(false)
 {
-  std::string ext = rutil::lower(rutil::GetExtension(path));
-  if (ext == "zip") directory_ = new DirectoryArchive();
-  else if (rutil::IsDirectory(path)) directory_ = new DirectoryFolder();
-  else directory_ = new DirectoryBinary();
+  if (rutil::IsDirectory(path)) directory_ = new DirectoryFolder();
+  else
+  {
+    std::string ext = rutil::lower(rutil::GetExtension(path));
+    if (ext == "zip") directory_ = new DirectoryArchive();
+    else directory_ = new DirectoryBinary();
+  }
 }
 
 DirectoryFactory::~DirectoryFactory()
@@ -717,7 +738,24 @@ DirectoryFactory& DirectoryFactory::SetFilter(const char** filter_ext)
 
 bool DirectoryFactory::Open()
 {
-  return directory_->Open(path_);
+  if (!bms_chart_file_filter_.empty())
+  {
+    std::vector<std::string> files_to_remove;
+    directory_->Open(path_);
+    for (auto &d : *directory_)
+    {
+      std::string fn = d.d.GetFilename();
+      std::string ext = rutil::GetExtension(fn);
+      if (bms_chart_file_filter_ == fn)
+        continue;
+      else if (ext == "bme" || ext == "bml" || ext == "bms")
+        files_to_remove.push_back(ext);
+    }
+
+    for (auto &fn : files_to_remove)
+      directory_->Delete(fn);
+  }
+  else return directory_->Open(path_);
 }
 
 }

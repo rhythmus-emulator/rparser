@@ -46,6 +46,10 @@ public:
   // if filter_ext set to 0, then all file is read.
   bool Open(const std::string& filepath);
 
+  // Open files which located in same directory.
+  // (This method is for DirectoryBinary. No effect for general directory.)
+  virtual void OpenCurrentDirectory();
+
   // Flush all changes into file and reset all dirty flags.
   // If succeed, return true. else, return false and canceled.
   // Detailed error message is stored in error_msg_
@@ -55,6 +59,8 @@ public:
   // Unload all Directory and allocated memory.
   // You can save data with setting parameter flush=true.
   bool Clear(bool flush = true);
+  // Just unload currently loaded files.
+  void UnloadFiles();
   // Just close directory handle.
   bool Close(bool flush = true);
   // if Closed, then readonly state.
@@ -114,7 +120,6 @@ private:
 
   void SetPath(const char* filepath);
   void SetExtension(const char* extension);
-  void ReleaseMemory();
 
 protected:
   std::vector<FileDataSegment> files_;
@@ -125,7 +130,6 @@ protected:
   void SetDirty(bool flag = true);
   void CreateEmptyFileData(const std::string& filename);
 };
-
 
 class DirectoryFolder : public Directory
 {
@@ -141,6 +145,9 @@ private:
   virtual bool doOpen();
   virtual bool doDelete(const FileData& fd);
   virtual bool doCreate(const std::string& newpath);
+
+protected:
+  bool doOpenDirectory(const std::string& dirpath);
 };
 
 class DirectoryArchive : public DirectoryFolder
@@ -174,6 +181,7 @@ class DirectoryBinary : public DirectoryFolder
 public:
   DirectoryBinary();
   virtual bool IsReadOnly();
+  virtual void OpenCurrentDirectory();
 
   // Some file (ex: lr2course, vos) won't behave in form of multiple file.
   // In this case, we use data-ptr reserved for raw format
@@ -183,6 +191,7 @@ public:
   FileData* GetDataPtr();
 
 private:
+  bool allow_multiple_files_;
   virtual bool doOpen();
 };
 
@@ -199,6 +208,9 @@ private:
   const std::string path_;
   Directory* directory_;
   bool is_directory_fetched_;
+
+  // Special flag for loading specific chart without others.
+  std::string bms_chart_file_filter_;
 };
 
 }

@@ -61,7 +61,7 @@ public:
 
   size_t GetChartCount();
   Chart* NewChart();
-  Chart* GetChart(int i);
+  Chart* GetChart(int i = 0);
   Chart* GetChart(const std::string& filename);
   void CloseChart();
   void DeleteChart(int i);

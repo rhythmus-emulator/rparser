@@ -25,10 +25,10 @@ class Chart;
 class ChartLoader {
 public:
   ChartLoader(): error_(0), seed_(0) {};
-  virtual bool LoadFromDirectory(ChartListBase& chartlist, Directory& dir) = 0;
   virtual bool Load(Chart &c, const void* p, int iLen) = 0;
   virtual bool Test(const void* p, int iLen);
   virtual void SetSeed(int seed = -1);
+  virtual bool LoadFromDirectory(ChartListBase& chartlist, Directory& dir) = 0;
 
   static ChartLoader* Create(SONGTYPE songtype);
 
@@ -45,9 +45,9 @@ protected:
 class ChartLoaderBMS : public ChartLoader {
 public:
   ChartLoaderBMS();
-  virtual bool LoadFromDirectory(ChartListBase& chartlist, Directory& dir);
   virtual bool Load(Chart &c, const void* p, int iLen);
   virtual bool Test(const void* p, int iLen);
+  virtual bool LoadFromDirectory(ChartListBase& chartlist, Directory& dir);
 
   // Process command to chart data without clearing.
   void ProcessCommand(Chart &c, const char* p, int len);
@@ -110,8 +110,8 @@ enum class MIDISIG;
 class ChartLoaderVOS : public ChartLoader {
 public:
   ChartLoaderVOS();
-  virtual bool LoadFromDirectory(ChartListBase& chartlist, Directory& dir);
   virtual bool Load(Chart &c, const void* p, int iLen);
+  virtual bool LoadFromDirectory(ChartListBase& chartlist, Directory& dir);
 private:
   Chart *chart_;
   int vos_version_;
