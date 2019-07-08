@@ -169,7 +169,11 @@ bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
 
   // If chart file requires resource data (total directory),
   // Read resource file together.
-  if (rutil::GetExtension(path) != "vos")
+  std::string ext = rutil::GetExtension(path);
+  if (ext == "bms" ||
+      ext == "bme" ||
+      ext == "bml" ||
+      ext == "pms")
     directory_->OpenCurrentDirectory();
 
 	delete cl;

@@ -39,6 +39,9 @@ void Chart::swap(Chart& c)
   notedata_.swap(c.notedata_);
   tempodata_.swap(c.tempodata_);
   metadata_.swap(c.metadata_);
+  cmddata_.swap(c.cmddata_);
+  hash_.swap(c.hash_);
+  filename_.swap(c.filename_);
 }
 
 
@@ -47,6 +50,7 @@ void Chart::Clear()
   notedata_.clear();
   tempodata_.clear();
   metadata_.clear();
+  cmddata_.clear();
 }
 
 NoteData<SoundNote>& Chart::GetNoteData()

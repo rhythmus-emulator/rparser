@@ -51,9 +51,9 @@ bool ChartLoaderBMS::LoadFromDirectory(ChartListBase& chartlist, Directory& dir)
     Chart *c = chartlist.GetChartData(chartlist.AddNewChart());
     if (!c) return false;
 
+    bool r = Load(*c, f.d.p, f.d.len);
     c->SetFilename(filename);
     c->SetHash(rutil::md5_str(f.d.GetPtr(), f.d.GetFileSize()));
-    bool r = Load(*c, f.d.p, f.d.len);
 
     chartlist.CloseChartData();
 
