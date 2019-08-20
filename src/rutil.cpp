@@ -159,6 +159,8 @@ const char* GetCodepageString(int cp)
     return "shift-jis";
   case E_UTF8:  // utf-8
     return "utf-8";
+  case E_UTF32:
+    return "utf-32";
   default:
     // unsupported
     return 0;
@@ -280,6 +282,18 @@ int EncodeFromWStr(const std::wstring& s, std::string& sOut, int to_codepage)
   utf8size = WideCharToMultiByte(to_codepage_win, 0, s.data(), s.size(), (char*)sOut.data(), utf8size, 0, 0);
   return utf8size;
 }
+uint32_t UTF16toUTF32(uint16_t codepoint)
+{
+  // constants
+  constexpr uint32_t LEAD_OFFSET = 0xD800 - (0x10000 >> 10);
+  constexpr uint32_t SURROGATE_OFFSET = 0x10000 - (0xD800 << 10) - 0xDC00;
+
+  // computations
+  uint32_t lead = LEAD_OFFSET + (codepoint >> 10);
+  uint32_t trail = 0xDC00 + (codepoint & 0x3FF);
+
+  return (lead << 10) + trail + SURROGATE_OFFSET;
+}
 std::string ConvertEncoding(const std::string &s, int to_codepage, int from_codepage)
 {
   // Check encoding if necessary
@@ -294,6 +308,29 @@ std::string ConvertEncoding(const std::string &s, int to_codepage, int from_code
   int iSize = 0;
   if (DecodeToWStr(s, sWstr, from_codepage) == 0)
     return std::string();
+
+  // just return result string if UTF16
+  if (to_codepage == E_UTF16)
+  {
+    const char* p_start = reinterpret_cast<const char*>(sWstr.c_str());
+    const char* p_end = p_start + sWstr.size() * 2;
+    return std::string(p_start, p_end);
+  }
+
+  // little more tricks in case of UTF32
+  if (to_codepage == E_UTF32)
+  {
+    std::string r;
+    for (uint16_t t : sWstr)
+    {
+      uint32_t v = UTF16toUTF32(t);
+      r.push_back(((char*)&v)[0]);
+      r.push_back(((char*)&v)[1]);
+      r.push_back(((char*)&v)[2]);
+      r.push_back(((char*)&v)[3]);
+    }
+    return r;
+  }
 
   // from UTF16
   std::string r;

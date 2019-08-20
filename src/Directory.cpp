@@ -741,7 +741,9 @@ bool DirectoryFactory::Open()
   if (!bms_chart_file_filter_.empty())
   {
     std::vector<std::string> files_to_remove;
-    directory_->Open(path_);
+    if (!directory_->Open(path_))
+      return false;
+
     for (auto &d : *directory_)
     {
       std::string fn = d.d.GetFilename();
@@ -754,6 +756,8 @@ bool DirectoryFactory::Open()
 
     for (auto &fn : files_to_remove)
       directory_->Delete(fn);
+
+    return true;
   }
   else return directory_->Open(path_);
 }

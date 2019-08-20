@@ -41,7 +41,9 @@ enum EncodingTypes
 {
   E_EUC_KR = 949,
   E_SHIFT_JIS = 932,
-  E_UTF8 = 1252
+  E_UTF8 = 1252,
+  E_UTF16 = 1200,
+  E_UTF32 = 12000,
 };
 
 // encoding related
