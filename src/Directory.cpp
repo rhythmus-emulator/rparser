@@ -93,11 +93,6 @@ bool Directory::Clear(bool flush)
 
 void Directory::UnloadFiles()
 {
-  for (auto &ii : files_)
-  {
-    free(ii.d.p);
-  }
-
   files_.clear();
 }
 
