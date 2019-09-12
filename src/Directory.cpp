@@ -231,7 +231,9 @@ bool Directory::AddFileData(FileData& d_, bool setdirty, bool copy)
     d.len = d_.len;
     d.p = (uint8_t*)malloc(d_.len);
     d.fn = d_.fn;
+    memcpy(d.p, d_.p, d_.len);
     files_.emplace_back(FileDataSegment{ d, setdirty });
+    d.p = 0; /* prevent double-free */
   }
   else {
     files_.emplace_back(FileDataSegment{ d_, setdirty });
@@ -253,7 +255,8 @@ bool Directory::AddFile(const std::string &relpath, bool setdirty)
     return false;
   }
   d.fn = relpath;
-  AddFileData(d, setdirty);
+  AddFileData(d, setdirty, false);
+  d.p = 0; /* prevent double-free */
   return true;
 }
 
