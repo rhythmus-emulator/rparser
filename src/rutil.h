@@ -146,7 +146,7 @@ bool IsFile(const std::string& path);
 bool DeleteFile(const std::string& fpath);
 bool Rename(const std::string& prev_path, const std::string& new_path);
 std::string ReadFileText(const std::string& path);
-FileData ReadFileData(const std::string& path);
+void ReadFileData(const std::string& path, FileData& out);
 bool WriteFileData(const FileData& fd);
 
 bool IsDirectory(const std::string& path);

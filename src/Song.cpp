@@ -8,6 +8,8 @@
 #define BMSTYPES  \
   BMS( SONGTYPE::BMS, "zip" ),     \
   BMS( SONGTYPE::BMS, "bms" ),     \
+  BMS( SONGTYPE::BMS, "bme" ),     \
+  BMS( SONGTYPE::BMS, "bml" ),     \
   BMS( SONGTYPE::BMSON, "bmson" ), \
   BMS( SONGTYPE::OSU, "osu" ),     \
   BMS( SONGTYPE::SM, "sm" ),       \

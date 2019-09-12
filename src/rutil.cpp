@@ -425,9 +425,8 @@ std::string ReadFileText(const std::string& path)
   }
   else return std::string();
 }
-FileData ReadFileData(const std::string& path)
+void ReadFileData(const std::string& path, FileData& fd)
 {
-  FileData fd;
   size_t fsize = 0;
   fd.len = 0;
   fd.pos = 0;
@@ -445,7 +444,6 @@ FileData ReadFileData(const std::string& path)
     fread(fd.p, 1, fsize, fp);
     fclose(fp);
   }
-  return fd;
 }
 
 bool WriteFileData(const FileData& fd)

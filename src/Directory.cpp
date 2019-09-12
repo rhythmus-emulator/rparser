@@ -243,7 +243,8 @@ bool Directory::AddFile(const std::string &relpath, bool setdirty)
     return false;
 
   const std::string path = GetAbsolutePath(relpath);
-  FileData d = rutil::ReadFileData(path);
+  FileData d;
+  rutil::ReadFileData(path, d);
   if (d.len == 0)
   {
     SetError(ERROR::OPEN_INVALID_FILE);
@@ -465,7 +466,7 @@ bool DirectoryFolder::doRead(FileData &d)
   if (!d.IsEmpty()) return true;
   std::string orgfilename = d.GetFilename();
   const std::string fullpath(std::string(GetDirectoryPath()) + "/" + std::string(d.GetFilename()));
-  d = rutil::ReadFileData(fullpath);
+  rutil::ReadFileData(fullpath, d);
   if (d.IsEmpty())
   {
     SetError(ERROR::OPEN_INVALID_FILE);
