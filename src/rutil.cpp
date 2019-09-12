@@ -853,9 +853,10 @@ FileData::FileData()
 
 FileData::FileData(const std::string& fn)
 {
-  FileData();
   this->fn = fn;
   p = 0;
+  len = 0;
+  pos = 0;
 }
 
 // only for seeking purpose
@@ -864,6 +865,25 @@ FileData::FileData(uint8_t *p, uint32_t iLen)
   this->p = p;
   len = iLen;
   pos = 0;
+}
+
+// for vector resizing
+FileData::FileData(FileData &&fd)
+{
+  p = fd.p;
+  len = fd.len;
+  pos = fd.pos;
+  fn = fd.fn;
+  fd.p = 0;
+  fd.len = fd.pos = 0;
+}
+
+FileData::~FileData()
+{
+  if (p)
+  {
+    free(p);
+  }
 }
 
 std::string FileData::GetFilename() const { return fn; }

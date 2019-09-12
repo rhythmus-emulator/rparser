@@ -112,8 +112,12 @@ public:
 
 public:
   FileData();
+  FileData(const FileData &fd) = default;
+  FileData& operator=(const FileData& fd) = default;
+  FileData(FileData &&fd);
   FileData(uint8_t *p, uint32_t iLen);
   FileData(const std::string& fn);
+  virtual ~FileData();
 
   std::string GetFilename() const;
   uint32_t GetFileSize() const;
