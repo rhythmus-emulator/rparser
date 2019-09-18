@@ -89,6 +89,7 @@ std::string CleanPath(const std::string& path);
 std::string GetDirectory(const std::string& path);
 std::string GetParentDirectory(const std::string& path);
 std::string GetFilename(const std::string& path);
+std::string GetAlternativeFilename(const std::string& path);
 std::string GetExtension(const std::string& path, std::string *sOutName=0);
 bool CheckExtension(const std::string& path, const std::string &filter);
 std::string ChangeExtension(const std::string& path, const std::string &new_ext);
@@ -154,9 +155,41 @@ bool CreateDirectory(const std::string& path);
 bool DeleteDirectory(const std::string& path);
 
 #define CreateDirectory_RPARSER CreateDirectory
+
 // <path, isfile>
 typedef std::vector<std::pair<std::string, int>> DirFileList;
-bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecursive=100);
+
+/* @brief Get directory file(folder)s with recursive option */
+bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecursive=100, bool file_only=true);
+
+
+/* @brief File type of DirEntry */
+enum DirEntryTypes
+{
+  kDirEntryTypeFile,
+  kDirEntryTypeDirectory,
+  kDirEntryTypeArchive,
+};
+
+/* @brief Get directory entries with masking option */
+void GetDirectoryEntriesMasking(const std::string& path,
+  std::vector<std::string>& out,
+  bool only_file = true);
+
+/**
+ * @brief Entry which indicates element of directory.
+ * @param entry_type 1 : file, 2 : directory
+ */
+struct FileInfo
+{
+  std::string path;
+  int entry_type;
+  time_t modified_timestamp;
+};
+
+void GetFileInfo(const std::vector<std::string> &files, std::vector<FileInfo>& out);
+
+bool wild_match(const std::string& str, const std::string& pat);
 
 
 // if succeed, return true, and write md5 hash to char* out;
@@ -178,7 +211,7 @@ public:
   Random();
   void SetSeedByTime();
   void SetSeed(uint32_t seed);
-  uint32_t GetSeed();
+  uint32_t GetSeed() const;
   virtual int32_t Next();
   virtual double NextDouble();
   virtual int32_t Next(int32_t min, int32_t max);

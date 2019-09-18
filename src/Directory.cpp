@@ -271,10 +271,10 @@ Directory::FileDataSegment* Directory::GetSegment(const std::string& name, bool 
   // Alternative search = search file without extension if file is not found.
   if (use_alternative_search)
   {
-    const std::string filenameonly(std::move(rutil::GetFilename(name)));
+    const std::string filenameonly(std::move(rutil::GetAlternativeFilename(name)));
     for (auto &fds : *this)
     {
-      if (rutil::GetFilename(fds.d.GetFilename()) == filenameonly)
+      if (rutil::GetAlternativeFilename(fds.d.GetFilename()) == filenameonly)
         return &fds;
     }
   }

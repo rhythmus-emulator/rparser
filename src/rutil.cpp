@@ -10,11 +10,13 @@
 #include <time.h>
 
 #ifdef WIN32
-#include <io.h>
+# include <io.h>
+# include <sys/types.h>
+# define stat _wstat
 #else
-#include <dirent.h>
-#include <unistd.h>
-#include <iconv.h>
+# include <dirent.h>
+# include <unistd.h>
+# include <iconv.h>
 #endif
 
 #ifdef USE_ZLIB
@@ -559,6 +561,15 @@ std::string GetFilename(const std::string & path)
   return std::string(path.c_str()+pos+1);
 }
 
+std::string GetAlternativeFilename(const std::string& path)
+{
+  std::string fn = GetFilename(path);
+  size_t pos = path.find_last_of('.');
+  if (pos == std::string::npos)
+    return fn;
+  return fn.substr(0, pos);
+}
+
 std::string GetExtension(const std::string& path, std::string *sOutName)
 {
   size_t pos = path.find_last_of('.');
@@ -740,7 +751,7 @@ bool DeleteDirectory(const std::string& path)
 #endif
 
 #ifdef WIN32
-bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecursive)
+bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecursive, bool file_only)
 {
   HANDLE hFind = INVALID_HANDLE_VALUE;
   WIN32_FIND_DATAW ffd;
@@ -776,7 +787,8 @@ bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecu
 
           std::string fn;
           EncodeFromWStr(curr_dir_name + ffd.cFileName, fn, E_UTF8);
-          vFiles.push_back(std::pair<std::string, int>(fn,0));
+          if (!file_only)
+            vFiles.push_back(std::pair<std::string, int>(fn,0));
         }
         else {
           std::string fn;
@@ -798,7 +810,7 @@ bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecu
   return true;
 }
 #else
-bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecursive)
+bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecursive, bool file_only)
 {
   DIR *dp;
   struct dirent *dirp;
@@ -829,6 +841,8 @@ bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecu
       {
         directories.push(curr_dir + "/" + dirp->d_name);
         dir_name.push(curr_dir_name + dirp->d_name + "/");
+        if (!file_only)
+          vFiles.push_back(std::pair<std::string, int>(curr_dir_name + std::string(dirp->d_name), 0));
       }
       else if (dirp->d_type == DT_REG)
       {
@@ -841,6 +855,167 @@ bool GetDirectoryFiles(const std::string& path, DirFileList& vFiles, int maxrecu
   return true;
 }
 #endif
+
+struct DirMaskContext
+{
+  std::string dir_mask;
+  bool is_mask;
+  bool is_last;
+  bool only_file;
+};
+
+void GetDirectoryEntriesWithMaskContext(std::vector<std::string>& paths, const DirMaskContext& mask_ctx)
+{
+  std::vector<std::string> new_paths;
+  std::string new_path;
+  DirFileList fl;
+
+  for (const auto& path : paths)
+  {
+    /* more simple way to do, if it's not mask. */
+    if (!mask_ctx.is_mask)
+    {
+      new_path = path + '/' + mask_ctx.dir_mask;
+      if (!mask_ctx.is_last)
+      {
+        if (IsDirectory(new_path))
+          new_paths.push_back(new_path);
+      }
+      else
+      {
+        if (IsFile(new_path) || (IsDirectory(new_path) && !mask_ctx.only_file))
+          new_paths.push_back(new_path);
+      }
+      continue;
+    }
+
+    /* if mask, then enum all file & do wild match */
+    fl.clear();
+    GetDirectoryFiles(path, fl, 0, mask_ctx.only_file);
+    for (auto& file : fl)
+    {
+      std::string filename = file.first.substr(path.size() + 1);
+      if (wild_match(filename, mask_ctx.dir_mask))
+      {
+        // if it's not last, then only add directory
+        if (!mask_ctx.is_last && file.second == 1)
+          continue;
+        new_paths.push_back(file.first);
+      }
+    }
+  }
+
+  paths.swap(new_paths);
+}
+
+void GetFileInfo(const std::vector<std::string> &files, std::vector<FileInfo>& out)
+{
+  FileInfo fi;
+  for (const auto& file : files)
+  {
+    struct _stat result;
+#ifdef WIN32
+    std::wstring wfn;
+    DecodeToWStr(file, wfn, E_UTF8);
+    if (stat(wfn.c_str(), &result) == 1)
+      continue;
+#else
+    if (stat(fn.c_str(), &result) == 1)
+      continue;
+#endif
+    if (result.st_mode & S_IFREG)
+      fi.entry_type = 1;
+    else if (result.st_mode & S_IFDIR)
+      fi.entry_type = 2;
+    else continue;
+    fi.modified_timestamp = result.st_mtime;
+    fi.path = file;
+    out.push_back(fi);
+  }
+}
+
+void GetDirectoryEntriesMasking(const std::string& path,
+  std::vector<std::string>& out,
+  bool only_file)
+{
+  std::vector<DirMaskContext> mask_ctx;
+
+  // create mask context
+  {
+    std::string path_new = path;
+    size_t s = 0;
+    for (size_t i = 0; i < path_new.size(); ++i)
+      if (path_new[i] == '\\') path_new[i] = '/';
+
+    if (path_new.back() != '/')
+      path_new.push_back('/');
+
+    for (size_t i = 0; i < path_new.size(); ++i)
+    {
+      if (path_new[i] == '\\') path_new[i] = '/';
+      if (path_new[i] == '/')
+      {
+        if (s == i) /* dir mark at very beginning */
+          continue;
+        std::string dir_mask = path_new.substr(s, i - s);
+        bool is_mask = (dir_mask.find('*') != std::string::npos);
+        mask_ctx.emplace_back(DirMaskContext{
+          path_new.substr(s, i - s), is_mask, false, false
+          });
+        s = i + 1;
+      }
+    }
+  }
+
+  if (mask_ctx.empty())
+    return;
+  mask_ctx.back().is_last = true;
+  mask_ctx.back().only_file = only_file;
+  out.push_back(path);
+
+  for (const auto& m : mask_ctx)
+  {
+    GetDirectoryEntriesWithMaskContext(out, m);
+  }
+}
+
+bool wild_match(const std::string& str, const std::string& pat) {
+  std::string::const_iterator str_it = str.begin();
+  for (std::string::const_iterator pat_it = pat.begin(); pat_it != pat.end();
+    ++pat_it) {
+    switch (*pat_it) {
+    case '?':
+      if (str_it == str.end()) {
+        return false;
+      }
+
+      ++str_it;
+      break;
+    case '*': {
+      if (pat_it + 1 == pat.end()) {
+        return true;
+      }
+
+      const size_t max = strlen(&*str_it);
+      for (size_t i = 0; i < max; ++i) {
+        if (wild_match(&*(pat_it + 1), &*(str_it + i))) {
+          return true;
+        }
+      }
+
+      return false;
+    }
+    default:
+      if (*str_it != *pat_it) {
+        return false;
+      }
+
+      ++str_it;
+    }
+  }
+
+  return str_it == str.end();
+}
 
 FileData::FileData()
 {
@@ -1075,6 +1250,11 @@ void Random::SetSeed(uint32_t seed)
   this->randomgenerator_ = std::mt19937(seed_);
 }
 
+uint32_t Random::GetSeed() const
+{
+  return seed_;
+}
+
 void Random::SetSeedByTime()
 {
   SetSeed(time(0));
@@ -1096,7 +1276,7 @@ int32_t Random::Next(int32_t min, int32_t max)
   return distribution(randomgenerator_);
 }
 
-double_t Random::NextDouble(double_t minValue, double_t maxValue)
+double Random::NextDouble(double minValue, double maxValue)
 {
   std::uniform_real_distribution<double_t> distribution(minValue, minValue);
   return distribution(randomgenerator_);
