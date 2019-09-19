@@ -63,6 +63,26 @@ TEST(RUTIL, IO)
   EXPECT_TRUE(DeleteDirectory(BASE_DIR + "rutil/test"));
 }
 
+TEST(RUTIL, IO_MASK)
+{
+  EXPECT_TRUE(rutil::wild_match("../abc/def.txt", "../abc/*.txt"));
+  EXPECT_TRUE(rutil::wild_match("../abc/def.txt", "../*/def.txt"));
+  EXPECT_TRUE(rutil::wild_match("../abc/def.txt", "../abc/???.txt"));
+  EXPECT_FALSE(rutil::wild_match("../abc/def.txt", "../abc/*23.txt"));
+  EXPECT_FALSE(rutil::wild_match("../abc/def.txt", "../abc/????.txt"));
+  EXPECT_FALSE(rutil::wild_match("../abc/def.txt", "../*/abc.txt"));
+
+  std::vector<std::string> out;
+  // two files expected:
+  // ../test/chart_sample/9.vos
+  // ../test/chart_sample_bms/L9^.bme
+  rutil::GetDirectoryEntriesMasking(BASE_DIR + "chart_sample*/*9*.*", out);
+  EXPECT_EQ(2, out.size());
+
+  rutil::GetDirectoryEntriesMasking(BASE_DIR + "chart_sample_bms/*.bme", out);
+  EXPECT_STREQ("../test/chart_sample_bms/L9^.bme", out[0].c_str());
+}
+
 TEST(RPARSER, DIRECTORY_FOLDER)
 {
   using namespace rparser;
@@ -89,17 +109,22 @@ TEST(RPARSER, DIRECTORY_ARCHIVE)
   d.Clear();
 }
 
-TEST(RPARSER, DIRECTORY_BINARY)
+TEST(RPARSER, DIRECTORY_MANAGER)
 {
-  using namespace rparser;
-  const std::string fpath(BASE_DIR + "chart_sample/1.vos");
-  DirectoryFactory &df = DirectoryFactory::Create(fpath);
-  ASSERT_TRUE(df.Open());
-  Directory &d = *df.GetDirectory();
-  EXPECT_EQ(DIRECTORY_TYPE::BINARY, d.GetDirectoryType());
-  EXPECT_EQ(1, d.count());
-  d.Close();
-  d.Clear();
+  ASSERT_TRUE(DirectoryManager::OpenDirectory(BASE_DIR + "chart_sample_bms"));
+  ASSERT_TRUE(DirectoryManager::OpenDirectory(BASE_DIR + "bms_sample_angelico.zip"));
+
+  const char* p;
+  size_t len;
+  EXPECT_TRUE(DirectoryManager::GetFile(BASE_DIR + "bms_sample_angelico.zip/4.lead2_fil_d_029.wav", &p, len));
+  EXPECT_FALSE(DirectoryManager::GetFile(BASE_DIR + "bms_sample_angelico.zip/0.ct_[MAX].bms.bak", &p, len));
+  EXPECT_TRUE(DirectoryManager::GetFile(BASE_DIR + "chart_sample_bms/allnightmokugyo.bms", &p, len));
+
+  /* not opened yet */
+  EXPECT_FALSE(DirectoryManager::GetFile(BASE_DIR + "chart_sample/1.vos", &p, len));
+
+  DirectoryManager::CloseDirectory(BASE_DIR + "chart_sample_bms");
+  DirectoryManager::CloseDirectory(BASE_DIR + "bms_sample_angelico.zip");
 }
 
 TEST(RPARSER, TEMPODATA)

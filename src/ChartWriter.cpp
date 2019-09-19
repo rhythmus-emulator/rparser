@@ -1,4 +1,5 @@
 #include "ChartWriter.h"
+#include "Song.h"
 
 namespace rparser
 {
@@ -6,29 +7,33 @@ namespace rparser
 ChartWriter::ChartWriter()
 {}
 
-bool ChartWriter::Serialize(const Chart& c)
+bool ChartWriter::Write(Song* song)
+{
+  if (!WriteMeta(song)) return false;
+  Chart *c;
+  for (int i = 0; i < song->GetChartCount(); ++i)
+  {
+    c = song->GetChart(i);
+    bool r = WriteChart(c);
+    song->CloseChart();
+    if (!r) return false;
+  }
+  return true;
+}
+
+bool ChartWriter::WriteMeta(const Song* song)
 {
   return false;
 }
 
-bool ChartWriter::SerializeCommonData(const ChartListBase& chartlist)
+bool ChartWriter::WriteChart(const Chart* chart)
 {
   return false;
-}
-
-rutil::FileData& ChartWriter::GetData()
-{
-  return data_cache_;
 }
 
 std::string ChartWriter::GetFilename()
 {
   return std::string();
-}
-
-bool ChartWriter::IsWritable()
-{
-  return false;
 }
 
 void ChartWriter::AddData(rutil::FileData& d)

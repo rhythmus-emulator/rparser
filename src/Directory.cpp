@@ -10,25 +10,15 @@
 namespace rparser
 {
 
-Directory::Directory() : Directory(DIRECTORY_TYPE::NONE)
+Directory::Directory()\
+  : error_code_(ERROR::NONE), use_alternative_search_(false), open_status_(0)
 {
 }
 
-Directory::Directory(const std::string& path, DIRECTORY_TYPE restype) :
-  error_code_(ERROR::NONE),
-  is_dirty_(false),
-  directory_type_(restype),
-  filter_ext_(0)
+Directory::Directory(const std::string& path)
+  : error_code_(ERROR::NONE), use_alternative_search_(false), open_status_(0)
 {
-  SetPath(path.c_str());
-}
-
-Directory::Directory(DIRECTORY_TYPE restype) :
-  error_code_(ERROR::NONE),
-  is_dirty_(false),
-  directory_type_(restype),
-  filter_ext_(0)
-{
+  SetPath(path);
 }
 
 Directory::~Directory()
@@ -36,34 +26,18 @@ Directory::~Directory()
   UnloadFiles();
 }
 
-void Directory::SetDirectoryType(DIRECTORY_TYPE restype)
-{
-  directory_type_ = restype;
-}
-
-bool Directory::Open(const std::string& filepath)
-{
-  // clear before open
-  Clear(false);
-
-  SetPath(filepath.c_str());
-  return doOpen();
-};
-
 bool Directory::Open()
 {
+  // must set dirpath before open file.
   if (dirpath_.empty())
     return false;
 
   // clear before open
   Clear(false);
 
-  return doOpen();
-}
-
-void Directory::OpenCurrentDirectory()
-{
-  // do nothing.
+  bool r = doOpen();
+  open_status_ = 1;
+  return r;
 }
 
 bool Directory::Save()
@@ -76,14 +50,9 @@ bool Directory::Save()
   bool s = true;
   for (auto &fds : *this)
   {
-    // continue if file is not dirty.
-    if (!fds.is_dirty)
-      continue;
-
-    s &= doWrite(fds.d);
-
-    fds.is_dirty = false;
+    s &= doWrite(fds);
   }
+
   return s;
 }
 
@@ -91,13 +60,13 @@ bool Directory::SaveAs(const std::string& filepath)
 {
   // XXX: should save previous path?
   SetPath(filepath.c_str());
+
   if (!doCreate(filepath))
     return false;
 
   // read all file before save to other directory
   // and set dirty flag to force save all files.
   if (!ReadAll()) return false;
-  for (auto &fds : *this) fds.is_dirty = true;
 
   return Save();
 }
@@ -135,53 +104,76 @@ bool Directory::IsReadOnly()
 
 bool Directory::GetFile(const std::string& filename, const char** out, size_t &len) const noexcept
 {
-  // TODO: should be fixed later
-  // TODO: support alternative search by flag, later.
   for (auto &fds : *this)
   {
-    if (fds.d.GetFilename() == filename)
+    if (fds.filename == filename)
     {
-      *out = (char*)fds.d.p;
-      len = fds.d.len;
+      *out = fds.p;
+      len = fds.len;
       return true;
     }
   }
 
-#if 0
-  if (use_alternative_search)
+  if (use_alternative_search_)
   {
     const std::string filenameonly(std::move(rutil::GetAlternativeFilename(filename)));
     for (auto &fds : *this)
     {
-      if (rutil::GetAlternativeFilename(fds.d.GetFilename()) == filenameonly)
+      if (rutil::GetAlternativeFilename(fds.filename) == filenameonly)
       {
-        *out = (char*)fds.d.p;
-        len = fds.d.len;
+        *out = fds.p;
+        len = fds.len;
         return true;
       }
     }
   }
-#endif
 
   return false;
 }
 
 void Directory::SetFile(const std::string& filename, const char* p, size_t len) noexcept
 {
-  // TODO: should be fixed later
-  FileData d;
-  d.len = len;
-  d.p = (uint8_t*)malloc(len);
-  d.fn = filename;
-  memcpy(d.p, p, len);
-  files_.emplace_back(FileDataSegment{ d, false });
+  File *f = nullptr;
+
+  // search file. if not found, create one.
+  for (auto &fd : *this)
+  {
+    if (fd.filename == filename)
+    {
+      f = &fd;
+      break;
+    }
+  }
+
+  if (use_alternative_search_)
+  {
+    const std::string filenameonly(std::move(rutil::GetAlternativeFilename(filename)));
+    for (auto &fds : *this)
+    {
+      if (rutil::GetAlternativeFilename(fds.filename) == filenameonly)
+      {
+        f = &fds;
+        break;
+      }
+    }
+  }
+
+  if (!f)
+  {
+    files_.emplace_back(File{ filename, 0, 0 });
+    f = &files_.back();
+  }
+
+  f->p = (char*)malloc(len);
+  memcpy(f->p, p, len);
+  f->len = len;
 }
 
 /*
  * do... functions DO real file system workaround.
  */
 
-bool Directory::doRead(FileData &fd)
+bool Directory::doRead(File&fd)
 {
   return false;
 };
@@ -191,12 +183,12 @@ bool Directory::doWritePrepare()
   return false;
 }
 
-bool Directory::doWrite(FileData &d)
+bool Directory::doWrite(File &d)
 {
   return false;
 }
 
-bool Directory::doRename(FileData &fd, const std::string& newname)
+bool Directory::doRename(const std::string& oldname, const std::string& newname)
 {
   return false;
 }
@@ -213,7 +205,7 @@ bool Directory::doClose()
   return true;
 }
 
-bool Directory::doDelete(const FileData& fd)
+bool Directory::doDelete(const std::string& filename)
 {
   return false;
 }
@@ -225,28 +217,29 @@ bool Directory::doCreate(const std::string& newpath)
 
 void Directory::ClearStatus()
 {
-  is_dirty_ = false;
-  path_.clear();
-  file_ext_.clear();
   error_code_ = ERROR::NONE;
-  filter_ext_ = 0;
+  open_status_ = 0;
 }
 
-void Directory::SetPath(const char * filepath)
+void Directory::CreateEmptyFile(const std::string& filename)
 {
-  path_ = rutil::CleanPath(filepath);
-  dirpath_ = rutil::GetDirectory(path_);
-  file_ext_ = rutil::lower(rutil::GetExtension(path_));
+  // as it's internal function, don't check is there duplication
+  files_.emplace_back(File{ filename, 0, 0 });
+}
+
+void Directory::SetPath(const std::string& filepath)
+{
+  dirpath_ = rutil::CleanPath(filepath);
 }
 
 const std::string& Directory::GetPath() const
 {
-  return path_;
+  return dirpath_;
 }
 
-const std::string& Directory::GetDirectoryPath() const
+void Directory::SetAlternativeSearch(bool use_alternative_search)
 {
-  return dirpath_;
+  use_alternative_search_ = use_alternative_search;
 }
 
 std::string Directory::GetRelativePath(const std::string &orgpath) const
@@ -259,17 +252,6 @@ std::string Directory::GetAbsolutePath(const std::string &relpath) const
   return dirpath_ + "\\" + relpath;
 }
 
-void Directory::SetExtension(const char * extension)
-{
-  path_ = rutil::ChangeExtension(path_, extension);
-  file_ext_ = extension;
-}
-
-DIRECTORY_TYPE Directory::GetDirectoryType() const
-{
-  return directory_type_;
-}
-
 const char * Directory::GetErrorMsg() const
 {
   return get_error_msg(error_code_);
@@ -277,118 +259,33 @@ const char * Directory::GetErrorMsg() const
 
 bool Directory::IsLoaded()
 {
-  return (directory_type_ != DIRECTORY_TYPE::NONE);
+  return (open_status_ > 0);
 }
 
-bool Directory::AddFileData(FileData& d_, bool setdirty, bool copy)
+bool Directory::AddExternalFile(const std::string &path, const std::string& new_name)
 {
-  if (IsReadOnly())
+  if (IsReadOnly() || new_name.empty())
     return false;
 
-  if (copy)
-  {
-    FileData d;
-    d.len = d_.len;
-    d.p = (uint8_t*)malloc(d_.len);
-    d.fn = d_.fn;
-    memcpy(d.p, d_.p, d_.len);
-    files_.emplace_back(FileDataSegment{ d, setdirty });
-    d.p = 0; /* prevent double-free */
-  }
-  else {
-    files_.emplace_back(FileDataSegment{ d_, setdirty });
-  }
-  SetDirty(setdirty);
-  return true;
-}
-
-bool Directory::AddFile(const std::string &relpath, bool setdirty)
-{
-  if (IsReadOnly())
-    return false;
-
-  const std::string path = GetAbsolutePath(relpath);
-  FileData d;
+  rutil::FileData d;
   rutil::ReadFileData(path, d);
   if (d.len == 0)
   {
     SetError(ERROR::OPEN_INVALID_FILE);
     return false;
   }
-  d.fn = relpath;
-  AddFileData(d, setdirty, false);
-  d.p = 0; /* prevent double-free */
+  SetFile(new_name, (char*)d.p, d.len);
   return true;
 }
 
-const Directory::FileDataSegment* Directory::GetSegment(const std::string& name, bool use_alternative_search) const
+bool Directory::Exist(const std::string & name) const
 {
-  return const_cast<Directory*>(this)->GetSegment(name);
+  const char* p;
+  size_t len;
+  return GetFile(name, &p, len);
 }
 
-Directory::FileDataSegment* Directory::GetSegment(const std::string& name, bool use_alternative_search)
-{
-  for (auto &fds : *this)
-  {
-    if (fds.d.GetFilename() == name)
-      return &fds;
-  }
-  // Alternative search = search file without extension if file is not found.
-  if (use_alternative_search)
-  {
-    const std::string filenameonly(std::move(rutil::GetAlternativeFilename(name)));
-    for (auto &fds : *this)
-    {
-      if (rutil::GetAlternativeFilename(fds.d.GetFilename()) == filenameonly)
-        return &fds;
-    }
-  }
-  return 0;
-}
-
-bool Directory::Exist(const std::string & name, bool use_alternative_search) const
-{
-  return GetSegment(name, use_alternative_search) != 0;
-}
-
-rutil::FileData * Directory::Get(const std::string & name, bool use_alternative_search)
-{
-  auto *ii = GetSegment(name, use_alternative_search);
-  if (ii == 0)
-    return 0;
-  else
-  {
-    // file is automatically read here
-    Read(ii->d);
-    return &ii->d;
-  }
-}
-
-uint8_t * Directory::Get(const std::string & name, int & len, bool use_alternative_search)
-{
-  rutil::FileData* d = Get(name, use_alternative_search);
-  len = d->len;
-  return d->GetPtr();
-}
-
-void Directory::SetFilter(const char** filter_ext)
-{
-  filter_ext_ = filter_ext;
-}
-
-bool Directory::CheckFilenameByFilter(const std::string& filename)
-{
-  std::string ext = filename.substr(filename.find_last_of('.') + 1);
-  const char **exts = filter_ext_;
-  while (exts)
-  {
-    if (ext == *exts) return true;
-    exts++;
-  }
-  return false;
-}
-
-bool Directory::ReadAll()
+bool Directory::ReadAll(bool force)
 {
   if (IsReadOnly())
     return false;
@@ -396,25 +293,40 @@ bool Directory::ReadAll()
   bool r = true;
   for (auto &fds : *this)
   {
-    r |= Read(fds.d);
+    if (fds.len > 0 && !force)
+      continue;
+
+    r |= doRead(fds);
   }
   return r;
 }
 
-bool Directory::Read(FileData &d)
+bool Directory::Read(const std::string& filename, bool force)
 {
-  if (IsReadOnly())
-    return false;
-
-  return doRead(d);
+  for (auto &fds : *this)
+  {
+    if (fds.filename == filename)
+    {
+      if (fds.len > 0 && !force)
+        continue;
+      return doRead(fds);
+    }
+  }
+  return false;
 }
 
-bool Directory::Delete(const std::string & name)
+bool Directory::Delete(const std::string &filename)
 {
   if (IsReadOnly())
     return false;
 
-  auto *fds = GetSegment(name);
+  // fetch file ptr
+  File* fds = nullptr;
+  for (auto &fd : *this) if (fd.filename == filename)
+  {
+    fds = &fd;
+    break;
+  }
   if (!fds)
   {
     SetError(ERROR::WRITE_NO_PATH);
@@ -422,7 +334,7 @@ bool Directory::Delete(const std::string & name)
   }
 
   // affects file system instantly.
-  if (!doDelete(fds->d))
+  if (!doDelete(fds->filename))
   {
     SetError(ERROR::DELETE_NO_PATH);
     return false;
@@ -437,7 +349,13 @@ bool Directory::Rename(const std::string& prev_name, const std::string& new_name
   if (IsReadOnly())
     return false;
 
-  auto *fds = GetSegment(prev_name);
+  // fetch file ptr
+  File* fds = nullptr;
+  for (auto &fd : *this) if (fd.filename == prev_name)
+  {
+    fds = &fd;
+    break;
+  }
   if (!fds)
   {
     SetError(ERROR::OPEN_NO_FILE);
@@ -445,13 +363,13 @@ bool Directory::Rename(const std::string& prev_name, const std::string& new_name
   }
 
   // affects file system instantly.
-  if (!doRename(fds->d, new_name))
+  if (!doRename(fds->filename, new_name))
   {
     SetError(ERROR::WRITE_RENAME);
     return false;
   }
 
-  fds->d.fn = new_name;
+  fds->filename = new_name;
   return true;
 }
 
@@ -485,22 +403,9 @@ void Directory::SetError(ERROR error)
   error_code_ = error;
 }
 
-void Directory::SetDirty(bool flag)
-{
-  is_dirty_ = flag;
-}
+DirectoryFolder::DirectoryFolder() {}
 
-void Directory::CreateEmptyFileData(const std::string& filename)
-{
-  FileData fd;
-  fd.fn = filename;
-  AddFileData(fd, false, false);
-}
-
-DirectoryFolder::DirectoryFolder() : Directory(DIRECTORY_TYPE::FOLDER) {}
-
-DirectoryFolder::DirectoryFolder(const std::string& path)
-  : Directory(path, DIRECTORY_TYPE::FOLDER) {}
+DirectoryFolder::DirectoryFolder(const std::string& path) : Directory(path) {}
 
 bool DirectoryFolder::IsReadOnly()
 {
@@ -521,34 +426,35 @@ bool DirectoryFolder::doOpenDirectory(const std::string& dirpath)
   rutil::GetDirectoryFiles(dirpath, files);
   for (auto ii : files)
   {
-    // check extension
-    if (CheckFilenameByFilter(ii.first)) continue;
-    CreateEmptyFileData(ii.first);
+    CreateEmptyFile(ii.first);
   }
 
   return true;
 }
 
-bool DirectoryFolder::doRead(FileData &d)
+bool DirectoryFolder::doRead(File &f)
 {
-  if (!d.IsEmpty()) return true;
-  std::string orgfilename = d.GetFilename();
-  const std::string fullpath(std::string(GetDirectoryPath()) + "/" + std::string(d.GetFilename()));
+  const std::string fullpath(GetPath() + "/" + f.filename);
+  rutil::FileData d;
   rutil::ReadFileData(fullpath, d);
   if (d.IsEmpty())
   {
     SetError(ERROR::OPEN_INVALID_FILE);
     return false;
   }
-  // recover original path
-  d.fn = orgfilename;
+  // move file data ...
+  f.p = (char*)d.p;
+  f.len = d.len;
+  d.p = 0;
+  d.len = 0;
   return true;
 }
 
-bool DirectoryFolder::doRename(FileData &fd, const std::string& newname)
+bool DirectoryFolder::doRename(const std::string& oldname, const std::string& newname)
 {
-  const std::string fullpath(std::string(GetDirectoryPath()) + "/" + newname);
-  if (!rutil::Rename(fd.fn, fullpath))
+  const std::string fulloldpath(GetPath() + "/" + oldname);
+  const std::string fullnewpath(GetPath() + "/" + newname);
+  if (!rutil::Rename(fulloldpath, fullnewpath))
   {
     SetError(ERROR::WRITE_RENAME);
     return false;
@@ -556,9 +462,9 @@ bool DirectoryFolder::doRename(FileData &fd, const std::string& newname)
   return true;
 }
 
-bool DirectoryFolder::doDelete(const FileData& fd)
+bool DirectoryFolder::doDelete(const std::string& filename)
 {
-  const std::string fullpath(GetDirectoryPath() + "/" + fd.fn);
+  const std::string fullpath(GetPath() + "/" + filename);
   if (!rutil::DeleteFile(fullpath.c_str()))
   {
     SetError(ERROR::DELETE_NO_PATH);
@@ -570,7 +476,7 @@ bool DirectoryFolder::doDelete(const FileData& fd)
 bool DirectoryFolder::doCreate(const std::string& newpath)
 {
   // check folder is valid and attempt to create
-  const std::string dirpath(GetDirectoryPath());
+  const std::string dirpath = GetPath();
   if (!rutil::IsDirectory(dirpath) && !rutil::CreateDirectory(dirpath))
   {
     SetError(ERROR::WRITE_NO_PATH);
@@ -584,17 +490,24 @@ bool DirectoryFolder::doWritePrepare()
   return true;
 }
 
-bool DirectoryFolder::doWrite(FileData& fd)
+bool DirectoryFolder::doWrite(File& f)
 {
   // make full path before save data
-  FileData tmpfd = fd;
-  tmpfd.fn = GetDirectoryPath() + "/" + tmpfd.fn;
-  if (!rutil::WriteFileData(tmpfd))
+  std::string fullpath = GetPath() + "/" + f.filename;
+
+  // TODO: need to refactory FileData API
+  bool r = false;
   {
-    SetError(ERROR::WRITE_NO_PATH);
-    return false;
+    rutil::FileData fd;
+    fd.p = (uint8_t*)f.p;
+    fd.len = f.len;
+    r = rutil::WriteFileData(fd);
+    fd.p = 0;
+    fd.len = 0;
   }
-  return true;
+
+  if (!r) SetError(ERROR::WRITE_NO_PATH);
+  return r;
 }
 
 void DirectoryArchive::SetCodepage(int codepage)
@@ -605,13 +518,11 @@ void DirectoryArchive::SetCodepage(int codepage)
 #ifdef USE_ZLIB
 
 DirectoryArchive::DirectoryArchive() : codepage_(0), archive_(0), zip_error_(0)
-{ SetDirectoryType(DIRECTORY_TYPE::ARCHIVE); }
+{}
 
 DirectoryArchive::DirectoryArchive(const std::string& path)
   : DirectoryFolder(path), codepage_(0), archive_(0), zip_error_(0)
-{
-  SetDirectoryType(DIRECTORY_TYPE::ARCHIVE);
-}
+{}
 
 bool DirectoryArchive::IsReadOnly()
 {
@@ -641,7 +552,7 @@ bool DirectoryArchive::doOpen()
     {
       fn = rutil::ConvertEncodingToUTF8(fn, codepage_);
     }
-    CreateEmptyFileData(fn);
+    CreateEmptyFile(fn);
   }
   return true;
 }
@@ -658,16 +569,16 @@ bool DirectoryArchive::doWritePrepare()
   return true;
 }
 
-bool DirectoryArchive::doWrite(FileData &fd)
+bool DirectoryArchive::doWrite(File &f)
 {
   zip_source_t *s;
-  s = zip_source_buffer(archive_, fd.p, fd.len, 0);
+  s = zip_source_buffer(archive_, f.p, f.len, 0);
   if (!s)
   {
     printf("Zip source buffer creation failed!\n");
     return false;
   }
-  zip_error_ = zip_file_add(archive_, fd.fn.c_str(), s, ZIP_FL_ENC_UTF_8 | ZIP_FL_OVERWRITE);
+  zip_error_ = zip_file_add(archive_, f.filename.c_str(), s, ZIP_FL_ENC_UTF_8 | ZIP_FL_OVERWRITE);
   zip_source_free(s);
   if (zip_error_)
   {
@@ -677,33 +588,30 @@ bool DirectoryArchive::doWrite(FileData &fd)
   return true;
 }
 
-bool DirectoryArchive::doRename(FileData &fd, const std::string& newname)
+bool DirectoryArchive::doRename(const std::string& oldname, const std::string& newname)
 {
   // TODO zip element rename
   return false;
 }
 
-bool DirectoryArchive::doRead(FileData &fd)
+bool DirectoryArchive::doRead(File &f)
 {
-  if (IsReadOnly())
-    return false;
-
-  zip_file_t *zfp = zip_fopen(archive_, fd.fn.c_str(), ZIP_FL_UNCHANGED);
+  zip_file_t *zfp = zip_fopen(archive_, f.filename.c_str(), ZIP_FL_UNCHANGED);
   if (!zfp)
   {
-    printf("Failed to read file(%s) from zip\n", fd.fn.c_str());
+    printf("Failed to read file(%s) from zip\n", f.filename.c_str());
     return false;
   }
   struct zip_stat zStat;
-  zip_stat(archive_, fd.fn.c_str(), 0, &zStat);
-  fd.len = zStat.size;
-  fd.p = (unsigned char*)malloc(fd.len);
-  zip_fread(zfp, (void*)fd.p, fd.len);
+  zip_stat(archive_, f.filename.c_str(), 0, &zStat);
+  f.len = zStat.size;
+  f.p = (char*)malloc(f.len);
+  zip_fread(zfp, (void*)f.p, f.len);
   zip_fclose(zfp);
   return true;
 }
 
-bool DirectoryArchive::doDelete(const FileData& fd)
+bool DirectoryArchive::doDelete(const std::string& filename)
 {
   // TODO: Delete object from archive
   return true;
@@ -729,114 +637,6 @@ bool DirectoryArchive::IsReadOnly()
 
 #endif
 
-DirectoryBinary::DirectoryBinary() : allow_multiple_files_(false)
-{
-  SetDirectoryType(DIRECTORY_TYPE::BINARY);
-}
-
-bool DirectoryBinary::IsReadOnly()
-{
-  return false;
-}
-
-rutil::FileData* DirectoryBinary::GetDataPtr()
-{
-  return &begin()->d;
-}
-
-bool DirectoryBinary::AddFileData(FileData& d, bool setdirty, bool copy)
-{
-  if (allow_multiple_files_ || count() == 0) return Directory::AddFileData(d, setdirty, copy);
-  else return false;
-}
-
-bool DirectoryBinary::AddFile(const std::string &relpath, bool setdirty)
-{
-  if (allow_multiple_files_ || count() == 0) return Directory::AddFile(relpath, setdirty);
-  else return false;
-}
-
-bool DirectoryBinary::doOpen()
-{
-  if (!rutil::IsFile(GetPath()))
-    return false;
-  CreateEmptyFileData(rutil::GetFilename(GetPath()));
-  return true;
-}
-
-void DirectoryBinary::OpenCurrentDirectory()
-{
-  // First allow multiple files as we decided to load full directory.
-  allow_multiple_files_ = true;
-
-  // Use simple tricks - Unload all files, and reload all.
-  UnloadFiles();
-  doOpenDirectory(rutil::GetDirectory(GetPath()));
-}
-
-
-
-DirectoryFactory& DirectoryFactory::Create(const std::string& path)
-{
-  DirectoryFactory *df = new DirectoryFactory(path);
-  return *df;
-}
-
-DirectoryFactory::DirectoryFactory(const std::string& path)
-  : path_(path), directory_(nullptr), is_directory_fetched_(false)
-{
-  if (rutil::IsDirectory(path)) directory_ = new DirectoryFolder();
-  else
-  {
-    std::string ext = rutil::lower(rutil::GetExtension(path));
-    if (ext == "zip") directory_ = new DirectoryArchive();
-    else directory_ = new DirectoryBinary();
-  }
-}
-
-DirectoryFactory::~DirectoryFactory()
-{
-  if (!is_directory_fetched_)
-    delete directory_;
-}
-
-Directory* DirectoryFactory::GetDirectory()
-{
-  is_directory_fetched_ = true;
-  return directory_;
-}
-
-DirectoryFactory& DirectoryFactory::SetFilter(const char** filter_ext)
-{
-  directory_->SetFilter(filter_ext);
-  return *this;
-}
-
-bool DirectoryFactory::Open()
-{
-  if (!bms_chart_file_filter_.empty())
-  {
-    std::vector<std::string> files_to_remove;
-    if (!directory_->Open(path_))
-      return false;
-
-    for (auto &d : *directory_)
-    {
-      std::string fn = d.d.GetFilename();
-      std::string ext = rutil::GetExtension(fn);
-      if (bms_chart_file_filter_ == fn)
-        continue;
-      else if (ext == "bme" || ext == "bml" || ext == "bms")
-        files_to_remove.push_back(ext);
-    }
-
-    for (auto &fn : files_to_remove)
-      directory_->Delete(fn);
-
-    return true;
-  }
-  else return directory_->Open(path_);
-}
 
 // ----------------- Misc for DirectoryManager
 

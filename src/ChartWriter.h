@@ -3,25 +3,32 @@
 #define RPARSER_NOTEWRITER_H
 
 #include "common.h"
-#include "Chart.h"
 #include "Directory.h"
 
 namespace rparser {
 
+class Song;
+class Chart;
+enum class SONGTYPE;
+
 class ChartWriter {
 public:
   ChartWriter();
-  bool Serialize(const Chart& c);
-  bool SerializeCommonData(const ChartListBase& chartlist);
-  rutil::FileData& GetData();
+
+  /* @brief Write song data, including charts. (automatical) */
+  bool Write(Song* s);
+
+  /* @brief Write song metadata file, in case of necessary. */
+  virtual bool WriteMeta(const Song* s);
+
+  /* @brief Write charts only */
+  virtual bool WriteChart(const Chart* c);
+
   std::string GetFilename();
-  bool IsWritable();
 protected:
   void AddData(rutil::FileData& d);
 private:
-  rutil::FileData data_cache_;
   std::string filename_;
-  bool is_writable_;
   int error;
 };
 

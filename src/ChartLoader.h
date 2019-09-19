@@ -25,9 +25,16 @@ class Chart;
 class ChartLoader {
 public:
   ChartLoader(): error_(0), seed_(0) {};
-  virtual bool Load(Chart &c, const void* p, int iLen) = 0;
   virtual bool Test(const void* p, int iLen);
   virtual void SetSeed(int seed = -1);
+
+  /* @brief used for chart which song exists in a single binary
+   * (e.g. VOS) */
+  virtual bool Load(Chart &c, const void* p, int iLen) = 0;
+
+  /* @brief used for files which song existing in directory
+   * (e.g. most types of song) 
+   * internally calls Load() method. */
   virtual bool LoadFromDirectory(ChartListBase& chartlist, Directory& dir) = 0;
 
   static ChartLoader* Create(SONGTYPE songtype);
@@ -45,8 +52,8 @@ protected:
 class ChartLoaderBMS : public ChartLoader {
 public:
   ChartLoaderBMS();
-  virtual bool Load(Chart &c, const void* p, int iLen);
   virtual bool Test(const void* p, int iLen);
+  virtual bool Load(Chart &c, const void* p, int iLen);
   virtual bool LoadFromDirectory(ChartListBase& chartlist, Directory& dir);
 
   // Process command to chart data without clearing.

@@ -44,16 +44,18 @@ bool ChartLoaderBMS::LoadFromDirectory(ChartListBase& chartlist, Directory& dir)
 
   for (auto &f : dir)
   {
-    if (!dir.Read(f.d)) continue;
-    const std::string filename = f.d.GetFilename();
+    // first check filename, then attempt to read file.
+    // (lazy-load for performance)
+    const std::string filename = f.filename;
     if (!TestName(filename.c_str())) continue;
+    if (!dir.Read(f.filename)) continue;
 
     Chart *c = chartlist.GetChartData(chartlist.AddNewChart());
     if (!c) return false;
 
-    bool r = Load(*c, f.d.p, f.d.len);
+    bool r = Load(*c, f.p, f.len);
     c->SetFilename(filename);
-    c->SetHash(rutil::md5_str(f.d.GetPtr(), f.d.GetFileSize()));
+    c->SetHash(rutil::md5_str(f.p, f.len));
 
     chartlist.CloseChartData();
 

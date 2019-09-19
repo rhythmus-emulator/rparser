@@ -265,27 +265,7 @@ ChartLoaderVOS::ChartLoaderVOS()
 
 bool ChartLoaderVOS::LoadFromDirectory(ChartListBase& chartlist, Directory& dir)
 {
-  if (dir.count() <= 0)
-    return false;
-
-  bool r = false;
-  auto &f = *dir.begin();
-  if (!dir.Read(f.d))
-    return false;
-
-  Chart *c = chartlist.GetChartData(chartlist.AddNewChart());
-  if (!c) return false;
-
-  c->SetFilename(f.d.GetFilename());
-  c->SetHash(rutil::md5_str(f.d.GetPtr(), f.d.GetFileSize()));
-  r = Load(*c, f.d.p, f.d.len);
-
-  chartlist.CloseChartData();
-  if (!r)
-  {
-    std::cerr << "Failed to read VOS file (may be invalid) : " << f.d.GetFilename() << std::endl;
-  }
-  return r;
+  return false;
 }
 
 bool ChartLoaderVOS::Load( Chart &c, const void* p, int len ) {

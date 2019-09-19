@@ -143,49 +143,67 @@ SONGTYPE Song::GetSongType() const
   return songtype_;
 }
 
-bool Song::Open(const std::string & path, bool fastread, SONGTYPE songtype)
+bool Song::Open(const std::string &path, SONGTYPE songtype)
 {
   bool r = false;
 	Close();
+  filepath_ = path;
 
-	// Read file binaries.
-  DirectoryFactory *df = &DirectoryFactory::Create(path);
-  if (!df->Open())
+  // Attempt to open path (if openable).
+  // If not, don't open, as binary type file might came as input
+  // (e.g. VOS file type)
+  if (DirectoryManager::OpenDirectory(path))
   {
-		error_ = ERROR::OPEN_NO_FILE;
-		songtype_ = SONGTYPE::NONE;
-    delete df;
-		return false;
-	}
-  directory_ = df->GetDirectory();
+    // directory type --> detect songtype in directory
+    directory_ = DirectoryManager::GetDirectory(path);
+    if (songtype == SONGTYPE::NONE) SetSongType(DetectSongtype());
+    else SetSongType(songtype);
+  }
+  else
+  {
+    // check at least file is existing ...
+    // if not, raise error
+    if (!rutil::IsFile(path))
+    {
+      error_ = ERROR::OPEN_NO_FILE;
+      songtype_ = SONGTYPE::NONE;
+      return false;
+    }
 
-  // Detect song type and prepare chartlist.
-  if (songtype == SONGTYPE::NONE) SetSongType(DetectSongtype());
-  else SetSongType(songtype);
+    // file type --> detect songtype in file
+    if (songtype == SONGTYPE::NONE) SetSongType(GetSongTypeByName(path));
+    else SetSongType(songtype);
+    filepath_ = path;
+  }
+
+  // Check songtype -- must set by now.
   if (GetSongType() == SONGTYPE::NONE)
     return false;
 
   // Load binary into chartloader
+  // directory type song --> Load using directory
+  // file type song --> Load using file
 	ChartLoader *cl = ChartLoader::Create(songtype_);
-  r = cl->LoadFromDirectory(*chartlist_, *directory_);
-
-  // If chart file requires resource data (total directory),
-  // Read resource file together.
-  std::string ext = rutil::GetExtension(path);
-  if (ext == "bms" ||
-      ext == "bme" ||
-      ext == "bml" ||
-      ext == "pms")
-    directory_->OpenCurrentDirectory();
-
+  if (directory_)
+    r = cl->LoadFromDirectory(*chartlist_, *directory_);
+  else
+  {
+    FileData fd;
+    rutil::ReadFileData(path, fd);
+    ASSERT(fd.len > 0);
+    Chart *c = chartlist_->GetChartData(chartlist_->AddNewChart());
+    //c->SetFilename(filepath_);
+    c->SetHash(rutil::md5_str(fd.GetPtr(), fd.GetFileSize()));
+    r = cl->Load(*c, fd.p, fd.len);
+    chartlist_->CloseChartData();
+  }
 	delete cl;
-  delete df;
+
 	return r;
 }
 
 bool Song::Save()
 {
-  if (!directory_) return false;
   if (!chartlist_) return false;
   if (chartlist_->IsChartOpened()) return false;
 
@@ -197,27 +215,34 @@ bool Song::Save()
   }
 
   // Put charts and metadata to writer
-  for (auto i = 0u; i < chartlist_->size(); ++i)
-  {
-    const Chart* c = chartlist_->GetChartData(i);
-    if (!writer->Serialize( *c ))
-    {
-      chartlist_->CloseChartData();
-      error_ = ERROR::WRITE_SERIALIZE_CHART;
-      return false;
-    }
-    if (writer->IsWritable())
-      directory_->AddFileData(writer->GetData());
-    chartlist_->CloseChartData();
-  }
-  writer->SerializeCommonData(*chartlist_);
-  if (writer->IsWritable())
-    directory_->AddFileData(writer->GetData());
+  writer->Write(this);
 
-	// save and cleanup
-  directory_->Save();
+	// save directory and cleanup
+  if (directory_)
+    directory_->Save();
   delete writer;
 	return true;
+}
+
+// only save single chart
+bool Song::SaveChart(Chart *chart)
+{
+  if (!chart) return false;
+
+  ChartWriter* writer = CreateChartWriter(songtype_);
+  if (!writer)
+  {
+    error_ = ERROR::WRITE_SERIALIZE_CHART;
+    return false;
+  }
+
+  writer->WriteChart(chart);
+
+  // save directory and cleanup
+  if (directory_)
+    directory_->Save();
+  delete writer;
+  return true;
 }
 
 bool Song::Close(bool save)
@@ -232,11 +257,15 @@ bool Song::Close(bool save)
 
   // release resources and memory.
   delete chartlist_;
-  delete directory_;
   chartlist_ = 0;
-  directory_ = 0;
+  if (directory_)
+  {
+    directory_.reset();
+    DirectoryManager::CloseDirectory(filepath_);
+  }
   error_ = ERROR::NONE;
   songtype_ = SONGTYPE::NONE;
+  filepath_.clear();
 
   return true;
 }
@@ -250,9 +279,9 @@ SONGTYPE Song::DetectSongtype()
   if (songtype != SONGTYPE::NONE) return songtype;
 
   // If not detected, then try to detect SONGTYPE by file lists.
-  for (auto fds : *directory_)
+  for (auto f : *directory_)
   {
-    songtype = GetSongTypeByName(fds.d.fn);
+    songtype = GetSongTypeByName(f.filename);
     if (songtype != SONGTYPE::NONE)
       return songtype;
   }
@@ -276,7 +305,7 @@ const char* Song::GetErrorStr() const
 
 Directory * Song::GetDirectory()
 {
-	return directory_;
+	return directory_.get();
 }
 
 std::string Song::toString(bool detailed) const

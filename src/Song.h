@@ -69,8 +69,9 @@ public:
   bool SetSongType(SONGTYPE songtype);
   SONGTYPE GetSongType() const;
 
-  bool Open(const std::string &path, bool onlyreadchart = false, SONGTYPE songtype = SONGTYPE::NONE);
+  bool Open(const std::string &path, SONGTYPE songtype = SONGTYPE::NONE);
   bool Save();
+  bool SaveChart(Chart *chart);
   bool SaveAs(const std::string& newpath);
   bool Close(bool save = false);
 
@@ -83,7 +84,8 @@ public:
 private:
   SONGTYPE DetectSongtype();
 
-  Directory* directory_;
+  std::string filepath_;
+  std::shared_ptr<Directory> directory_;
   SONGTYPE songtype_;
   ERROR error_;
   ChartListBase* chartlist_;
