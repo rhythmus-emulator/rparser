@@ -31,6 +31,7 @@ class Directory
 {
 public:
   Directory();
+  Directory(const std::string& path, DIRECTORY_TYPE directory_type);
   virtual ~Directory();
 
   struct FileDataSegment
@@ -45,6 +46,8 @@ public:
   // filter_ext is filtering extension to be stored in memory.
   // if filter_ext set to 0, then all file is read.
   bool Open(const std::string& filepath);
+
+  bool Open();
 
   // Open files which located in same directory.
   // (This method is for DirectoryBinary. No effect for general directory.)
@@ -100,6 +103,9 @@ public:
   const data_constiter end() const noexcept;
   size_t count() const noexcept;
 
+  bool GetFile(const std::string& filename, const char** out, size_t &len) const noexcept;
+  void SetFile(const std::string& filename, const char* p, size_t len) noexcept;
+
 private:
   std::string path_;
   std::string dirpath_;
@@ -108,6 +114,14 @@ private:
   ERROR error_code_;
   bool is_dirty_;
   const char **filter_ext_;
+
+  /**
+   * @brief marking for open status.
+   * 0: not opened
+   * 1: directory opened (now re-opening skipped without force flag)
+   * 2: files are readed (now re-reading skipped without force flag)
+   */
+  int open_status_;
 
   virtual bool doRead(FileData &d);
   virtual bool doWritePrepare();
@@ -135,6 +149,7 @@ class DirectoryFolder : public Directory
 {
 public:
   DirectoryFolder();
+  DirectoryFolder(const std::string& path);
   virtual bool IsReadOnly();
 
 private:
@@ -154,6 +169,7 @@ class DirectoryArchive : public DirectoryFolder
 {
 public:
   DirectoryArchive();
+  DirectoryArchive(const std::string& path);
   void SetCodepage(int codepage);
   virtual bool IsReadOnly();
 
@@ -211,6 +227,78 @@ private:
 
   // Special flag for loading specific chart without others.
   std::string bms_chart_file_filter_;
+};
+
+/* @brief A user customizeable directory creator */
+typedef Directory* (*dir_constructor)(const char*);
+
+/* @brief A singleton class open / close directory and read files in need. */
+class DirectoryManager
+{
+public:
+  /* @brief Open directory - read all file lists, not reading them. */
+  static bool OpenDirectory(const std::string& dir_or_filepath);
+
+  /* @brief Create directory object. */
+  static bool CreateDirectory(const std::string& dirpath);
+
+  /* @brief Read all files in directory (kind of caching) */
+  static bool ReadDirectoryFiles(const std::string& dir_or_filepath);
+
+  /* @brief Save all files in directory */
+  static bool SaveDirectory(const std::string& dirpath);
+
+  /* @brief Check specified directory is already opened */
+  static bool IsDirectoryOpened(const std::string& dirpath);
+
+  /* @brief Closes and returns resource occupied by directory */
+  static void CloseDirectory(const std::string& dir_or_filepath);
+
+  /* @brief Get directory object. Should already opened, or nullptr. */
+  static std::shared_ptr<Directory> GetDirectory(const std::string& dirpath);
+
+  /* @brief Get file data for read-only */
+  static bool GetFile(const std::string& filepath,
+    const char** out, size_t &len, bool open_if_not_exist = false);
+
+  /* @brief Copy file data. */
+  static bool CopyFile(const std::string& filepath,
+    char** out, size_t &len, bool open_if_not_exist = false);
+
+  /* @brief Set file data */
+  static void SetFile(const std::string& filepath,
+    const char* p, size_t len);
+
+  /* @brief Set directory constructor for specific extension to extend feature */
+  void AddDirectoryConstructor(const std::string& ext, dir_constructor constructor);
+
+  static DirectoryManager& getInstance();
+
+private:
+  /* This class is singleton so don't have to be created from other */
+  DirectoryManager();
+  ~DirectoryManager();
+
+  /* @brief regulate path. internal function. */
+  static std::string GetSafePath(const std::string& path);
+
+  /**
+   * @brief get directory name & file name from given path string
+   * e.g. ./abc/abc.zip|x/a.jpg --> ./abc/abc.zip,  x/a.jpg
+   *      ./abc/abcd/a.jpg      --> ./abc/abcd,     a.jpg
+   */
+  static void SeparatePath(const std::string& path, std::string& dir_out, std::string& fn_out);
+
+  /* @brief get safe directory path if directory or filepath is given.
+   * @warn target directory(file) should must exist already. */
+  static std::string GetSafeDirectory(const std::string& dir_or_filepath);
+
+  /* @brief construct directory object automatically by its extension */
+  Directory* CreateDirectoryObject(const std::string& dirpath);
+
+  /* directory_path, directory object */
+  std::map<std::string, std::shared_ptr<Directory> > dir_container_;
+  std::map<std::string, dir_constructor> ext_dirconstructor_map_;
 };
 
 }

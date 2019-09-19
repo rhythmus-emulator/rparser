@@ -1,5 +1,6 @@
 #include "Directory.h"
 #include "common.h"
+#include <mutex>
 
 #ifdef USE_ZLIB
 # define ZIP_STATIC 1
@@ -11,6 +12,15 @@ namespace rparser
 
 Directory::Directory() : Directory(DIRECTORY_TYPE::NONE)
 {
+}
+
+Directory::Directory(const std::string& path, DIRECTORY_TYPE restype) :
+  error_code_(ERROR::NONE),
+  is_dirty_(false),
+  directory_type_(restype),
+  filter_ext_(0)
+{
+  SetPath(path.c_str());
 }
 
 Directory::Directory(DIRECTORY_TYPE restype) :
@@ -39,6 +49,17 @@ bool Directory::Open(const std::string& filepath)
   SetPath(filepath.c_str());
   return doOpen();
 };
+
+bool Directory::Open()
+{
+  if (dirpath_.empty())
+    return false;
+
+  // clear before open
+  Clear(false);
+
+  return doOpen();
+}
 
 void Directory::OpenCurrentDirectory()
 {
@@ -110,6 +131,50 @@ bool Directory::Close(bool flush)
 bool Directory::IsReadOnly()
 {
   return true;
+}
+
+bool Directory::GetFile(const std::string& filename, const char** out, size_t &len) const noexcept
+{
+  // TODO: should be fixed later
+  // TODO: support alternative search by flag, later.
+  for (auto &fds : *this)
+  {
+    if (fds.d.GetFilename() == filename)
+    {
+      *out = (char*)fds.d.p;
+      len = fds.d.len;
+      return true;
+    }
+  }
+
+#if 0
+  if (use_alternative_search)
+  {
+    const std::string filenameonly(std::move(rutil::GetAlternativeFilename(filename)));
+    for (auto &fds : *this)
+    {
+      if (rutil::GetAlternativeFilename(fds.d.GetFilename()) == filenameonly)
+      {
+        *out = (char*)fds.d.p;
+        len = fds.d.len;
+        return true;
+      }
+    }
+  }
+#endif
+
+  return false;
+}
+
+void Directory::SetFile(const std::string& filename, const char* p, size_t len) noexcept
+{
+  // TODO: should be fixed later
+  FileData d;
+  d.len = len;
+  d.p = (uint8_t*)malloc(len);
+  d.fn = filename;
+  memcpy(d.p, p, len);
+  files_.emplace_back(FileDataSegment{ d, false });
 }
 
 /*
@@ -434,6 +499,9 @@ void Directory::CreateEmptyFileData(const std::string& filename)
 
 DirectoryFolder::DirectoryFolder() : Directory(DIRECTORY_TYPE::FOLDER) {}
 
+DirectoryFolder::DirectoryFolder(const std::string& path)
+  : Directory(path, DIRECTORY_TYPE::FOLDER) {}
+
 bool DirectoryFolder::IsReadOnly()
 {
   return false;
@@ -538,6 +606,12 @@ void DirectoryArchive::SetCodepage(int codepage)
 
 DirectoryArchive::DirectoryArchive() : codepage_(0), archive_(0), zip_error_(0)
 { SetDirectoryType(DIRECTORY_TYPE::ARCHIVE); }
+
+DirectoryArchive::DirectoryArchive(const std::string& path)
+  : DirectoryFolder(path), codepage_(0), archive_(0), zip_error_(0)
+{
+  SetDirectoryType(DIRECTORY_TYPE::ARCHIVE);
+}
 
 bool DirectoryArchive::IsReadOnly()
 {
@@ -644,6 +718,9 @@ bool DirectoryArchive::doCreate(const std::string& newpath)
 #else
 
 DirectoryArchive::DirectoryArchive() {  }
+
+DirectoryArchive::DirectoryArchive(const std::string& path)
+  : DirectoryFolder(path) {  }
 
 bool DirectoryArchive::IsReadOnly()
 {
@@ -759,6 +836,246 @@ bool DirectoryFactory::Open()
     return true;
   }
   else return directory_->Open(path_);
+}
+
+// ----------------- Misc for DirectoryManager
+
+Directory* general_dir_constructor(const char* path)
+{
+  Directory *d = new DirectoryFolder(path);
+  return d;
+}
+
+Directory* zip_dir_constructor(const char* path)
+{
+  Directory *d = new DirectoryArchive(path);
+  return d;
+}
+
+std::mutex dir_mutex;
+
+// --------------------- class DirectoryManager
+
+bool DirectoryManager::OpenDirectory(const std::string& dirpath)
+{
+  std::string spath = GetSafeDirectory(dirpath);
+
+  /* create directory path object, without reading directory.
+   * we don't care failure here (as duplicate one may existing already) */
+  CreateDirectory(spath);
+  auto& dir = GetDirectory(spath);
+  if (dir == nullptr)
+    return false; /* even failed to create directory object. */
+
+  /* now read directory. if fail, release object and exit */
+  if (!dir->Open())
+  {
+    CloseDirectory(spath);
+    return false;
+  }
+
+  return true;
+}
+
+bool DirectoryManager::CreateDirectory(const std::string& dirpath)
+{
+  DirectoryManager& m = getInstance();
+
+  dir_mutex.lock();
+  std::string spath = GetSafePath(dirpath);
+
+  // check already existing, if so close it first.
+  auto i = m.dir_container_.find(spath);
+  if (i != m.dir_container_.end())
+    return false;
+
+  // add new directory object
+  Directory* dir = m.CreateDirectoryObject(spath);
+  if (dir == nullptr)
+  {
+    // unsupported type directory? this should be happened?
+    delete dir;
+    dir_mutex.unlock();
+    return false;
+  }
+  m.dir_container_[spath].reset(dir);
+
+  dir_mutex.unlock();
+  return true;
+}
+
+bool DirectoryManager::ReadDirectoryFiles(const std::string& dirpath)
+{
+  OpenDirectory(dirpath);
+  auto& dir = GetDirectory(dirpath);
+  if (!dir)
+    return false;
+  dir->ReadAll();
+  return true;
+}
+
+bool DirectoryManager::SaveDirectory(const std::string& dirpath)
+{
+  auto& dir = GetDirectory(dirpath);
+  if (!dir)
+    return false;
+  dir->Save();
+  return true;
+}
+
+bool DirectoryManager::IsDirectoryOpened(const std::string& dirpath)
+{
+  DirectoryManager& m = getInstance();
+  std::string spath = GetSafePath(dirpath);
+  auto i = m.dir_container_.find(spath);
+  return (i != m.dir_container_.end());
+}
+
+void DirectoryManager::CloseDirectory(const std::string& dir_or_filepath)
+{
+  DirectoryManager& m = getInstance();
+
+  dir_mutex.lock();
+
+  // check opened
+  auto i = m.dir_container_.find(GetSafePath(dir_or_filepath));
+  if (i == m.dir_container_.end())
+  {
+    // if not found, then attempt as filepath once more.
+    std::string dirname, filename;
+    SeparatePath(dir_or_filepath, dirname, filename);
+    i = m.dir_container_.find(dirname);
+
+    // cannot found directory anymore!
+    if (i == m.dir_container_.end())
+    {
+      dir_mutex.unlock();
+      return;
+    }
+  }
+
+  m.dir_container_.erase(i);
+
+  dir_mutex.unlock();
+}
+
+std::shared_ptr<Directory> DirectoryManager::GetDirectory(const std::string& dirpath)
+{
+  auto &m = getInstance();
+
+  dir_mutex.lock();
+  auto i = m.dir_container_.find(GetSafePath(dirpath));
+  dir_mutex.unlock();
+
+  if (i == m.dir_container_.end())
+    return nullptr;
+  else return i->second;
+}
+
+bool DirectoryManager::GetFile(const std::string& filepath,
+  const char** out, size_t &len, bool open_if_not_exist)
+{
+  std::string dn, fn;
+  SeparatePath(filepath, dn, fn);
+  const auto& dir = GetDirectory(dn);
+  if (!dir)
+    return false;
+  return dir->GetFile(fn, out, len);
+}
+
+bool DirectoryManager::CopyFile(const std::string& filepath,
+  char** out, size_t &len, bool open_if_not_exist)
+{
+  const char* p;
+  if (!GetFile(filepath, &p, len, open_if_not_exist))
+    return false;
+  *out = (char*)malloc(len);
+  memcpy(*out, p, len);
+  return true;
+}
+
+void DirectoryManager::SetFile(const std::string& filepath,
+  const char* out, size_t len)
+{
+  std::string dn, fn;
+  SeparatePath(filepath, dn, fn);
+  auto& dir = GetDirectory(dn);
+  if (!dir)
+    return;
+  dir->SetFile(fn, out, len);
+}
+
+void DirectoryManager::AddDirectoryConstructor(const std::string& ext, dir_constructor constructor)
+{
+  ext_dirconstructor_map_[ext] = constructor;
+}
+
+DirectoryManager::DirectoryManager()
+{
+  ext_dirconstructor_map_["Directory"] = general_dir_constructor;
+  ext_dirconstructor_map_["zip"] = zip_dir_constructor;
+}
+
+DirectoryManager::~DirectoryManager() {}
+
+std::string DirectoryManager::GetSafePath(const std::string& path)
+{
+  std::string r = path;
+  for (size_t i = 0; i < r.size(); ++i)
+    if (r[i] == '\\') r[i] = '/';
+  return r;
+}
+
+void DirectoryManager::SeparatePath(const std::string& path, std::string& dir_out, std::string& fn_out)
+{
+  std::string spath = GetSafePath(path);
+  size_t i = spath.find('|');
+  if (i == std::string::npos)
+  {
+    i = spath.find_last_of('/');
+    if (i == std::string::npos)
+    {
+      // bad!
+      dir_out = "";
+      fn_out = spath;
+      return;
+    }
+  }
+  dir_out = spath.substr(0, i);
+  fn_out = spath.substr(i + 1);
+}
+
+std::string DirectoryManager::GetSafeDirectory(const std::string& dir_or_filepath)
+{
+  std::string spath = GetSafePath(dir_or_filepath);
+  size_t i = spath.find('|');
+  if (i == std::string::npos &&
+      (rutil::IsDirectory(spath) ||
+      rutil::GetExtension(spath) == "zip"))
+    return spath;
+  else
+  {
+    std::string dn, fn;
+    SeparatePath(spath, dn, fn);
+    return dn;
+  }
+}
+
+Directory* DirectoryManager::CreateDirectoryObject(const std::string& dirpath)
+{
+  std::string ext = rutil::GetExtension(dirpath);
+  if (ext.empty())
+    ext = "Directory";
+  auto i = ext_dirconstructor_map_.find(ext);
+  if (i == ext_dirconstructor_map_.end())
+    return nullptr;
+  else return i->second(dirpath.c_str());
+}
+
+DirectoryManager& DirectoryManager::getInstance()
+{
+  static DirectoryManager m;
+  return m;
 }
 
 }
