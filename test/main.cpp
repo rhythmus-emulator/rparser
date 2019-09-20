@@ -66,6 +66,7 @@ TEST(RUTIL, IO)
 TEST(RUTIL, IO_MASK)
 {
   EXPECT_TRUE(rutil::wild_match("../abc/def.txt", "../abc/*.txt"));
+  EXPECT_TRUE(rutil::wild_match("../abc/def9.txt", "../abc/*e*"));
   EXPECT_TRUE(rutil::wild_match("../abc/def.txt", "../*/def.txt"));
   EXPECT_TRUE(rutil::wild_match("../abc/def.txt", "../abc/???.txt"));
   EXPECT_FALSE(rutil::wild_match("../abc/def.txt", "../abc/*23.txt"));
@@ -76,10 +77,11 @@ TEST(RUTIL, IO_MASK)
   // two files expected:
   // ../test/chart_sample/9.vos
   // ../test/chart_sample_bms/L9^.bme
-  rutil::GetDirectoryEntriesMasking(BASE_DIR + "chart_sample*/*9*.*", out);
+  rutil::GetDirectoryEntriesMasking(BASE_DIR + "chart_sample*/*9*", out);
   EXPECT_EQ(2, out.size());
 
   rutil::GetDirectoryEntriesMasking(BASE_DIR + "chart_sample_bms/*.bme", out);
+  ASSERT_FALSE(out.empty());
   EXPECT_STREQ("../test/chart_sample_bms/L9^.bme", out[0].c_str());
 }
 
@@ -348,7 +350,7 @@ TEST(RPARSER, VOSFILE_V2)
   };
   for (auto& songpath : songlist)
   {
-    EXPECT_TRUE(song.Open(BASE_DIR + songpath));
+    ASSERT_TRUE(song.Open(BASE_DIR + songpath));
     Chart *c = song.GetChart(0);
     auto &md = c->GetMetaData();
     auto &nd = c->GetNoteData();
@@ -372,9 +374,8 @@ TEST(RPARSER, VOSFILE_V3)
   };
   for (auto& songpath : songlist)
   {
-    EXPECT_TRUE(song.Open(BASE_DIR + songpath));
+    ASSERT_TRUE(song.Open(BASE_DIR + songpath));
     Chart *c = song.GetChart(0);
-    ASSERT_TRUE(c);
     auto &md = c->GetMetaData();
     auto &nd = c->GetNoteData();
     auto &td = c->GetTempoData();
@@ -391,7 +392,7 @@ TEST(RPARSER, VOSFILE_V3)
 TEST(RPARSER, BMSARCHIVE)
 {
   Song song;
-  EXPECT_TRUE(song.Open(BASE_DIR + "bms_sample_angelico.zip"));
+  ASSERT_TRUE(song.Open(BASE_DIR + "bms_sample_angelico.zip"));
 
   Chart *c = song.GetChart(0);
   ASSERT_TRUE(c);

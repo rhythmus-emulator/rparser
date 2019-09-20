@@ -717,7 +717,10 @@ bool DirectoryManager::CreateDirectory(const std::string& dirpath)
   // check already existing, if so close it first.
   auto i = m.dir_container_.find(spath);
   if (i != m.dir_container_.end())
+  {
+    dir_mutex.unlock();
     return false;
+  }
 
   // add new directory object
   Directory* dir = m.CreateDirectoryObject(spath);

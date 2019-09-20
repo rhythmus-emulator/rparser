@@ -875,7 +875,11 @@ void GetDirectoryEntriesWithMaskContext(std::vector<std::string>& paths, const D
     /* more simple way to do, if it's not mask. */
     if (!mask_ctx.is_mask)
     {
-      new_path = path + '/' + mask_ctx.dir_mask;
+      if (path == ".")
+        new_path = mask_ctx.dir_mask;
+      else
+        new_path = path + '/' + mask_ctx.dir_mask;
+
       if (!mask_ctx.is_last)
       {
         if (IsDirectory(new_path))
@@ -894,13 +898,13 @@ void GetDirectoryEntriesWithMaskContext(std::vector<std::string>& paths, const D
     GetDirectoryFiles(path, fl, 0, mask_ctx.only_file);
     for (auto& file : fl)
     {
-      std::string filename = file.first.substr(path.size() + 1);
+      std::string filename = file.first; //file.first.substr(path.size() + 1);
       if (wild_match(filename, mask_ctx.dir_mask))
       {
         // if it's not last, then only add directory
         if (!mask_ctx.is_last && file.second == 1)
           continue;
-        new_paths.push_back(file.first);
+        new_paths.push_back(path + '/' + filename);
       }
     }
   }
@@ -966,7 +970,7 @@ void GetDirectoryEntriesMasking(const std::string& path,
          * - if prev is mask and current is not mask, add new one.
          * - if current is mask, add new one.
          */
-        if (mask_ctx.empty() || (!mask_ctx.back().is_mask && !is_mask))
+        if (!mask_ctx.empty() && !mask_ctx.back().is_mask && !is_mask)
         {
           mask_ctx.back().dir_mask += "/" + dir_mask;
         }
@@ -985,7 +989,7 @@ void GetDirectoryEntriesMasking(const std::string& path,
     return;
   mask_ctx.back().is_last = true;
   mask_ctx.back().only_file = only_file;
-  out.push_back(path);
+  out.push_back(".");
 
   for (const auto& m : mask_ctx)
   {
@@ -1012,7 +1016,7 @@ bool wild_match(const std::string& str, const std::string& pat) {
 
       const size_t max = strlen(&*str_it);
       for (size_t i = 0; i < max; ++i) {
-        if (wild_match(&*(pat_it + 1), &*(str_it + i))) {
+        if (wild_match(&*(str_it + i), &*(pat_it + 1))) {
           return true;
         }
       }
