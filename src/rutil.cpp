@@ -959,9 +959,23 @@ void GetDirectoryEntriesMasking(const std::string& path,
           continue;
         std::string dir_mask = path_new.substr(s, i - s);
         bool is_mask = (dir_mask.find('*') != std::string::npos);
-        mask_ctx.emplace_back(DirMaskContext{
-          path_new.substr(s, i - s), is_mask, false, false
-          });
+        /**
+         * An optimizing to reduce mask context:
+         * - if current is not mask and previous is not mask,
+         *   then don't add new mask; just add it to previous one.
+         * - if prev is mask and current is not mask, add new one.
+         * - if current is mask, add new one.
+         */
+        if (mask_ctx.empty() || (!mask_ctx.back().is_mask && !is_mask))
+        {
+          mask_ctx.back().dir_mask += "/" + dir_mask;
+        }
+        else
+        {
+          mask_ctx.emplace_back(DirMaskContext{
+            dir_mask, is_mask, false, false
+            });
+        }
         s = i + 1;
       }
     }
@@ -1257,7 +1271,7 @@ uint32_t Random::GetSeed() const
 
 void Random::SetSeedByTime()
 {
-  SetSeed(time(0));
+  SetSeed((uint32_t)time(0));
 }
 
 int32_t Random::Next()

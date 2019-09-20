@@ -87,26 +87,23 @@ TEST(RPARSER, DIRECTORY_FOLDER)
 {
   using namespace rparser;
   const std::string fpath(BASE_DIR + "chart_sample_bms");
-  DirectoryFactory &df = DirectoryFactory::Create(fpath);
-  ASSERT_TRUE(df.Open());
-  Directory &d = *df.GetDirectory();
-  EXPECT_EQ(DIRECTORY_TYPE::FOLDER, d.GetDirectoryType());
-  EXPECT_EQ(3, d.count());
-  d.Clear();
+  Directory *d = new DirectoryFolder(fpath);
+  ASSERT_TRUE(d->Open());
+  EXPECT_EQ(3, d->count());
+  delete d;
 }
 
 TEST(RPARSER, DIRECTORY_ARCHIVE)
 {
   using namespace rparser;
   const std::string fpath(BASE_DIR + "bms_sample_angelico.zip");
-  DirectoryFactory &df = DirectoryFactory::Create(fpath);
-  ASSERT_TRUE(df.Open());
-  Directory &d = *df.GetDirectory();
-  EXPECT_EQ(DIRECTORY_TYPE::ARCHIVE, d.GetDirectoryType());
-  EXPECT_EQ(7, d.count());
-  d.Close();
-  EXPECT_FALSE(d.ReadAll());
-  d.Clear();
+  Directory *d = new DirectoryArchive(fpath);
+  ASSERT_TRUE(d->Open());
+  EXPECT_EQ(7, d->count());
+  d->Close();
+  EXPECT_FALSE(d->ReadAll());
+  d->Clear();
+  delete d;
 }
 
 TEST(RPARSER, DIRECTORY_MANAGER)

@@ -104,13 +104,16 @@ bool Directory::IsReadOnly()
 
 bool Directory::GetFile(const std::string& filename, const char** out, size_t &len) const noexcept
 {
+  const File *f = nullptr;
+
   for (auto &fds : *this)
   {
     if (fds.filename == filename)
     {
       *out = fds.p;
       len = fds.len;
-      return true;
+      f = &fds;
+      break;
     }
   }
 
@@ -121,14 +124,23 @@ bool Directory::GetFile(const std::string& filename, const char** out, size_t &l
     {
       if (rutil::GetAlternativeFilename(fds.filename) == filenameonly)
       {
-        *out = fds.p;
-        len = fds.len;
-        return true;
+        f = &fds;
+        break;
       }
     }
   }
 
-  return false;
+  if (!f)
+    return false;
+
+  // If file is not read, then attempt to read.
+  // do const_cast as we know what we're doing...
+  if (!f->p)
+    const_cast<Directory*>(this)->doRead(*const_cast<File*>(f));
+
+  *out = f->p;
+  len = f->len;
+  return true;
 }
 
 void Directory::SetFile(const std::string& filename, const char* p, size_t len) noexcept
@@ -163,6 +175,8 @@ void Directory::SetFile(const std::string& filename, const char* p, size_t len) 
     files_.emplace_back(File{ filename, 0, 0 });
     f = &files_.back();
   }
+  else if (f->p)
+    free(f->p);
 
   f->p = (char*)malloc(len);
   memcpy(f->p, p, len);
@@ -571,6 +585,7 @@ bool DirectoryArchive::doWritePrepare()
 
 bool DirectoryArchive::doWrite(File &f)
 {
+  if (!archive_) return false;
   zip_source_t *s;
   s = zip_source_buffer(archive_, f.p, f.len, 0);
   if (!s)
@@ -578,7 +593,7 @@ bool DirectoryArchive::doWrite(File &f)
     printf("Zip source buffer creation failed!\n");
     return false;
   }
-  zip_error_ = zip_file_add(archive_, f.filename.c_str(), s, ZIP_FL_ENC_UTF_8 | ZIP_FL_OVERWRITE);
+  zip_error_ = (int)zip_file_add(archive_, f.filename.c_str(), s, ZIP_FL_ENC_UTF_8 | ZIP_FL_OVERWRITE);
   zip_source_free(s);
   if (zip_error_)
   {
@@ -590,12 +605,14 @@ bool DirectoryArchive::doWrite(File &f)
 
 bool DirectoryArchive::doRename(const std::string& oldname, const std::string& newname)
 {
+  if (!archive_) return false;
   // TODO zip element rename
   return false;
 }
 
 bool DirectoryArchive::doRead(File &f)
 {
+  if (!archive_) return false;
   zip_file_t *zfp = zip_fopen(archive_, f.filename.c_str(), ZIP_FL_UNCHANGED);
   if (!zfp)
   {
@@ -604,7 +621,7 @@ bool DirectoryArchive::doRead(File &f)
   }
   struct zip_stat zStat;
   zip_stat(archive_, f.filename.c_str(), 0, &zStat);
-  f.len = zStat.size;
+  f.len = (size_t)zStat.size;
   f.p = (char*)malloc(f.len);
   zip_fread(zfp, (void*)f.p, f.len);
   zip_fclose(zfp);
@@ -613,6 +630,7 @@ bool DirectoryArchive::doRead(File &f)
 
 bool DirectoryArchive::doDelete(const std::string& filename)
 {
+  if (!archive_) return false;
   // TODO: Delete object from archive
   return true;
 }
@@ -634,6 +652,18 @@ bool DirectoryArchive::IsReadOnly()
 {
   return true;
 }
+
+bool DirectoryArchive::doRead(File &f) { return false; }
+bool DirectoryArchive::doWritePrepare() { return false; }
+bool DirectoryArchive::doWrite(File &f) { return false; }
+bool DirectoryArchive::doRename(const std::string& oldname, const std::string& newname)
+{
+  return false;
+}
+bool DirectoryArchive::doOpen() { return false; }
+bool DirectoryArchive::doClose() { return false; }
+bool DirectoryArchive::doDelete(const std::string& filename) { return false; }
+bool DirectoryArchive::doCreate(const std::string& newpath) { return false; }
 
 #endif
 

@@ -85,8 +85,10 @@ public:
 
   bool Exist(const std::string &name) const;
 
-  // @warn May null size file returned (just opened but not read).
-  //       Call Read(filename) or ReadAll() method.
+  // @warn
+  // It internally calls doRead() method to fill file object,
+  // but it may null size file return (but should not happen ..?).
+  // be sure to check returning file pointer.
   bool GetFile(const std::string& filename, const char** out, size_t &len) const noexcept;
 
   void SetFile(const std::string& filename, const char* p, size_t len) noexcept;
