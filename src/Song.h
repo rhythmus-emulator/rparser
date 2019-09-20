@@ -92,9 +92,6 @@ private:
 
   // in case of need ...
   std::string errormsg_detailed_;
-
-  // to check whether song type is filetype or dirtype
-  static bool IsSongExtensionIsFiletype(const std::string& path);
 };
 
 SONGTYPE GetSongTypeByName(const std::string& filename);

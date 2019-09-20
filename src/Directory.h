@@ -17,6 +17,8 @@ typedef struct zip zip_t;
 namespace rparser
 {
 
+class DirectoryManager;
+
 class Directory
 {
 public:
@@ -39,13 +41,13 @@ public:
 
   // Unload all Directory and allocated memory.
   // You can save data with setting parameter flush=true.
-  bool Clear(bool flush = true);
+  bool Clear(bool flush = false);
 
   // Just unload currently loaded files.
   void UnloadFiles();
 
   // Just close directory handle.
-  bool Close(bool flush = true);
+  bool Close(bool flush = false);
 
   // if Closed, then readonly state.
   virtual bool IsReadOnly();
@@ -101,10 +103,15 @@ public:
    */
   void SetAlternativeSearch(bool use_alternative_search = true);
 
+  friend class DirectoryManager;
+
 private:
   std::string dirpath_;
   ERROR error_code_;
   bool use_alternative_search_;
+
+  /* @brief reference count. used by DirectoryManager class internally. */
+  int ref_cnt_;
 
   /**
    * @brief marking for open status.
@@ -180,12 +187,16 @@ private:
 /* @brief A user customizeable directory creator */
 typedef Directory* (*dir_constructor)(const char*);
 
-/* @brief A singleton class open / close directory and read files in need. */
+/**
+ * @brief
+ * A singleton class open / close directory and read files in need.
+ * Thread-safe.
+ */
 class DirectoryManager
 {
 public:
   /* @brief Open directory - read all file lists, not reading them. */
-  static bool OpenDirectory(const std::string& dir_or_filepath);
+  static bool OpenDirectory(const std::string& dirpath);
 
   /* @brief Create directory object. */
   static bool CreateDirectory(const std::string& dirpath);
@@ -199,23 +210,37 @@ public:
   /* @brief Check specified directory is already opened */
   static bool IsDirectoryOpened(const std::string& dirpath);
 
-  /* @brief Closes and returns resource occupied by directory */
-  static void CloseDirectory(const std::string& dir_or_filepath);
+  /**
+   * @brief Closes and returns resource occupied by directory
+   * @param force close directory without checking reference count.
+   */
+  static void CloseDirectory(const std::string& dirpath, bool force = false);
 
   /* @brief Get directory object. Should already opened, or nullptr. */
   static std::shared_ptr<Directory> GetDirectory(const std::string& dirpath);
 
   /* @brief Get file data for read-only */
   static bool GetFile(const std::string& filepath,
-    const char** out, size_t &len, bool open_if_not_exist = false);
+    const char** out, size_t &len);
 
   /* @brief Copy file data. */
   static bool CopyFile(const std::string& filepath,
-    char** out, size_t &len, bool open_if_not_exist = false);
+    char** out, size_t &len);
 
   /* @brief Set file data */
   static void SetFile(const std::string& filepath,
     const char* p, size_t len);
+
+  /* @brief Open directory & file at both time. (add directory ref_cnt) */
+  static bool OpenAndGetFile(const std::string& filepath,
+    const char** out, size_t &len);
+
+  /* @brief Open directory & file at both time. (add directory ref_cnt) */
+  static bool OpenAndCopyFile(const std::string& filepath,
+    char** out, size_t &len);
+
+  /* @brief Close directory & file at both time. (reducing directory ref_cnt) */
+  static void CloseFile(const std::string& filepath);
 
   /* @brief Set directory constructor for specific extension to extend feature */
   void AddDirectoryConstructor(const std::string& ext, dir_constructor constructor);

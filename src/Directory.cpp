@@ -11,12 +11,12 @@ namespace rparser
 {
 
 Directory::Directory()\
-  : error_code_(ERROR::NONE), use_alternative_search_(false), open_status_(0)
+  : error_code_(ERROR::NONE), use_alternative_search_(false), ref_cnt_(0), open_status_(0)
 {
 }
 
 Directory::Directory(const std::string& path)
-  : error_code_(ERROR::NONE), use_alternative_search_(false), open_status_(0)
+  : error_code_(ERROR::NONE), use_alternative_search_(false), ref_cnt_(0), open_status_(0)
 {
   SetPath(path);
 }
@@ -688,7 +688,7 @@ std::mutex dir_mutex;
 
 bool DirectoryManager::OpenDirectory(const std::string& dirpath)
 {
-  std::string spath = GetSafeDirectory(dirpath);
+  std::string spath = GetSafePath(dirpath);
 
   /* create directory path object, without reading directory.
    * we don't care failure here (as duplicate one may existing already) */
@@ -703,6 +703,7 @@ bool DirectoryManager::OpenDirectory(const std::string& dirpath)
     CloseDirectory(spath);
     return false;
   }
+  dir->ref_cnt_++;
 
   return true;
 }
@@ -764,30 +765,23 @@ bool DirectoryManager::IsDirectoryOpened(const std::string& dirpath)
   return (i != m.dir_container_.end());
 }
 
-void DirectoryManager::CloseDirectory(const std::string& dir_or_filepath)
+void DirectoryManager::CloseDirectory(const std::string& dirpath, bool force)
 {
   DirectoryManager& m = getInstance();
 
   dir_mutex.lock();
 
   // check opened
-  auto i = m.dir_container_.find(GetSafePath(dir_or_filepath));
+  auto i = m.dir_container_.find(GetSafePath(dirpath));
   if (i == m.dir_container_.end())
   {
-    // if not found, then attempt as filepath once more.
-    std::string dirname, filename;
-    SeparatePath(dir_or_filepath, dirname, filename);
-    i = m.dir_container_.find(dirname);
-
-    // cannot found directory anymore!
-    if (i == m.dir_container_.end())
-    {
-      dir_mutex.unlock();
-      return;
-    }
+    dir_mutex.unlock();
+    return;
   }
 
-  m.dir_container_.erase(i);
+  Directory& dir = *i->second;
+  if (--dir.ref_cnt_ <= 0 || force)
+    m.dir_container_.erase(i);
 
   dir_mutex.unlock();
 }
@@ -806,7 +800,7 @@ std::shared_ptr<Directory> DirectoryManager::GetDirectory(const std::string& dir
 }
 
 bool DirectoryManager::GetFile(const std::string& filepath,
-  const char** out, size_t &len, bool open_if_not_exist)
+  const char** out, size_t &len)
 {
   std::string dn, fn;
   SeparatePath(filepath, dn, fn);
@@ -817,10 +811,10 @@ bool DirectoryManager::GetFile(const std::string& filepath,
 }
 
 bool DirectoryManager::CopyFile(const std::string& filepath,
-  char** out, size_t &len, bool open_if_not_exist)
+  char** out, size_t &len)
 {
   const char* p;
-  if (!GetFile(filepath, &p, len, open_if_not_exist))
+  if (!GetFile(filepath, &p, len))
     return false;
   *out = (char*)malloc(len);
   memcpy(*out, p, len);
@@ -836,6 +830,32 @@ void DirectoryManager::SetFile(const std::string& filepath,
   if (!dir)
     return;
   dir->SetFile(fn, out, len);
+}
+
+bool DirectoryManager::OpenAndGetFile(const std::string& filepath,
+  const char** out, size_t &len)
+{
+  std::string dir, fn;
+  SeparatePath(filepath, dir, fn);
+  if (!OpenDirectory(dir))
+    return false;
+  return GetFile(fn, out, len);
+}
+
+bool DirectoryManager::OpenAndCopyFile(const std::string& filepath,
+  char** out, size_t &len)
+{
+  std::string dir, fn;
+  SeparatePath(filepath, dir, fn);
+  if (!OpenDirectory(dir))
+    return false;
+  return CopyFile(fn, out, len);
+}
+
+void DirectoryManager::CloseFile(const std::string& filepath)
+{
+  std::string dir = GetSafeDirectory(filepath);
+  CloseDirectory(dir);
 }
 
 void DirectoryManager::AddDirectoryConstructor(const std::string& ext, dir_constructor constructor)

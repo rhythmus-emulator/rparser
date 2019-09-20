@@ -428,7 +428,6 @@ TEST(RPARSER, BMS_SINGLE)
 
   Chart *c = song.GetChart();
   ASSERT_TRUE(c);
-  EXPECT_TRUE(song.GetDirectory()->count() > 1);
 
   c->Invalidate();
   std::cout << c->GetMetaData().title << std::endl;

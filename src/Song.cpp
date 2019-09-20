@@ -150,7 +150,17 @@ bool Song::Open(const std::string &path, SONGTYPE songtype)
   filepath_ = path;
 
   // Check method to open song file -- binary or directory.
-  if (IsSongExtensionIsFiletype(path))
+  if (DirectoryManager::OpenDirectory(path))
+  {
+    // directory type --> detect songtype in directory
+    DirectoryManager::OpenDirectory(path);
+    directory_ = DirectoryManager::GetDirectory(path);
+    if (!directory_)
+      return false;
+    if (songtype == SONGTYPE::NONE) SetSongType(DetectSongtype());
+    else SetSongType(songtype);
+  }
+  else
   {
     // check at least file is existing ...
     // if not, raise error
@@ -165,16 +175,6 @@ bool Song::Open(const std::string &path, SONGTYPE songtype)
     if (songtype == SONGTYPE::NONE) SetSongType(GetSongTypeByName(path));
     else SetSongType(songtype);
     filepath_ = path;
-  }
-  else
-  {
-    // directory type --> detect songtype in directory
-    DirectoryManager::OpenDirectory(path);
-    directory_ = DirectoryManager::GetDirectory(path);
-    if (!directory_)
-      return false;
-    if (songtype == SONGTYPE::NONE) SetSongType(DetectSongtype());
-    else SetSongType(songtype);
   }
 
   // Check songtype -- must set by now.
@@ -307,12 +307,6 @@ const char* Song::GetErrorStr() const
 Directory * Song::GetDirectory()
 {
 	return directory_.get();
-}
-
-bool Song::IsSongExtensionIsFiletype(const std::string& path)
-{
-  std::string ext = rutil::lower(rutil::GetExtension(path));
-  return (ext == "vos");
 }
 
 std::string Song::toString(bool detailed) const
