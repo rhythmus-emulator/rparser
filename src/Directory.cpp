@@ -110,8 +110,6 @@ bool Directory::GetFile(const std::string& filename, const char** out, size_t &l
   {
     if (fds.filename == filename)
     {
-      *out = fds.p;
-      len = fds.len;
       f = &fds;
       break;
     }

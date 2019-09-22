@@ -564,7 +564,7 @@ std::string GetFilename(const std::string & path)
 std::string GetAlternativeFilename(const std::string& path)
 {
   std::string fn = GetFilename(path);
-  size_t pos = path.find_last_of('.');
+  size_t pos = fn.find_last_of('.');
   if (pos == std::string::npos)
     return fn;
   return fn.substr(0, pos);

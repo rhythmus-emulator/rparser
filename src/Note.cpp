@@ -333,31 +333,26 @@ bool SoundNote::IsScoreable() const
 
 uint8_t SoundNote::GetPlayer() const
 {
-  ASSERT(type() == NoteTypes::kTap);
   return track.lane.note.player;
 }
 
 uint8_t SoundNote::GetLane() const
 {
-  ASSERT(type() == NoteTypes::kTap);
   return track.lane.note.lane;
 }
 
 uint8_t SoundNote::GetBGMCol() const
 {
-  ASSERT(type() == NoteTypes::kBGM);
   return track.lane.note.lane;
 }
 
 uint8_t SoundNote::GetX() const
 {
-  ASSERT(type() == NoteTypes::kTouch);
   return track.lane.touch.x;
 }
 
 uint8_t SoundNote::GetY() const
 {
-  ASSERT(type() == NoteTypes::kTouch);
   return track.lane.touch.y;
 }
 
@@ -428,7 +423,7 @@ void EventNote::SetBmsARGBCommand(BgaTypes bgatype, Channel channel)
   arg2_ = 0;
 }
 
-void EventNote::GetMidiCommand(uint8_t &command, uint8_t &arg1, uint8_t &arg2)
+void EventNote::GetMidiCommand(uint8_t &command, uint8_t &arg1, uint8_t &arg2) const
 {
   ASSERT(type() == NoteEventTypes::kMIDI);
   command = (uint8_t)command_;
