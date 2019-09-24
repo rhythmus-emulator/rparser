@@ -312,6 +312,10 @@ bool ChartLoaderVOS::ParseMetaDataV2()
   MetaData& md = chart_->GetMetaData();
   char buf[256];
 
+  // common part: 16 channels for midi
+  for (size_t i = 0; i < 16; ++i)
+    md.GetSoundChannel()->fn[i] = "midi";
+
   // 4 byte: filename length
   int fnamelen = stream.GetInt32();
   stream.SeekCur(fnamelen);
@@ -364,6 +368,10 @@ bool ChartLoaderVOS::ParseMetaDataV3()
   char buf[256];
   stream.SeekSet(4);  // skip version
   MetaData& md = chart_->GetMetaData();
+
+  // common part: 16 channels for midi
+  for (size_t i = 0; i < 16; ++i)
+    md.GetSoundChannel()->fn[i] = "midi";
 
   int headersize = stream.GetInt32();
   stream.SeekCur(4);  // inf; static flag
