@@ -917,14 +917,14 @@ void GetFileInfo(const std::vector<std::string> &files, std::vector<FileInfo>& o
   FileInfo fi;
   for (const auto& file : files)
   {
-    struct _stat result;
+    struct stat result;
 #ifdef WIN32
     std::wstring wfn;
     DecodeToWStr(file, wfn, E_UTF8);
     if (stat(wfn.c_str(), &result) == 1)
       continue;
 #else
-    if (stat(fn.c_str(), &result) == 1)
+    if (stat(file.c_str(), &result) == 1)
       continue;
 #endif
     if (result.st_mode & S_IFREG)

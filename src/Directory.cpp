@@ -691,7 +691,7 @@ bool DirectoryManager::OpenDirectory(const std::string& dirpath)
   /* create directory path object, without reading directory.
    * we don't care failure here (as duplicate one may existing already) */
   CreateDirectory(spath);
-  auto& dir = GetDirectory(spath);
+  auto dir = GetDirectory(spath);
   if (dir == nullptr)
     return false; /* even failed to create directory object. */
 
@@ -739,7 +739,7 @@ bool DirectoryManager::CreateDirectory(const std::string& dirpath)
 bool DirectoryManager::ReadDirectoryFiles(const std::string& dirpath)
 {
   OpenDirectory(dirpath);
-  auto& dir = GetDirectory(dirpath);
+  auto dir = GetDirectory(dirpath);
   if (!dir)
     return false;
   dir->ReadAll();
@@ -748,7 +748,7 @@ bool DirectoryManager::ReadDirectoryFiles(const std::string& dirpath)
 
 bool DirectoryManager::SaveDirectory(const std::string& dirpath)
 {
-  auto& dir = GetDirectory(dirpath);
+  auto dir = GetDirectory(dirpath);
   if (!dir)
     return false;
   dir->Save();
@@ -802,7 +802,7 @@ bool DirectoryManager::GetFile(const std::string& filepath,
 {
   std::string dn, fn;
   SeparatePath(filepath, dn, fn);
-  const auto& dir = GetDirectory(dn);
+  const auto dir = GetDirectory(dn);
   if (!dir)
     return false;
   return dir->GetFile(fn, out, len);
@@ -824,7 +824,7 @@ void DirectoryManager::SetFile(const std::string& filepath,
 {
   std::string dn, fn;
   SeparatePath(filepath, dn, fn);
-  auto& dir = GetDirectory(dn);
+  auto dir = GetDirectory(dn);
   if (!dir)
     return;
   dir->SetFile(fn, out, len);

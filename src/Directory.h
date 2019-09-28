@@ -167,7 +167,6 @@ public:
 private:
   int codepage_;
 
-#ifdef USE_ZLIB
 private:
   virtual bool doRead(File &f);
   virtual bool doWritePrepare();
@@ -178,6 +177,7 @@ private:
   virtual bool doDelete(const std::string& filename);
   virtual bool doCreate(const std::string& newpath);
 
+#ifdef USE_ZLIB
   zip_t *archive_;
   int zip_error_;
 #endif

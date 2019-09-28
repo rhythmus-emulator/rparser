@@ -40,7 +40,7 @@ include_directories(
     ${GTEST_HEADERS}
     ${RUTIL_INCLUDE_DIR}
     ${ZIP_INCLUDE_DIR}
-    ${OpenSSL_INCLUDE_DIR}
+    ${OPENSSL_INCLUDE_DIR}
 	)
 #link_directories(${ZIP_LIB} ${ZLIB_LIB} ${OPENSSL_LIB} ${ICONV_LIB})
 
