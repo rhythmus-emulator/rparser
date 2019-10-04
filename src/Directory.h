@@ -7,6 +7,7 @@
 #define RPARSER_DIRECTORY_H
 
 #include "rutil.h"
+#include <mutex>
 #include "Error.h"
 
 #ifdef USE_ZLIB
@@ -176,6 +177,8 @@ private:
   virtual bool doClose();
   virtual bool doDelete(const std::string& filename);
   virtual bool doCreate(const std::string& newpath);
+
+  std::mutex mutex_;
 
 #ifdef USE_ZLIB
   zip_t *archive_;

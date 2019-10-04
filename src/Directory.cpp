@@ -134,7 +134,10 @@ bool Directory::GetFile(const std::string& filename, const char** out, size_t &l
   // If file is not read, then attempt to read.
   // do const_cast as we know what we're doing...
   if (!f->p)
-    const_cast<Directory*>(this)->doRead(*const_cast<File*>(f));
+  {
+    if (!const_cast<Directory*>(this)->doRead(*const_cast<File*>(f)))
+      return false;
+  }
 
   *out = f->p;
   len = f->len;
@@ -611,12 +614,18 @@ bool DirectoryArchive::doRename(const std::string& oldname, const std::string& n
 bool DirectoryArchive::doRead(File &f)
 {
   if (!archive_) return false;
-  zip_file_t *zfp = zip_fopen(archive_, f.filename.c_str(), ZIP_FL_UNCHANGED);
-  if (!zfp)
+
+  zip_file_t *zfp = nullptr;
   {
-    printf("Failed to read file(%s) from zip\n", f.filename.c_str());
-    return false;
+    std::lock_guard<std::mutex> lock(mutex_);
+    zfp = zip_fopen(archive_, f.filename.c_str(), ZIP_FL_UNCHANGED);
+    if (!zfp)
+    {
+      printf("Failed to read file(%s) from zip\n", f.filename.c_str());
+      return false;
+    }
   }
+
   struct zip_stat zStat;
   zip_stat(archive_, f.filename.c_str(), 0, &zStat);
   f.len = (size_t)zStat.size;
