@@ -431,6 +431,12 @@ void EventNote::GetMidiCommand(uint8_t &command, uint8_t &arg1, uint8_t &arg2) c
   arg2 = (uint8_t)arg2_;
 }
 
+void EventNote::GetBga(int &bga_type, Channel &channel) const
+{
+  bga_type = command_;
+  channel = arg1_;
+}
+
 bool EventNote::operator==(const EventNote &other) const noexcept
 {
   return Note::operator==(other) &&

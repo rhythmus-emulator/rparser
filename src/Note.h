@@ -266,6 +266,7 @@ public:
   void SetBmsARGBCommand(BgaTypes bgatype, Channel channel);
 
   void GetMidiCommand(uint8_t &command, uint8_t &arg1, uint8_t &arg2) const;
+  void GetBga(int &bga_type, Channel &channel) const;
 
   bool operator==(const EventNote &other) const noexcept;
 private:
