@@ -78,8 +78,8 @@ public:
     char* p;
     size_t len;
   };
-  typedef std::vector<File>::iterator data_iter;
-  typedef std::vector<File>::const_iterator data_constiter;
+  typedef std::vector<File*>::iterator data_iter;
+  typedef std::vector<File*>::const_iterator data_constiter;
   data_iter begin() noexcept;
   data_iter end() noexcept;
   const data_constiter begin() const noexcept;
@@ -131,7 +131,7 @@ private:
   virtual bool doCreate(const std::string& newpath);
 
 protected:
-  std::vector<File> files_;
+  std::vector<File*> files_;
   void ClearStatus();
   void SetError(ERROR error);
   void CreateEmptyFile(const std::string& filename);

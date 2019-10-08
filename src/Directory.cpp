@@ -48,9 +48,9 @@ bool Directory::Save()
   if (!doWritePrepare()) return false;
 
   bool s = true;
-  for (auto &fds : *this)
+  for (auto *fds : *this)
   {
-    s &= doWrite(fds);
+    s &= doWrite(*fds);
   }
 
   return s;
@@ -83,6 +83,11 @@ bool Directory::Clear(bool flush)
 
 void Directory::UnloadFiles()
 {
+  for (auto *f : files_)
+  {
+    if (f->p) free(f->p);
+    delete f;
+  }
   files_.clear();
 }
 
@@ -106,11 +111,11 @@ bool Directory::GetFile(const std::string& filename, const char** out, size_t &l
 {
   const File *f = nullptr;
 
-  for (auto &fds : *this)
+  for (auto *fds : *this)
   {
-    if (fds.filename == filename)
+    if (fds->filename == filename)
     {
-      f = &fds;
+      f = fds;
       break;
     }
   }
@@ -120,9 +125,9 @@ bool Directory::GetFile(const std::string& filename, const char** out, size_t &l
     const std::string filenameonly(std::move(rutil::GetAlternativeFilename(filename)));
     for (auto &fds : *this)
     {
-      if (rutil::GetAlternativeFilename(fds.filename) == filenameonly)
+      if (rutil::GetAlternativeFilename(fds->filename) == filenameonly)
       {
-        f = &fds;
+        f = fds;
         break;
       }
     }
@@ -151,9 +156,9 @@ void Directory::SetFile(const std::string& filename, const char* p, size_t len) 
   // search file. if not found, create one.
   for (auto &fd : *this)
   {
-    if (fd.filename == filename)
+    if (fd->filename == filename)
     {
-      f = &fd;
+      f = fd;
       break;
     }
   }
@@ -163,9 +168,9 @@ void Directory::SetFile(const std::string& filename, const char* p, size_t len) 
     const std::string filenameonly(std::move(rutil::GetAlternativeFilename(filename)));
     for (auto &fds : *this)
     {
-      if (rutil::GetAlternativeFilename(fds.filename) == filenameonly)
+      if (rutil::GetAlternativeFilename(fds->filename) == filenameonly)
       {
-        f = &fds;
+        f = fds;
         break;
       }
     }
@@ -173,8 +178,8 @@ void Directory::SetFile(const std::string& filename, const char* p, size_t len) 
 
   if (!f)
   {
-    files_.emplace_back(File{ filename, 0, 0 });
-    f = &files_.back();
+    files_.push_back(new File{ filename, 0, 0 });
+    f = files_.back();
   }
   else if (f->p)
     free(f->p);
@@ -239,7 +244,7 @@ void Directory::ClearStatus()
 void Directory::CreateEmptyFile(const std::string& filename)
 {
   // as it's internal function, don't check is there duplication
-  files_.emplace_back(File{ filename, 0, 0 });
+  files_.push_back(new File{ filename, 0, 0u });
 }
 
 void Directory::SetPath(const std::string& filepath)
@@ -306,25 +311,25 @@ bool Directory::ReadAll(bool force)
     return false;
 
   bool r = true;
-  for (auto &fds : *this)
+  for (auto *fds : *this)
   {
-    if (fds.len > 0 && !force)
+    if (fds->len > 0 && !force)
       continue;
 
-    r |= doRead(fds);
+    r |= doRead(*fds);
   }
   return r;
 }
 
 bool Directory::Read(const std::string& filename, bool force)
 {
-  for (auto &fds : *this)
+  for (auto *fds : *this)
   {
-    if (fds.filename == filename)
+    if (fds->filename == filename)
     {
-      if (fds.len > 0 && !force)
+      if (fds->len > 0 && !force)
         continue;
-      return doRead(fds);
+      return doRead(*fds);
     }
   }
   return false;
@@ -337,10 +342,15 @@ bool Directory::Delete(const std::string &filename)
 
   // fetch file ptr
   File* fds = nullptr;
-  for (auto &fd : *this) if (fd.filename == filename)
+  size_t fds_idx = 0;
+  for (auto fd : *this)
   {
-    fds = &fd;
-    break;
+    if (fd->filename == filename)
+    {
+      fds = fd;
+      break;
+    }
+    fds_idx++;
   }
   if (!fds)
   {
@@ -355,7 +365,8 @@ bool Directory::Delete(const std::string &filename)
     return false;
   }
 
-  files_.erase(files_.begin() + std::distance(files_.data(), fds));
+  free(fds);
+  files_.erase(files_.begin() + fds_idx);
   return true;
 }
 
@@ -366,9 +377,9 @@ bool Directory::Rename(const std::string& prev_name, const std::string& new_name
 
   // fetch file ptr
   File* fds = nullptr;
-  for (auto &fd : *this) if (fd.filename == prev_name)
+  for (auto *fd : *this) if (fd->filename == prev_name)
   {
-    fds = &fd;
+    fds = fd;
     break;
   }
   if (!fds)

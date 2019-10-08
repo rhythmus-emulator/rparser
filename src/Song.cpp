@@ -280,9 +280,9 @@ SONGTYPE Song::DetectSongtype()
   if (songtype != SONGTYPE::NONE) return songtype;
 
   // If not detected, then try to detect SONGTYPE by file lists.
-  for (auto f : *directory_)
+  for (auto *f : *directory_)
   {
-    songtype = GetSongTypeByName(f.filename);
+    songtype = GetSongTypeByName(f->filename);
     if (songtype != SONGTYPE::NONE)
       return songtype;
   }
