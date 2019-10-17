@@ -37,18 +37,17 @@ public:
   Chart(const Chart &nd);
   ~Chart();
 
-  NoteData<SoundNote>& GetNoteData();
-  NoteData<EventNote>& GetEventNoteData();
+  BgmData& GetBgmData();
+  BgaData& GetBgaData();
+  NoteData& GetNoteData();
+  EffectData& GetEffectData();
+  TimingData& GetTimingData();
+  TimingSegmentData& GetTimingSegmentData();
   MetaData& GetMetaData();
-  TempoData& GetTempoData();
-  const NoteData<SoundNote>& GetNoteData() const;
-  const NoteData<EventNote>& GetEventNoteData() const;
   const MetaData& GetMetaData() const;
-  const TempoData& GetTempoData() const;
 
   uint32_t GetScoreableNoteCount() const;
   double GetSongLastObjectTime() const;
-  double GetSongLastScorableObjectTime() const;
   bool HasLongnote() const;
   uint8_t GetPlayLaneCount() const;
   
@@ -72,10 +71,12 @@ public:
   SONGTYPE GetSongType() const;
 
 private:
-  NoteData<SoundNote> notedata_;
-  NoteData<EventNote> cmddata_;
+  BgmData bgmdata_;
+  BgaData bgadata_;
+  NoteData notedata_;
+  EffectData effectdata_;
   MetaData metadata_;
-  TempoData tempodata_;
+  TimingSegmentData timingsegmentdata_;
   Song* parent_song_;
   std::string hash_;
   std::string filename_;
@@ -162,7 +163,7 @@ public:
   virtual void UpdateTempoData();
   virtual int GetChartIndexByName(const std::string& filename);
 private:
-  std::vector<NoteData<SoundNote> > note_charts_;
+  std::vector< NoteData > note_charts_;
   mutable int cur_edit_idx;
 };
 

@@ -19,15 +19,13 @@ Chart::Chart() : parent_song_(nullptr)
 Chart::Chart(const Chart &nd)
   : parent_song_(nd.parent_song_)
 {
-  for (const auto& note : nd.notedata_)
-  {
-    notedata_.AddNote(SoundNote(note));
-  }
-  for (const auto& note : nd.cmddata_)
-  {
-    cmddata_.AddNote(EventNote(note));
-  }
-  tempodata_ = std::move(TempoData(nd.tempodata_));
+  bgmdata_.CopyAll(nd.bgmdata_);
+  bgadata_.CopyAll(nd.bgadata_);
+  notedata_.CopyAll(nd.notedata_);
+  effectdata_.CopyAll(nd.effectdata_);
+  metadata_ = nd.metadata_;
+  timingsegmentdata_
+    = std::move(TimingSegmentData(nd.timingsegmentdata_));
 }
 
 Chart::~Chart()
@@ -36,10 +34,12 @@ Chart::~Chart()
 
 void Chart::swap(Chart& c)
 {
+  bgmdata_.swap(c.bgmdata_);
+  bgadata_.swap(c.bgadata_);
   notedata_.swap(c.notedata_);
-  tempodata_.swap(c.tempodata_);
+  effectdata_.swap(c.effectdata_);
   metadata_.swap(c.metadata_);
-  cmddata_.swap(c.cmddata_);
+  timingsegmentdata_.swap(c.timingsegmentdata_);
   hash_.swap(c.hash_);
   filename_.swap(c.filename_);
 }
@@ -47,45 +47,37 @@ void Chart::swap(Chart& c)
 
 void Chart::Clear()
 {
+  bgmdata_.clear();
+  bgadata_.clear();
   notedata_.clear();
-  tempodata_.clear();
+  effectdata_.clear();
   metadata_.clear();
-  cmddata_.clear();
+  timingsegmentdata_.clear();
 }
 
-NoteData<SoundNote>& Chart::GetNoteData()
+NoteData& Chart::GetNoteData()
 {
   return notedata_;
 }
 
-NoteData<EventNote>& Chart::GetEventNoteData()
+EffectData& Chart::GetEffectData()
 {
-  return cmddata_;
+  return effectdata_;
+}
+
+TimingData& Chart::GetTimingData()
+{
+  return timingsegmentdata_.GetTimingData();
+}
+
+TimingSegmentData& Chart::GetTimingSegmentData()
+{
+  return timingsegmentdata_;
 }
 
 MetaData& Chart::GetMetaData()
 {
   return metadata_;
-}
-
-TempoData& Chart::GetTempoData()
-{
-  return tempodata_;
-}
-
-const NoteData<SoundNote>& Chart::GetNoteData() const
-{
-  return notedata_;
-}
-
-const NoteData<EventNote>& Chart::GetEventNoteData() const
-{
-  return cmddata_;
-}
-
-const TempoData& Chart::GetTempoData() const
-{
-  return tempodata_;
 }
 
 const MetaData& Chart::GetMetaData() const
@@ -95,135 +87,77 @@ const MetaData& Chart::GetMetaData() const
 
 uint32_t Chart::GetScoreableNoteCount() const
 {
-  const auto &nd = GetNoteData();
-  uint32_t cnt = 0;
-  for (auto &n : nd)
-    if (n.IsScoreable()) cnt++;
+  auto all_track_iter = notedata_.GetAllTrackIterator();
+  unsigned cnt;
+  while (!all_track_iter.is_end())
+  {
+    //if (n.IsScoreable())
+    cnt++;
+    ++all_track_iter;
+  }
   return cnt;
 }
 
 double Chart::GetSongLastObjectTime() const
 {
-  return GetNoteData().back().GetTimePos();
-}
-
-double Chart::GetSongLastScorableObjectTime() const
-{
-  const auto &nd = GetNoteData();
-  for (auto i = nd.rbegin(); i != nd.rend(); ++i)
-  {
-    if (i->IsScoreable())
-      return i->GetTimePos();
-  }
-  return 0;
+  return notedata_.back()->time_msec;
 }
 
 bool Chart::HasLongnote() const
 {
-  for (auto &n : GetNoteData())
-    if (n.IsLongnote()) return true;
+  auto all_track_iter = notedata_.GetAllTrackIterator();
+  while (!all_track_iter.is_end())
+  {
+    Note &n = static_cast<Note&>(*all_track_iter);
+    if (n.chainsize() > 1)
+      return true;
+  }
   return false;
 }
 
 uint8_t Chart::GetPlayLaneCount() const
 {
-  uint8_t r = 0;
-  for (auto &nd : notedata_)
-    if (nd.IsScoreable() && r < nd.GetLane())
-      r = nd.GetLane() + 1;
-  return r;
+  return notedata_.get_track_count();
 }
 
-template<typename N>
-void InvalidateNoteDataPos(NoteData<N>& nd, const TempoData& tempodata_)
+template <typename T>
+void InvalidateTrackDataTiming(T& td, const TimingSegmentData& tsd)
 {
-  std::vector<double> v_time, v_beat, v_row;
-  int t_idx = 0, b_idx = 0, r_idx = 0;
-  // Sort by row / beat / time.
-  SortedNoteObjects sorted;
-  SortNoteObjectsByType(nd, sorted);
-  // Make conversion of row --> beat --> time first.
-  for (const Note* nobj : sorted.nobj_by_row)
-    v_row.push_back(nobj->pos().measure);
-  const std::vector<double> v_row_to_beat(std::move(tempodata_.GetBeatFromBarArr(v_row)));
-  for (Note* nobj : sorted.nobj_by_row)
-    v_beat.push_back(nobj->pos().beat = v_row_to_beat[r_idx++]);
-  const std::vector<double> v_row_to_time(std::move(tempodata_.GetTimeFromBeatArr(v_beat)));
-  r_idx = 0;
-  for (Note* nobj : sorted.nobj_by_row)
-    nobj->pos().time_msec = v_row_to_time[r_idx++];
-  v_beat.clear();
-  // Make conversion of beat <--> time.
-  for (const Note* nobj : sorted.nobj_by_beat)
-    v_beat.push_back(nobj->pos().beat);
-  for (const Note* nobj : sorted.nobj_by_tempo)
-    v_time.push_back(nobj->pos().time_msec);
-  const std::vector<double>&& v_time_to_beat = tempodata_.GetBeatFromTimeArr(v_time);
-  const std::vector<double>&& v_beat_to_time = tempodata_.GetTimeFromBeatArr(v_beat);
-  for (Note* nobj : sorted.nobj_by_beat)
-    nobj->pos().time_msec = v_beat_to_time[t_idx++];
-  for (Note* nobj : sorted.nobj_by_tempo)
-    nobj->pos().beat = v_time_to_beat[b_idx++];
-  // Fill beat --> row if beat pos type
-  const std::vector<double>&& v_beat_to_row = tempodata_.GetMeasureFromBeatArr(v_beat);
-  t_idx = 0;
-  for (Note* nobj : sorted.nobj_by_beat)
-    nobj->pos().measure = v_beat_to_row[t_idx++];
+  std::vector<NotePos*> vNpos;
+  std::vector<double> vBeat, vTime;
+  size_t i = 0;
+  auto iter = td.GetAllTrackIterator();
+  while (!all_track_iter.is_end())
+  {
+    vNpos.push_back(&(*all_track_iter));
+  }
+  for (auto *npos : vNpos)
+  {
+    vBeat.push_back(npos->beat);
+  }
+  vTime = std::move(tempodata_.GetTimeFromBeatArr(vBeat));
+  for (auto *npos : vNpos)
+  {
+    npos->SetTime(vTime[i++]);
+  }
 }
 
 void Chart::InvalidateAllNotePos()
 {
-  InvalidateNoteDataPos(notedata_, tempodata_);
-  InvalidateNoteDataPos(cmddata_, tempodata_);
-
-  // for longnote ... FIXME it'll may cause rather bad performance.
-  for (auto &n : notedata_)
-  {
-    if (n.IsLongnote())
-    {
-      for (auto &chain : n.chains)
-      {
-        switch (chain.pos.postype())
-        {
-        case NotePosTypes::Bar:
-          chain.pos.beat = tempodata_.GetBeatFromRow(chain.pos.measure);
-          chain.pos.time_msec = tempodata_.GetTimeFromBeat(chain.pos.beat);
-          break;
-        case NotePosTypes::Beat:
-          chain.pos.time_msec = tempodata_.GetTimeFromBeat(chain.pos.beat);
-          chain.pos.measure = tempodata_.GetMeasureFromBeat(chain.pos.beat);
-          break;
-        case NotePosTypes::Time:
-          chain.pos.beat = tempodata_.GetBeatFromTime(chain.pos.time_msec);
-          break;
-        }
-      }
-    }
-  }
+  InvalidateTrackDataTiming(bgmdata_, timingsegmentdata_);
+  InvalidateTrackDataTiming(bgmdata_, timingsegmentdata_);
+  InvalidateTrackDataTiming(notedata_, timingsegmentdata_);
+  InvalidateTrackDataTiming(effectdata_, timingsegmentdata_);
 }
 
 void Chart::InvalidateNotePos(Note &nobj)
 {
-  NotePos &npos = nobj.pos();
-  switch (npos.type)
-  {
-    case NotePosTypes::Time:
-      npos.beat = tempodata_.GetBeatFromTime(npos.time_msec);
-      break;
-    case NotePosTypes::Bar:
-      npos.beat = tempodata_.GetBeatFromRow(npos.measure);
-      npos.time_msec = tempodata_.GetTimeFromBeat(npos.beat);
-      break;
-    case NotePosTypes::Beat:
-      npos.time_msec = tempodata_.GetTimeFromBeat(npos.beat);
-      npos.measure = tempodata_.GetMeasureFromBeat(npos.beat);
-      break;
-  }
+  nobj.time_msec = timingsegmentdata_.GetTimeFromBeat(nobj.beat);
 }
 
 void Chart::InvalidateTempoData()
 {
-  tempodata_.Invalidate(GetMetaData());
+  timingsegmentdata_.Invalidate(GetMetaData());
 }
 
 void Chart::Invalidate()
@@ -238,14 +172,14 @@ std::string Chart::toString() const
 {
   std::stringstream ss;
   ss << "[NoteData]\n" << notedata_.toString() << std::endl;
-  ss << "[TempoData]\n" << tempodata_.toString() << std::endl;
+  ss << "[TempoData]\n" << timingsegmentdata_.toString() << std::endl;
   ss << "[MetaData]\n" << metadata_.toString() << std::endl;
   return ss.str();
 }
 
 bool Chart::IsEmpty()
 {
-  return notedata_.IsEmpty();
+  return notedata_.is_empty();
 }
 
 std::string Chart::GetHash() const
@@ -373,7 +307,7 @@ size_t ChartNoteList::size()
 
 int ChartNoteList::AddNewChart()
 {
-  note_charts_.push_back(NoteData<SoundNote>());
+  note_charts_.emplace_back(NoteData());
   return note_charts_.size() - 1;
 }
 

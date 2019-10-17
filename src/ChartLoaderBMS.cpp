@@ -8,6 +8,16 @@ using namespace rutil;
 
 namespace rparser {
 
+enum BmsChannelTypes
+{
+  kNone,
+  kBgm,
+  kBga,
+  kNote,
+  kTiming,
+  kEffect
+};
+
 ChartLoaderBMS::LineContext::LineContext() { clear(); }
 
 void ChartLoaderBMS::LineContext::clear()
@@ -98,11 +108,11 @@ void ChartLoaderBMS::ProcessCommand(Chart &chart, const char* chr, int len)
 {
   /** Initialize global context */
   memset(longnote_idx_per_lane, 0xffffffff, sizeof(longnote_idx_per_lane));
-  bga_column_idx_per_measure_.clear();
   cond_.clear();
   cond_.emplace_back(CondContext{ 0, -1, 0, 0, true });
   random_.SetSeed(seed_);
-  chart.GetTempoData().SetMeasureLengthRecover(true);  // enable by default
+  // enable by default
+  chart.GetTimingSegmentData().SetMeasureLengthRecover(true);
   chart_context_ = &chart;
 
 
@@ -436,39 +446,40 @@ int GetNoteTypeFromBmsChannel(unsigned int bms_channel)
   switch (bms_channel)
   {
   case 1:   // BGM
-    return NoteTypes::kBGM;
+    return BmsChannelTypes::kBgm;
   case 3:   // BPM change
   case 8:   // BPM (exbpm)
   case 9:   // STOP
-    return NoteTypes::kTempo;
+    return BmsChannelTypes::kTiming;
   case 4:   // BGA
   case 6:   // BGA poor
   case 7:   // BGA layered
   case 10:  // BGA layered 2
+    return BmsChannelTypes::kBga;
   case 11:  // BGA opacity
   case 12:  // BGA opacity layer
   case 13:  // BGA opacity layer 2
   case 14:  // BGA opacity poor
-    return NoteTypes::kEvent;
+    return BmsChannelTypes::kEffect;
   default:
     // 1P/2P visible note
     if (bms_channel >= radix_16_2_36(0x11) && bms_channel <= radix_16_2_36(0x19) ||
         bms_channel >= radix_16_2_36(0x21) && bms_channel <= radix_16_2_36(0x29))
-      return NoteTypes::kTap;
+      return BmsChannelTypes::kNote;
     // 1P/2P invisible note
     else if (bms_channel >= radix_16_2_36(0x31) && bms_channel <= radix_16_2_36(0x39) ||
              bms_channel >= radix_16_2_36(0x41) && bms_channel <= radix_16_2_36(0x49))
-      return NoteTypes::kTap;
+      return BmsChannelTypes::kNote;
     // Longnote
     else if (bms_channel >= radix_16_2_36(0x51) && bms_channel <= radix_16_2_36(0x59) ||
              bms_channel >= radix_16_2_36(0x61) && bms_channel <= radix_16_2_36(0x69))
-      return NoteTypes::kTap;
+      return BmsChannelTypes::kNote;
     // Mine
     else if (bms_channel >= radix_16_2_36(0xD1) && bms_channel <= radix_16_2_36(0xD9) ||
              bms_channel >= radix_16_2_36(0xE1) && bms_channel <= radix_16_2_36(0xE9))
-      return NoteTypes::kTap;
+      return BmsChannelTypes::kNote;
   }
-  return NoteTypes::kNone;
+  return BmsChannelTypes::kNone;
 }
 
 int GetNoteSubTypeFromBmsChannel(unsigned int bms_channel)
@@ -478,38 +489,41 @@ int GetNoteSubTypeFromBmsChannel(unsigned int bms_channel)
   case 1:   // BGM (no subtype)
     return 0;
   case 3:   // BPM change
-    return NoteTempoTypes::kBpm;
+    return TimingObjectTypes::kBpm;
   case 8:   // BPM (exbpm)
-    return NoteTempoTypes::kBmsBpm;
+    return TimingObjectTypes::kBmsBpm;
   case 9:   // STOP
-    return NoteTempoTypes::kBmsStop;
+    return TimingObjectTypes::kBmsStop;
   case 4:   // BGA
+    return BgaTypes::kBgaMain;
   case 6:   // BGA poor
+    return BgaTypes::kBgaMiss;
   case 7:   // BGA layered
+    return BgaTypes::kBgaLayer1;
   case 10:  // BGA layered 2
-    return NoteEventTypes::kBGA;
+    return BgaTypes::kBgaLayer2;
   case 11:  // BGA opacity
   case 12:  // BGA opacity layer
   case 13:  // BGA opacity layer 2
   case 14:  // BGA opacity poor
-    return NoteEventTypes::kBmsARGBLAYER;
+    return EffectObjectTypes::kBmsARGBLAYER;
   default:
     // 1P/2P visible note
     if (bms_channel >= radix_16_2_36(0x11) && bms_channel <= radix_16_2_36(0x19) ||
         bms_channel >= radix_16_2_36(0x21) && bms_channel <= radix_16_2_36(0x29))
-      return NoteSubTypes::kNormalNote;
+      return NoteTypes::kNormalNote;
     // 1P/2P invisible note
     else if (bms_channel >= radix_16_2_36(0x31) && bms_channel <= radix_16_2_36(0x39) ||
              bms_channel >= radix_16_2_36(0x41) && bms_channel <= radix_16_2_36(0x49))
-      return NoteSubTypes::kInvisibleNote;
+      return NoteTypes::kInvisibleNote;
     // Longnote
     else if (bms_channel >= radix_16_2_36(0x51) && bms_channel <= radix_16_2_36(0x59) ||
              bms_channel >= radix_16_2_36(0x61) && bms_channel <= radix_16_2_36(0x69))
-      return NoteSubTypes::kLongNote;
+      return NoteTypes::kLongNote;
     // Mine
     else if (bms_channel >= radix_16_2_36(0xD1) && bms_channel <= radix_16_2_36(0xD9) ||
              bms_channel >= radix_16_2_36(0xE1) && bms_channel <= radix_16_2_36(0xE9))
-      return NoteSubTypes::kMineNote;
+      return NoteTypes::kMineNote;
   }
   return 0;
 }
@@ -540,16 +554,15 @@ uint8_t GetNoteColFromBmsChannel(unsigned int bms_channel)
 bool ChartLoaderBMS::ParseMeasureLength()
 {
   std::string v(current_line_->value, current_line_->value_len);
-  TempoNote n;
-  n.SetRowPos(current_line_->measure, 0, 0);
-  n.SetMeasure(atof(v.c_str()) * kDefaultMeasureLength);
-  chart_context_->GetTempoData().GetTempoNoteData().AddNote(n);
+  TimingObject *n = new TimingObject();
+  n->SetRowPos(current_line_->measure, 0, 0);
+  n->SetMeasure(atof(v.c_str()) * kDefaultMeasureLength);
+  chart_context_->GetTimingData().AddObject(n);
   return true;
 }
 
 bool ChartLoaderBMS::ParseNote()
 {
-  bool r = false;
   const unsigned int channel = current_line_->bms_channel;
   unsigned int len = current_line_->value_len;
 
@@ -569,181 +582,198 @@ bool ChartLoaderBMS::ParseNote()
   }
   if (len == 0) return false;
 
-  // parse various types of note
-  switch (GetNoteTypeFromBmsChannel(current_line_->bms_channel))
-  {
-  case NoteTypes::kBGM:
-  case NoteTypes::kTap:
-  case NoteTypes::kTouch:
-    r = ParseSoundNote();
-    break;
-  case NoteTypes::kTempo:
-    r = ParseTempoNote();
-    break;
-  case NoteTypes::kEvent:
-    r = ParseCommandNote();
-    break;
-  }
 
-  return r;
-}
-
-bool ChartLoaderBMS::ParseCommandNote()
-{
-  const unsigned int measure = current_line_->measure;
-  const unsigned int channel = current_line_->bms_channel;
-  const char* value = current_line_->value;
-  unsigned int len = current_line_->value_len;
+  curr_note_syntax_.measure = current_line_->measure;
+  curr_note_syntax_.channel = current_line_->bms_channel;
+  curr_note_syntax_.deno = current_line_->value_len;
   unsigned int value_u;
-  static uint8_t bga_per_bms_channel[] = { 4, 6, 7, 10 };
-  static uint8_t bmsargb_per_bms_channel[] = { 11, 12, 13, 14 };
-  EventNote n;
 
-  n.SetDenominator(len);
-  n.set_type(GetNoteTypeFromBmsChannel(channel));
-  n.set_subtype(GetNoteSubTypeFromBmsChannel(channel));
   for (unsigned int i = 0; i < len; i += 2)
   {
-    n.SetRowPos(measure, len, i);
-    value_u = atoi_bms_channel(value + i);
-    if (value_u == 0) continue;
-    int bgatypes;
+    curr_note_syntax_.value = current_line_->value + i;
+    curr_note_syntax_.value_u = atoi_bms_channel(curr_note_syntax_.value);
 
-    switch (n.subtype())
+    switch (GetNoteTypeFromBmsChannel(current_line_->bms_channel))
     {
-    case NoteEventTypes::kBGA:
-      for (bgatypes = 0; bgatypes < 4; bgatypes++)
-        if (bga_per_bms_channel[bgatypes] == channel) break;
-      ASSERT(bgatypes < 4);
-      n.SetBga((BgaTypes)bgatypes, value_u, bga_column_idx_per_measure_[measure]++);
+    case BmsChannelTypes::kBgm:
+      ParseBgmNote();
       break;
-    case NoteEventTypes::kBmsARGBLAYER:
-      for (bgatypes = 0; bgatypes < 4; i++)
-        if (bmsargb_per_bms_channel[bgatypes] == channel) break;
-      ASSERT(bgatypes < 4);
-      n.SetBmsARGBCommand((BgaTypes)bgatypes, value_u);
+    case BmsChannelTypes::kBga:
+      ParseBgaNote();
       break;
-    default:
-      ASSERT(0);
+    case BmsChannelTypes::kNote:
+      ParseSoundNote();
+      break;
+    case BmsChannelTypes::kTiming:
+      ParseTimingNote();
+      break;
+    case BmsChannelTypes::kEffect:
+      ParseEffectNote();
+      break;
     }
-
-    chart_context_->GetEventNoteData().AddNote(n);
   }
+
+  switch (GetNoteTypeFromBmsChannel(current_line_->bms_channel))
+  {
+  case BmsChannelTypes::kBgm:
+    // if bgm channel, then add track idx.
+    bgm_column_idx_per_measure_[current_line_->measure]++;
+    break;
+  }
+
+  return true;
+}
+
+bool ChartLoaderBMS::ParseBgaNote()
+{
+  BgaObject *obj = new BgaObject();
+  obj->SetRowPos(curr_note_syntax_.measure, curr_note_syntax_.deno, curr_note_syntax_.num);
+  obj->set_channel(curr_note_syntax_.value_u);
+  //obj->set_layer(); -- depreciated?
+  obj->set_track(GetNoteSubTypeFromBmsChannel(curr_note_syntax_.channel));
+
+  chart_context_->GetBgaData().AddObjectDuplicated(obj);
+
+  return true;
+}
+
+bool ChartLoaderBMS::ParseBgmNote()
+{
+  // TODO: add track context.
+  auto track = bgm_column_idx_per_measure_[current_line_->measure];
+
+  BgmObject *obj = new BgmObject();
+  obj->SetRowPos(curr_note_syntax_.measure, curr_note_syntax_.deno, curr_note_syntax_.num);
+  obj->set_channel(curr_note_syntax_.value_u);
+  obj->set_track(track);
+
+  chart_context_->GetBgmData().AddObjectDuplicated(obj);
+
+  return true;
+}
+
+bool ChartLoaderBMS::ParseEffectNote()
+{
+  EffectObject *obj = new EffectObject();
+
+  unsigned channel = curr_note_syntax_.channel;
+  unsigned track = GetNoteSubTypeFromBmsChannel(channel);
+  obj->SetRowPos(curr_note_syntax_.measure, curr_note_syntax_.deno, curr_note_syntax_.num);
+  obj->set_track(track);
+
+  int bgatypes;
+  const int bmsargb_per_bms_channel[] = { 11, 12, 13, 14 };
+
+  switch (track)
+  {
+  case EffectObjectTypes::kBmsARGBLAYER:
+    for (bgatypes = 0; bgatypes < 4; bgatypes++)
+      if (bmsargb_per_bms_channel[bgatypes] == channel) break;
+    ASSERT(bgatypes < 4);
+    obj->SetBmsARGBCommand((BgaTypes)bgatypes, curr_note_syntax_.value_u);
+    break;
+  default:
+    ASSERT(0);
+  }
+
+  chart_context_->GetEffectData().AddObjectDuplicated(obj);
 
   return true;
 }
 
 bool ChartLoaderBMS::ParseSoundNote()
 {
-  unsigned int value_u;
-  SoundNote n;
-  const unsigned int measure = current_line_->measure;
-  const unsigned int channel = current_line_->bms_channel;
-  const char* value = current_line_->value;
-  unsigned int len = current_line_->value_len;
-  bool register_longnote;
-  uint32_t curlane;
+  const unsigned measure = curr_note_syntax_.measure;
+  const unsigned channel = curr_note_syntax_.channel;
+  const char* val = curr_note_syntax_.value;
+  const unsigned valu = curr_note_syntax_.value_u;
+  const int longnotetype = chart_context_->GetMetaData().bms_longnote_type;
+  const unsigned subtype = GetNoteSubTypeFromBmsChannel(channel);
+  unsigned curlane = 0;
+  Note *n = nullptr;
 
-  memset(&n, 0, sizeof(SoundNote)); // XXX: is this okay?
-  NotePos& npos = n.pos();
-  n.SetDenominator(len);
-  n.set_type(GetNoteTypeFromBmsChannel(channel));
-  n.set_subtype(GetNoteSubTypeFromBmsChannel(channel));
-  n.track.lane.note.player = GetNotePlayerFromBmsChannel(channel);
-  n.track.lane.note.lane = curlane = GetNoteColFromBmsChannel(channel);
-  for (unsigned int i = 0; i < len; i += 2)
+  if (valu == 0)
   {
-    value_u = atoi_bms_channel(value+i);
-    if (value_u == 0)
-    {
-      /** Close longnote in case of LNTYPE 2 (obsolete) */
-      if (chart_context_->GetMetaData().bms_longnote_type == 2)
-        longnote_idx_per_lane[channel] = UINT32_MAX;
-      /** Don't do anything in 00 note */
-      continue;
-    }
+    /** Close longnote in case of LNTYPE 2 (obsolete) */
+    if (longnotetype == 2)
+      longnote_idx_per_lane[channel] = UINT32_MAX;
+    /** Don't do anything with 00 note */
+    return;
+  }
 
-    n.ClearChain();
-    npos.SetRowPos(measure, len, i);
-    n.value = static_cast<Channel>(value_u);
+  n = new Note();
+  n->SetRowPos(curr_note_syntax_.measure, curr_note_syntax_.deno, curr_note_syntax_.num);
+  n->set_track(GetNoteColFromBmsChannel(channel));
+  n->set_player(GetNotePlayerFromBmsChannel(channel));
+  curlane = (unsigned)n->get_track();
 
-    /** Longnote check */
-    register_longnote = false;
-    if ((n.type() == NoteTypes::kTap && n.subtype() == NoteSubTypes::kLongNote) /* General LN channel */ ||
-        (value_u == chart_context_->GetMetaData().bms_longnote_object) /* LNOBJ check */)
+  /** Longnote check */
+  if (subtype == NoteTypes::kLongNote /* General LN channel */
+      || (valu == chart_context_->GetMetaData().bms_longnote_object) /* LNOBJ check */ )
+  {
+    /** LNTYPE 2 (obsolete) */
+    if (chart_context_->GetMetaData().bms_longnote_type == 2)
     {
-      /** LNTYPE 2 (obsolete) */
-      if (chart_context_->GetMetaData().bms_longnote_type == 2)
-      {
-        if (longnote_idx_per_lane[curlane] == UINT32_MAX)
-          longnote_idx_per_lane[curlane] = chart_context_->GetNoteData().size();
-        else
-        {
-          SoundNote& ln = chart_context_->GetNoteData().get(longnote_idx_per_lane[curlane]);
-          ln.SetLongnoteEndValue(value_u);
-          ln.SetLongnoteEndPos(npos);
-          continue; /* Don't add note */
-        }
-      }
-      /** LNTYPE 1 (default) or LNOBJ */
+      if (longnote_idx_per_lane[curlane] == UINT32_MAX)
+        longnote_idx_per_lane[curlane] = 1;
       else
       {
-        if (longnote_idx_per_lane[curlane] == UINT32_MAX)
-          longnote_idx_per_lane[curlane] = chart_context_->GetNoteData().size();
-        else
-        {
-          SoundNote& ln = chart_context_->GetNoteData().get(longnote_idx_per_lane[curlane]);
-          ln.SetLongnoteEndValue(value_u);
-          ln.SetLongnoteEndPos(npos);
-          longnote_idx_per_lane[curlane] = UINT32_MAX;
-          continue; /* Don't add note */
-        }
+        Note& ln = static_cast<Note&>(
+          chart_context_->GetNoteData().get_track(curlane).back());
+        *ln.NewChain() = *n;
+        delete n;
+        return true; /* Don't add note */
       }
     }
-
-    chart_context_->GetNoteData().AddNote(n);
+    /** LNTYPE 1 (default) or LNOBJ */
+    else
+    {
+      if (longnote_idx_per_lane[curlane] == UINT32_MAX)
+        longnote_idx_per_lane[curlane] = 1;
+      else
+      {
+        Note& ln = static_cast<Note&>(
+          chart_context_->GetNoteData().get_track(curlane).back());
+        *ln.NewChain() = *n;
+        longnote_idx_per_lane[curlane] = UINT32_MAX;
+        delete n;
+        return true; /* Don't add note */
+      }
+    }
+  }
+  else
+  {
+    // Add single tapnote object
+    chart_context_->GetNoteData().AddObjectDuplicated(n);
   }
 
   return true;
 }
 
-bool ChartLoaderBMS::ParseTempoNote()
+bool ChartLoaderBMS::ParseTimingNote()
 {
-  unsigned int value_u;
-  const unsigned int measure = current_line_->measure;
-  const unsigned int channel = current_line_->bms_channel;
-  const char* value = current_line_->value;
-  unsigned int len = current_line_->value_len;
-  TempoNote n;
+  TimingObject *obj = new TimingObject();
+  unsigned channel = curr_note_syntax_.channel;
+  unsigned track = GetNoteSubTypeFromBmsChannel(channel);
+  obj->SetRowPos(curr_note_syntax_.measure, curr_note_syntax_.deno, curr_note_syntax_.num);
+  obj->set_track(track);
 
-  n.SetDenominator(len);
-  n.set_type(GetNoteTypeFromBmsChannel(channel));
-  n.set_subtype(GetNoteSubTypeFromBmsChannel(channel));
-  for (unsigned int i = 0; i < len; i += 2)
+  switch (track)
   {
-    value_u = atoi_bms_channel(value + i);
-    if (value_u == 0) continue;
-
-    n.SetRowPos(measure, len, i);
-    switch (n.subtype())
-    {
-    case NoteTempoTypes::kBpm:
-      /** 16 radix here */
-      n.SetBpm(atoi_16(value + i, 2));
-      break;
-    case NoteTempoTypes::kBmsBpm:
-      n.SetBmsBpm(value_u);
-      break;
-    case NoteTempoTypes::kBmsStop:
-      n.SetBmsStop(value_u);
-      break;
-    default:
-      ASSERT(0);
-    }
-
-    chart_context_->GetTempoData().GetTempoNoteData().AddNote(n);
+  case TimingObjectTypes::kBpm:
+    /** 16 radix here */
+    obj->SetBpm(atoi_16(curr_note_syntax_.value, 2));
+    break;
+  case TimingObjectTypes::kBmsBpm:
+    obj->SetBmsBpm(curr_note_syntax_.value_u);
+    break;
+  case TimingObjectTypes::kBmsStop:
+    obj->SetBmsStop(curr_note_syntax_.value_u);
+    break;
+  default:
+    ASSERT(0);
   }
-
+  chart_context_->GetTimingData().AddObjectDuplicated(obj);
   return true;
 }
 

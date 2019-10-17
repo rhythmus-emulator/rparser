@@ -6,7 +6,7 @@
 namespace rparser
 {
 
-inline double GetTimeFromBeatInTempoSegment(const TempoObject& tobj, double beat)
+inline double GetTimeFromBeatInTempoSegment(const TimingSegment& tobj, double beat)
 {
   const double msec_per_beat = 60.0 * 1000 / tobj.bpm_ / tobj.scrollspeed_;
   const double beat_delta = beat - tobj.beat_ - tobj.warpbeat_;
@@ -14,7 +14,7 @@ inline double GetTimeFromBeatInTempoSegment(const TempoObject& tobj, double beat
   else return tobj.time_ + tobj.stoptime_ + tobj.delaytime_ + beat_delta * msec_per_beat;
 }
 
-inline double GetBeatFromTimeInTempoSegment(const TempoObject& tobj, double time_msec)
+inline double GetBeatFromTimeInTempoSegment(const TimingSegment& tobj, double time_msec)
 {
   const double beat_per_msec = tobj.bpm_ * tobj.scrollspeed_ / 60 / 1000;
   const double time_delta = time_msec - tobj.time_ - (tobj.stoptime_ + tobj.delaytime_);
@@ -22,23 +22,23 @@ inline double GetBeatFromTimeInTempoSegment(const TempoObject& tobj, double time
   return tobj.beat_ + tobj.warpbeat_ + time_delta * beat_per_msec;
 }
 
-inline double GetBeatFromRowInBarSegment(const BarObject& b, double measure)
+inline double GetBarFromBeatInBarSegment(const BarObject& b, double beat)
 {
-  return b.beatpos_ + (measure - b.baridx_) * b.barlength_;
+  return b.barpos_ + (beat - (double)b.beat_) * b.barlength_;
 }
 
-inline uint32_t GetMeasureFromBeatInBarSegment(const BarObject& b, double beat)
+inline uint32_t GetMeasureFromBarInBarSegment(const BarObject& b, double bar)
 {
-  return b.baridx_ + static_cast<uint32_t>((beat - b.beatpos_) / b.barlength_ + 0.000001 /* for calculation error */);
+  return b.beat_ + static_cast<uint32_t>((bar - b.barpos_) / b.barlength_ + 0.000001 /* for calculation error */);
 }
 
-TempoObject::TempoObject()
+TimingSegment::TimingSegment()
 : bpm_(kDefaultBpm), beat_(0), time_(0),
   stoptime_(0), delaytime_(0), warpbeat_(0), scrollspeed_(1), tick_(1), is_manipulated_(false) {}
 
 // called when TempoObject is copied for new block (e.g. Seek methods)
 // As new object segment won't have same STOP/DELAY/WARP by default.
-void TempoObject::clearForCopiedSegment()
+void TimingSegment::clearForCopiedSegment()
 {
   stoptime_ = 0;
   delaytime_ = 0;
@@ -46,7 +46,7 @@ void TempoObject::clearForCopiedSegment()
   is_manipulated_ = false;
 }
 
-std::string TempoObject::toString()
+std::string TimingSegment::toString()
 {
   std::stringstream ss;
   ss << "BPM: " << bpm_ << std::endl;
@@ -54,12 +54,12 @@ std::string TempoObject::toString()
 }
 
 BarObject::BarObject()
-  : beatpos_(0), barlength_(4.0), baridx_(0), is_implicit_(false) {}
+  : barpos_(0), barlength_(4.0), beat_(0) {}
 
-BarObject::BarObject(double beatpos, double barlength, uint32_t baridx, bool is_implicit)
-  : beatpos_(beatpos), barlength_(barlength), baridx_(baridx), is_implicit_(is_implicit) {}
+BarObject::BarObject(double barpos, double barlength, uint32_t measure)
+  : barpos_(barpos), barlength_(barlength), beat_(measure) {}
 
-TempoData::TempoData()
+TimingSegmentData::TimingSegmentData()
 {
   clear();
 }
@@ -73,134 +73,96 @@ int GetSmallestIndex(double arr[], int size)
   return r;
 }
 
-void TempoData::Invalidate(const MetaData& m)
+void TimingSegmentData::Invalidate(const MetaData& m)
 {
   float v;
 
   // Set first bpm from metadata
   SetBPMChange(m.bpm);
 
-  // Set measure info first.
-  // - by calculation of measure --> beat pos, we can set objects by bar(measure) pos.
-  // - if measure information with time position required, we need to make another invalidation method
-  //   which processes BPM(Tempo segment) first, then fill measure segment later,
-  //   ... which means bar pos is inavailable in this case.
-  std::vector<const TempoNote*> tobj_measures_bar, tobj_measures_beat;
-  for (const TempoNote& n : temponotedata_)
+  // Set measure info first, as measure length effects to time calculation.
+  for (auto *obj : timingdata_.get_track(TimingObjectTypes::kMeasure))
   {
-    if (n.postype() == NotePosTypes::Time)
-    {
-      std::cerr << "[Warning] Time position ignored (unsupported)." << std::endl;
-      continue;
-    }
-    if (n.subtype() == NoteTempoTypes::kMeasure)
-    {
-      if (n.postype() == NotePosTypes::Beat) tobj_measures_beat.push_back(&n);
-      else if (n.postype() == NotePosTypes::Bar) tobj_measures_bar.push_back(&n);
-    }
+    auto &tobj = *static_cast<TimingObject*>(obj);
+    SetMeasureLengthChange(tobj.beat, tobj.GetFloatValue());
   }
-  std::sort(tobj_measures_beat.begin(), tobj_measures_beat.end(), [](const Note* lhs, const Note* rhs)
-  { return lhs->pos().beat < rhs->pos().beat; });
-  std::sort(tobj_measures_bar.begin(), tobj_measures_bar.end(), [](const TempoNote* lhs, const TempoNote* rhs)
-  { return lhs->pos().measure < rhs->pos().measure; });
-  for (const TempoNote* n : tobj_measures_beat) SetMeasureLengthChange(n->beat, n->GetFloatValue());
-  for (const TempoNote* n : tobj_measures_bar) SetMeasureLengthChange((uint32_t)n->measure, n->GetFloatValue());
 
-  // Calculate bar --> beat if necessary.
-#if 0
-  std::sort(temponotedata_.begin(), temponotedata_.end(), [](const Note* lhs, const Note* rhs)
-  { return lhs->pos().measure < rhs->pos().measure; });
-  std::vector<double> vBarpos, vBeatpos;
-  size_t vNidx = 0;
-  for (TempoNote& n : temponotedata_)
-    if (n.postype() == NotePosTypes::Bar)
-      vBarpos.push_back(n.measure);
-  vBeatpos = std::move(GetBeatFromBarArr(vBarpos));
-  for (TempoNote& n : temponotedata_)
-    if (n.postype() == NotePosTypes::Bar)
-      n.beat = vBeatpos[vNidx++];
-#endif
-  for (TempoNote& n : temponotedata_)
-    if (n.postype() == NotePosTypes::Bar)
-      n.beat = GetBeatFromRow(n.measure);
-
-  // Sort total objects with beat position
   /**
    * COMMENT
    * Bpm channel and Bmsbpm channel object may exist in same place,
    * and it originally produces unknown result, and as it's edge case we can ignore it.
    * But L99^ song total time is much different unless latter object(Bmsbpm) has bpm precedence.
    * So, in shortcut, we do sorting in subtype to make Bmsbpm object has more precedence.
+   * -- all_track_iterator automatically do this, so no need to care about it here.
    */
-  std::sort(temponotedata_.begin(), temponotedata_.end(), [](const TempoNote& lhs, const TempoNote& rhs)
-  { return lhs.pos().beat == rhs.pos().beat ? lhs.subtype() < rhs.subtype() : lhs.pos().beat < rhs.pos().beat; });
+
+  auto timingobjiter = timingdata_.GetAllTrackIterator();
 
   // Make tempo segments
-  for (const TempoNote& n : temponotedata_)
+  while (!timingobjiter.is_end())
   {
-    if (n.postype() == NotePosTypes::Time) continue;
-    if (n.subtype() == NoteTempoTypes::kMeasure) continue;
+    auto &tobj = static_cast<TimingObject&>(*timingobjiter);
+    if (tobj.get_track() == TimingObjectTypes::kMeasure) continue;
 
     // seek for next tempo segment object and update note object beat value.
-    SeekByBeat(n.beat);
-    const_cast<TempoNote&>(n).time_msec = tempoobjs_.back().time_;
+    SeekByBeat(tobj.beat);
+    tobj.SetTime(timingsegments_.back().time_);
 
     // set tempo segment object attribute.
-    switch (n.subtype())
+    switch (tobj.get_track())
     {
-    case NoteTempoTypes::kBpm:
-      SetBPMChange(n.GetFloatValue());
+    case TimingObjectTypes::kBpm:
+      SetBPMChange(tobj.GetFloatValue());
       break;
-    case NoteTempoTypes::kBmsBpm:
-      if (m.GetBPMChannel()->GetBpm(n.GetIntValue(), v))
+    case TimingObjectTypes::kBmsBpm:
+      if (m.GetBPMChannel()->GetBpm(tobj.GetIntValue(), v))
         SetBPMChange(v);
       else
         RPARSER_LOG("Failed to fetch BPM information.");
       break;
-    case NoteTempoTypes::kStop:
-      SetSTOP(n.GetFloatValue());
+    case TimingObjectTypes::kStop:
+      SetSTOP(tobj.GetFloatValue());
       break;
-    case NoteTempoTypes::kBmsStop:
+    case TimingObjectTypes::kBmsStop:
       // STOP value of 192 means 1 measure stop (4 beat).
-      if (m.GetSTOPChannel()->GetStop(n.GetIntValue(), v))
+      if (m.GetSTOPChannel()->GetStop(tobj.GetIntValue(), v))
         SetSTOP(v / 192.0 * 4.0);
       else
         RPARSER_LOG("Failed to fetch STOP information.");
       break;
-    case NoteTempoTypes::kMeasure:
+    case TimingObjectTypes::kMeasure:
       /** Do nothing */
       break;
-    case NoteTempoTypes::kScroll:
-      SetScrollSpeedChange(n.GetFloatValue());
+    case TimingObjectTypes::kScroll:
+      SetScrollSpeedChange(tobj.GetFloatValue());
       break;
-    case NoteTempoTypes::kTick:
-      SetTick(n.GetIntValue());
+    case TimingObjectTypes::kTick:
+      SetTick(tobj.GetIntValue());
       break;
-    case NoteTempoTypes::kWarp:
-      SetWarp(n.GetFloatValue());
+    case TimingObjectTypes::kWarp:
+      SetWarp(tobj.GetFloatValue());
       break;
     }
-  }
 
-  // sort internal temponotedata internally by beat.
-  //std::sort(temponotedata_.begin(), temponotedata_.end());
+    timingobjiter++;
+  }
 }
 
-double TempoData::GetTimeFromBeat(double beat) const
+double TimingSegmentData::GetTimeFromBeat(double beat) const
 {
   // binary search to find proper tempoobject segment.
-  int min = 0, max = tempoobjs_.size() - 1;
+  int min = 0, max = timingsegments_.size() - 1;
   int l = min, r = max;
   int idx = 0;
   while( l <= r )
   {
     int m = ( l + r ) / 2;
-    if( ( m == min || tempoobjs_[m].beat_ <= beat ) && ( m == max || beat < tempoobjs_[m+1].beat_ ) )
+    if( ( m == min || timingsegments_[m].beat_ <= beat ) && ( m == max || beat < timingsegments_[m+1].beat_ ) )
     {
       idx = m;
       break;
     }
-    else if( tempoobjs_[m].beat_ > beat )
+    else if( timingsegments_[m].beat_ > beat )
     {
       r = m - 1;
     }
@@ -209,24 +171,24 @@ double TempoData::GetTimeFromBeat(double beat) const
       l = m + 1;
     }
   }
-  return GetTimeFromBeatInTempoSegment(tempoobjs_[idx], beat);
+  return GetTimeFromBeatInTempoSegment(timingsegments_[idx], beat);
 }
 
-double TempoData::GetBeatFromTime(double time) const
+double TimingSegmentData::GetBeatFromTime(double time) const
 {
   // binary search to find proper tempoobject segment.
-  int min = 0, max = tempoobjs_.size() - 1;
+  int min = 0, max = timingsegments_.size() - 1;
   int l = min, r = max;
   int idx = 0;
   while( l <= r )
   {
     int m = ( l + r ) / 2;
-    if( ( m == min || tempoobjs_[m].time_ <= time ) && ( m == max || time < tempoobjs_[m+1].time_ ) )
+    if( ( m == min || timingsegments_[m].time_ <= time ) && ( m == max || time < timingsegments_[m+1].time_ ) )
     {
       idx = m;
       break;
     }
-    else if( tempoobjs_[m].time_ > time )
+    else if( timingsegments_[m].time_ > time )
     {
       r = m - 1;
     }
@@ -235,10 +197,10 @@ double TempoData::GetBeatFromTime(double time) const
       l = m + 1;
     }
   }
-  return GetBeatFromTimeInTempoSegment(tempoobjs_[idx], time);
+  return GetBeatFromTimeInTempoSegment(timingsegments_[idx], time);
 }
 
-double TempoData::GetBeatFromRow(double measure) const
+double TimingSegmentData::GetBarFromBeat(double beat) const
 {
   /**
    * NOTE: CANNOT be replaced with measure + num / deno method
@@ -249,17 +211,17 @@ double TempoData::GetBeatFromRow(double measure) const
   int min = 0, max = barobjs_.size() - 1;
   int l = min, r = max;
   int idx = 0;
-  uint32_t row_i = static_cast<uint32_t>(floorl(measure));
+  uint32_t measure = static_cast<uint32_t>(floorl(beat));
   while( l <= r )
   {
     int m = ( l + r ) / 2;
 
-    if( ( m == min || barobjs_[m].baridx_ <= row_i) && ( m == max || row_i < barobjs_[m+1].baridx_) )
+    if( ( m == min || barobjs_[m].beat_ <= measure) && ( m == max || measure < barobjs_[m+1].beat_) )
     {
       idx = m;
       break;
     }
-    else if(barobjs_[m].baridx_ > row_i)
+    else if(barobjs_[m].beat_ > measure)
     {
       r = m - 1;
     }
@@ -269,10 +231,10 @@ double TempoData::GetBeatFromRow(double measure) const
     }
   }
 
-  return GetBeatFromRowInBarSegment(barobjs_[idx], measure);
+  return GetBarFromBeatInBarSegment(barobjs_[idx], beat);
 }
 
-double TempoData::GetMeasureFromBeat(double beat) const
+double TimingSegmentData::GetBeatFromBar(double bar) const
 {
   // binary search to find proper tempoobject segment.
   int min = 0, max = barobjs_.size() - 1;
@@ -281,12 +243,12 @@ double TempoData::GetMeasureFromBeat(double beat) const
   while( l <= r )
   {
     int m = ( l + r ) / 2;
-    if( ( m == min || barobjs_[m].beatpos_ <= beat ) && ( m == max || beat < barobjs_[m+1].beatpos_) )
+    if( ( m == min || barobjs_[m].barpos_ <= bar ) && ( m == max || bar < barobjs_[m+1].barpos_) )
     {
       idx = m;
       break;
     }
-    else if(barobjs_[m].beatpos_ > beat )
+    else if(barobjs_[m].barpos_ > bar )
     {
       r = m - 1;
     }
@@ -295,69 +257,57 @@ double TempoData::GetMeasureFromBeat(double beat) const
       l = m + 1;
     }
   }
-  return barobjs_[idx].baridx_ + (beat - barobjs_[idx].beatpos_) / barobjs_[idx].barlength_;
+  return (double)barobjs_[idx].beat_
+    + (bar - barobjs_[idx].barpos_) / barobjs_[idx].barlength_;
 }
 
-std::vector<double> TempoData::GetTimeFromBeatArr(const std::vector<double>& sorted_beat) const
+std::vector<double> TimingSegmentData::GetTimeFromBeatArr(const std::vector<double>& sorted_beat) const
 {
   std::vector<double> r_time;
   size_t idx = 0;
   for (double beat: sorted_beat)
   {
     // go to next segment if available.
-    if (idx+1 < tempoobjs_.size() && beat > tempoobjs_[idx+1].beat_) idx++;
-    r_time.push_back(GetTimeFromBeatInTempoSegment(tempoobjs_[idx], beat));
+    if (idx+1 < timingsegments_.size() && beat > timingsegments_[idx+1].beat_) idx++;
+    r_time.push_back(GetTimeFromBeatInTempoSegment(timingsegments_[idx], beat));
   }
   return r_time;
 }
 
-std::vector<double> TempoData::GetMeasureFromBeatArr(const std::vector<double>& sorted_beat) const
-{
-  std::vector<double> r_m;
-  size_t idx = 0;
-  for (double beat : sorted_beat)
-  {
-    // go to next segment if available.
-    if (idx + 1 < barobjs_.size() && beat > barobjs_[idx + 1].beatpos_) idx++;
-    r_m.push_back(barobjs_[idx].baridx_ + (beat - barobjs_[idx].beatpos_) / barobjs_[idx].barlength_);
-  }
-  return r_m;
-}
-
-std::vector<double> TempoData::GetBeatFromTimeArr(const std::vector<double>& sorted_time) const
+std::vector<double> TimingSegmentData::GetBeatFromTimeArr(const std::vector<double>& sorted_time) const
 {
   std::vector<double> r_beat;
   size_t idx = 0;
   for (double time: sorted_time)
   {
     // go to next segment if available.
-    if (idx+1 < tempoobjs_.size() && time > tempoobjs_[idx+1].time_) idx++;
-    r_beat.push_back(GetBeatFromTimeInTempoSegment(tempoobjs_[idx], time));
+    if (idx+1 < timingsegments_.size() && time > timingsegments_[idx+1].time_) idx++;
+    r_beat.push_back(GetBeatFromTimeInTempoSegment(timingsegments_[idx], time));
   }
   return r_beat;
 }
 
-std::vector<double> TempoData::GetBeatFromBarArr(const std::vector<double>& sorted_row) const
+std::vector<double> TimingSegmentData::GetBarFromBeatArr(const std::vector<double>& sorted_beat) const
 {
   std::vector<double> r_beat;
   size_t idx = 0;
-  for (double row: sorted_row)
+  for (double beat: sorted_beat)
   {
     // go to next segment if available.
     // -- measure pos might be same, so move as much as possible.
-    while (idx+1 < barobjs_.size() && row > barobjs_[idx+1].baridx_) idx++;
-    r_beat.push_back(GetBeatFromRowInBarSegment(barobjs_[idx], row));
+    while (idx+1 < barobjs_.size() && beat > (double)barobjs_[idx+1].beat_) idx++;
+    r_beat.push_back(GetBarFromBeatInBarSegment(barobjs_[idx], beat));
   }
   return r_beat;
 }
 
-void TempoData::SetFirstObjectFromMetaData(const MetaData &md)
+void TimingSegmentData::SetFirstObjectFromMetaData(const MetaData &md)
 {
-  TempoObject &o = tempoobjs_.front();
+  TimingSegment &o = timingsegments_.front();
   o.bpm_ = md.bpm;
 }
 
-void TempoData::SetMeasureLengthChange(uint32_t measure_idx, double barlength)
+void TimingSegmentData::SetMeasureLengthChange(uint32_t measure_idx, double barlength)
 {
   // don't do unnecessary thing as much as possible
   if (barlength <= 0)
@@ -368,92 +318,87 @@ void TempoData::SetMeasureLengthChange(uint32_t measure_idx, double barlength)
   // Only use last segment.
   BarObject& b = barobjs_.back();
   ASSERT(measure_idx >= b.baridx_); /* same bar editing with do_recover_measure_length */
-  if (!b.is_implicit_ && measure_idx == b.baridx_) return; /* may be caused by do_recover_measure_length */
   if (b.barlength_ == barlength) return;
+
+  // If same measure_idx, then update previous one.
+  if (measure_idx == b.beat_)
+  {
+    barobjs_.back().barlength_ = barlength;
+    return;
+  }
 
   // Set bar segment
   BarObject new_obj(b);
-  new_obj.beatpos_ = b.beatpos_ + (measure_idx - b.baridx_) * b.barlength_;
-  new_obj.baridx_ = measure_idx;
-  new_obj.barlength_ = barlength;
-  new_obj.is_implicit_ = false;
-
-  // If same measure_idx, then update previous one.
-  if (measure_idx > b.baridx_)
-    barobjs_.push_back(new_obj);
-  else
-    barobjs_.back() = new_obj;
-
-  // If need to recover measure length (BMS type)
+  uint32_t measure_count = measure_idx - b.beat_;
+  uint32_t defmeasure_count = 0;
   if (do_recover_measure_length_)
-    barobjs_.emplace_back(BarObject(new_obj.beatpos_ + barlength, kDefaultMeasureLength, new_obj.baridx_+1, true ));
+  {
+    defmeasure_count = measure_count - 1;
+    measure_count = 1;
+  }
+  new_obj.barpos_ = b.barpos_ + measure_count * b.barlength_ + defmeasure_count * kDefaultMeasureLength;
+  new_obj.beat_ = measure_idx;
+  new_obj.barlength_ = barlength;
+  barobjs_.push_back(new_obj);
 }
 
-void TempoData::SetMeasureLengthChange(double beat_pos, double measure_length)
-{
-  // Only use last segment.
-  const BarObject& b = barobjs_.back();
-  ASSERT(beat_pos >= b.beatpos_);
-  if (!b.is_implicit_ && beat_pos == b.beatpos_) return; /* may be caused by do_recover_measure_length */
-  SetMeasureLengthChange(b.baridx_ + static_cast<uint32_t>((beat_pos - b.beatpos_) / b.barlength_), measure_length);
-}
-
-void TempoData::SeekByTime(double time)
+/* @depreciated */
+void TimingSegmentData::SeekByTime(double time)
 {
   double beat = GetBeatFromTimeInLastSegment(time);
   Seek(beat, time);
 }
 
-void TempoData::SeekByBeat(double beat)
+void TimingSegmentData::SeekByBeat(double beat)
 {
   double time = GetTimeFromBeatInLastSegment(beat);
   Seek(beat, time);
 }
 
-void TempoData::SeekByBar(double bar)
+void TimingSegmentData::Seek(double beat, double time)
 {
-  SeekByBeat( GetBeatFromRow(bar) );
-}
+  ASSERT(beat >= timingsegments_.back().beat_);
+  ASSERT(time >= timingsegments_.back().time_);
+  if (timingsegments_.back().beat_ == beat) return;
 
-void TempoData::Seek(double beat, double time)
-{
-  ASSERT(beat >= tempoobjs_.back().beat_);
-  ASSERT(time >= tempoobjs_.back().time_);
-  if (tempoobjs_.back().beat_ == beat) return;
-
-  TempoObject new_tobj(tempoobjs_.back());
+  BarObject &barobj = barobjs_.back();
+  TimingSegment new_tobj(timingsegments_.back());
   new_tobj.clearForCopiedSegment();
   new_tobj.time_ = time;
   new_tobj.beat_ = beat;
+  new_tobj.barpos_ = barobj.barpos_ + (do_recover_measure_length_ && (beat - barobj.beat_) > 1)
+    ? (beat - barobj.beat_) * barobj.barlength_
+    : barobj.barlength_ + (beat - barobj.beat_ - 1) * kDefaultMeasureLength
+    ;
 
   // if previous tempoobj did not manipulated, then overwrite to it.
-  if (tempoobjs_.back().is_manipulated_)
-    tempoobjs_.push_back(new_tobj);
+  if (timingsegments_.back().is_manipulated_)
+    timingsegments_.push_back(new_tobj);
   else
-    tempoobjs_.back() = new_tobj;
+    timingsegments_.back() = new_tobj;
 }
 
-void TempoData::SetBPMChange(double bpm)
+void TimingSegmentData::SetBPMChange(double bpm)
 {
-  if (tempoobjs_.back().bpm_ == bpm) return;
-  tempoobjs_.back().bpm_ = bpm;
-  tempoobjs_.back().is_manipulated_ = true;
+  if (timingsegments_.back().bpm_ == bpm) return;
+  timingsegments_.back().bpm_ = bpm;
+  timingsegments_.back().is_manipulated_ = true;
 }
 
 
-void TempoData::SetSTOP(double stop)
+void TimingSegmentData::SetSTOP(double stop)
 {
-  tempoobjs_.back().stoptime_ = stop;
-  tempoobjs_.back().is_manipulated_ = true;
+  timingsegments_.back().stoptime_ = stop;
+  timingsegments_.back().is_manipulated_ = true;
 }
 
-void TempoData::SetDelay(double delay)
+void TimingSegmentData::SetDelay(double delay)
 {
-  tempoobjs_.back().delaytime_ = delay;
-  tempoobjs_.back().is_manipulated_ = true;
+  timingsegments_.back().delaytime_ = delay;
+  timingsegments_.back().is_manipulated_ = true;
 }
 
-void TempoData::SetWarp(double warp_length_in_beat)
+void TimingSegmentData::SetWarp(double warp_length_in_beat)
 {
   if (warp_length_in_beat < 0)
   {
@@ -461,46 +406,46 @@ void TempoData::SetWarp(double warp_length_in_beat)
     std::cerr << "Negative warp length found: " << warp_length_in_beat << " : automatically fixed to positive value.";
     warp_length_in_beat *= -1;
   }
-  tempoobjs_.back().warpbeat_ = warp_length_in_beat;
-  tempoobjs_.back().is_manipulated_ = true;
+  timingsegments_.back().warpbeat_ = warp_length_in_beat;
+  timingsegments_.back().is_manipulated_ = true;
 }
 
-void TempoData::SetTick(uint32_t tick)
+void TimingSegmentData::SetTick(uint32_t tick)
 {
-  tempoobjs_.back().tick_ = tick;
-  tempoobjs_.back().is_manipulated_ = true;
+  timingsegments_.back().tick_ = tick;
+  timingsegments_.back().is_manipulated_ = true;
 }
 
-void TempoData::SetScrollSpeedChange(double scrollspeed)
+void TimingSegmentData::SetScrollSpeedChange(double scrollspeed)
 {
   if (scrollspeed <= 0)
   {
     std::cerr << "Scrollspeed less than or equal 0 is now allowed: " << scrollspeed << std::endl;
     scrollspeed = 1.0;
   }
-  tempoobjs_.back().scrollspeed_ = scrollspeed;
-  tempoobjs_.back().is_manipulated_ = true;
+  timingsegments_.back().scrollspeed_ = scrollspeed;
+  timingsegments_.back().is_manipulated_ = true;
 }
 
-double TempoData::GetTimeFromBeatInLastSegment(double beat_delta) const
+double TimingSegmentData::GetTimeFromBeatInLastSegment(double beat_delta) const
 {
-  return GetTimeFromBeatInTempoSegment(tempoobjs_.back(), beat_delta);
+  return GetTimeFromBeatInTempoSegment(timingsegments_.back(), beat_delta);
 }
 
-double TempoData::GetBeatFromTimeInLastSegment(double time_delta_msec) const
+double TimingSegmentData::GetBeatFromTimeInLastSegment(double time_delta_msec) const
 {
-  return GetBeatFromTimeInTempoSegment(tempoobjs_.back(), time_delta_msec);
+  return GetBeatFromTimeInTempoSegment(timingsegments_.back(), time_delta_msec);
 }
 
-double TempoData::GetBeatFromRowInLastSegment(double row) const
+double TimingSegmentData::GetBarFromBeatInLastSegment(double beat) const
 {
-  return GetBeatFromRowInBarSegment(barobjs_.back(), row);
+  return GetBarFromBeatInBarSegment(barobjs_.back(), beat);
 }
 
-double TempoData::GetMaxBpm() const
+double TimingSegmentData::GetMaxBpm() const
 {
-  double maxbpm = tempoobjs_.front().bpm_;
-  for (auto& tobj: tempoobjs_)
+  double maxbpm = timingsegments_.front().bpm_;
+  for (auto& tobj: timingsegments_)
   {
     if (maxbpm < tobj.bpm_)
       maxbpm = tobj.bpm_;
@@ -508,10 +453,10 @@ double TempoData::GetMaxBpm() const
   return maxbpm;
 }
 
-double TempoData::GetMinBpm() const
+double TimingSegmentData::GetMinBpm() const
 {
-  double minbpm = tempoobjs_.front().bpm_;
-  for (auto& tobj: tempoobjs_)
+  double minbpm = timingsegments_.front().bpm_;
+  for (auto& tobj: timingsegments_)
   {
     if (minbpm > tobj.bpm_)
       minbpm = tobj.bpm_;
@@ -519,10 +464,10 @@ double TempoData::GetMinBpm() const
   return minbpm;
 }
 
-bool TempoData::HasBpmChange() const
+bool TimingSegmentData::HasBpmChange() const
 {
-  double prev_bpm = tempoobjs_.front().bpm_;
-  for (auto& tobj: tempoobjs_)
+  double prev_bpm = timingsegments_.front().bpm_;
+  for (auto& tobj: timingsegments_)
   {
     if (prev_bpm != tobj.bpm_)
       return true;
@@ -531,9 +476,9 @@ bool TempoData::HasBpmChange() const
   return false;
 }
 
-bool TempoData::HasStop() const
+bool TimingSegmentData::HasStop() const
 {
-  for (auto& tobj: tempoobjs_)
+  for (auto& tobj: timingsegments_)
   {
     if (tobj.stoptime_ > 0)
       return true;
@@ -541,10 +486,10 @@ bool TempoData::HasStop() const
   return false;
 }
 
-bool TempoData::HasWarp() const
+bool TimingSegmentData::HasWarp() const
 {
-  double prev = tempoobjs_.front().warpbeat_;
-  for (auto& tobj: tempoobjs_)
+  double prev = timingsegments_.front().warpbeat_;
+  for (auto& tobj: timingsegments_)
   {
     if (prev != tobj.warpbeat_)
       return true;
@@ -553,16 +498,16 @@ bool TempoData::HasWarp() const
   return false;
 }
 
-void TempoData::SetMeasureLengthRecover(bool recover)
+void TimingSegmentData::SetMeasureLengthRecover(bool recover)
 {
   // BMS need this option
   do_recover_measure_length_ = recover;
 }
 
-std::string TempoData::toString() const
+std::string TimingSegmentData::toString() const
 {
   std::stringstream ss;
-  ss << "BPM: " << tempoobjs_.front().bpm_ << std::endl;
+  ss << "BPM: " << timingsegments_.front().bpm_ << std::endl;
   ss << "MaxBPM: " << GetMaxBpm() << std::endl;
   ss << "MinBPM: " << GetMinBpm() << std::endl;
   ss << "BPMChange? : " << HasBpmChange() << std::endl;
@@ -571,32 +516,34 @@ std::string TempoData::toString() const
   return ss.str();
 }
 
-void TempoData::clear()
+void TimingSegmentData::clear()
 {
   do_recover_measure_length_ = false;
-  tempoobjs_.clear();
+  timingsegments_.clear();
   barobjs_.clear();
   // Dummy object to avoid crashing
-  tempoobjs_.emplace_back(TempoObject());
+  timingsegments_.emplace_back(TimingSegment());
   barobjs_.emplace_back(BarObject());
 }
 
-void TempoData::swap(TempoData& tempodata)
+void TimingSegmentData::swap(TimingSegmentData& timingdata)
 {
-  std::swap(tempoobjs_, tempodata.tempoobjs_);
+  timingdata_.swap(timingdata.timingdata_);
+  timingsegments_.swap(timingdata.timingsegments_);
+  barobjs_.swap(timingdata.barobjs_);
 }
 
-NoteData<TempoNote>& TempoData::GetTempoNoteData()
+TimingData& TimingSegmentData::GetTimingData()
 {
-  return temponotedata_;
+  return timingdata_;
 }
 
-const NoteData<TempoNote>& TempoData::GetTempoNoteData() const
+const TimingData& TimingSegmentData::GetTimingData() const
 {
-  return const_cast<TempoData*>(this)->GetTempoNoteData();
+  return const_cast<TimingSegmentData*>(this)->GetTimingData();
 }
 
-const std::vector<BarObject>& TempoData::GetBarObjects() const
+const std::vector<BarObject>& TimingSegmentData::GetBarObjects() const
 {
   return barobjs_;
 }

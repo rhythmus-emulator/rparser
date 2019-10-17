@@ -63,7 +63,7 @@ public:
 private:
   Chart * chart_context_;
   uint32_t longnote_idx_per_lane[36];
-  std::map<int, uint8_t> bga_column_idx_per_measure_;
+  std::map<int, uint8_t> bgm_column_idx_per_measure_;
 
   struct CondContext {
     int condblock;
@@ -98,12 +98,23 @@ private:
   bool ParseMetaData();
   bool ParseMeasureLength();
   bool ParseNote();
+  bool ParseBgaNote();
+  bool ParseBgmNote();
   bool ParseSoundNote();
-  bool ParseTempoNote();
-  bool ParseCommandNote();
+  bool ParseTimingNote();
+  bool ParseEffectNote();
 
   // Finish parsing by flush parsing buffer to chart data.
   void FlushParsingBuffer();
+
+  struct
+  {
+    unsigned int measure;
+    unsigned int channel;
+    unsigned int deno, num;
+    unsigned int value_u;
+    const char* value;
+  } curr_note_syntax_;
 };
 
 enum VOS_VERSION {

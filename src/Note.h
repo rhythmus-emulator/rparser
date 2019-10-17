@@ -10,104 +10,55 @@ typedef uint16_t RowPos;
 typedef uint8_t NoteType;
 typedef uint32_t Channel;
 
+/** @depreciated @brief Main method used to describe NotePos. */
 enum class NotePosTypes
 {
   NullPos,
   Time,
-  Beat,
-  Bar
-};
-
-struct NotePos
-{
-  NotePos();
-  NotePos(const NotePos&) = default;
-  NotePos& operator=(const NotePos &) = default;
-
-  NotePosTypes type;
-  double time_msec;
-  double beat;
-  double measure;
-  uint32_t denominator;
-
-  void SetRowPos(uint32_t measure, RowPos deno, RowPos num);
-  void SetRowPos(double barpos);
-  void SetBeatPos(double beat);
-  void SetTimePos(double time_msec);
-  void SetDenominator(uint32_t denominator);
-  NotePos& pos();
-  const NotePos& pos() const;
-  NotePosTypes postype() const;
-  double GetBeatPos() const;
-  double GetTimePos() const;
-
-  bool operator==(const NotePos &other) const noexcept;
-  bool operator<(const NotePos &other) const noexcept;
-  std::string toString() const;
-};
-
-typedef struct
-{
-  union {
-    struct { uint8_t player, lane; } note;
-    struct { uint8_t x, y; } touch;
-  } lane;
-} NoteTrack;
-
-
-/** @detail Soundable/Renderable, or tappable object. */
-enum NoteTypes
-{
-  kNone,
-  kTap,           // Tappable note object with column position.
-  kTouch,         // Touch note object with x/y coordination.
-  kBGM,           // autoplay & indrawable background sound object.
-  kTempo,         // Tempo related objects
-  kEvent,         // Other event triggering objects (e.g. BGA, MIDI)
+  Beat
 };
 
 /** @detail Subtype of TRACK_TAP / TOUCH / VEFX */
-enum NoteSubTypes
+enum NoteTypes
 {
-  kNormalNote,    // general tappable / scorable note
-  kInvisibleNote, // invisible and no damage, but scorable. changes keysound (bms)
-  kLongNote,      // bms-type longnote with start time judging only. (BMS / TECHNICA / osu)
-  kChargeNote,    // general chargenote. (consider keyup judge)
-  kHChargeNote,   // hell chargenote (continous tick)
-  kMineNote,      // shock / mine note.
-  kAutoNote,      // drawn and sound but not judged,
-  kFakeNote,      // drawn but not judged nor sound.
-  kComboNote,     // free combo area (Taigo yellow note / DJMAX stick rotating)
-  kDragNote,      // dragging longnote, check key_is_pressed input only. (TECHNICA / deemo / SDVX VEFX ...)
-  kRepeatNote,    // repeat longnote (TECHNICA)
-};
-
-/** @detail Special object which changes tempo of the chart. */
-enum NoteTempoTypes
-{
-  kBpm,
-  kStop,
-  kWarp,
-  kScroll,
-  kMeasure,
-  kTick,
-  kBmsBpm,          // #BPM / #EXBPM command from metadata 
-  kBmsStop,         // #STOP command from metadata
+  kNormalNote,      // general tappable / scorable note
+  kInvisibleNote,   // invisible and no damage, but scorable. changes keysound (bms)
+  kLongNote,        // bms-type longnote with start time judging only. (BMS / TECHNICA / osu)
+  kChargeNote,      // general chargenote. (consider keyup judge)
+  kHChargeNote,     // hell chargenote (continous tick)
+  kMineNote,        // shock / mine note.
+  kAutoNote,        // drawn and sound but not judged,
+  kFakeNote,        // drawn but not judged nor sound.
+  kComboNote,       // free combo area (Taigo yellow note / DJMAX stick rotating)
+  kDragNote,        // dragging longnote, check key_is_pressed input only. (TECHNICA / deemo / SDVX VEFX ...)
+  kRepeatNote,      // repeat longnote (TECHNICA)
 };
 
 /** @detail Subtype of TRACK_BGA (for BMS type) */
 enum BgaTypes
 {
-  kBgaMain,
   kBgaMiss,
-  kBgaLAYER1,
-  kBgaLAYER2, /* on and on ... */
+  kBgaMain,
+  kBgaLayer1,
+  kBgaLayer2,
+};
+
+/** @detail Special object which changes tempo of the chart. */
+enum TimingObjectTypes
+{
+  kBpm,
+  kStop,
+  kWarp,
+  kScroll,          // Stepmania type bar length
+  kMeasure,         // Bms type bar length
+  kTick,
+  kBmsBpm,          // #BPM / #EXBPM command from metadata 
+  kBmsStop,         // #STOP command from metadata
 };
 
 /** @detail Subtype of TRACK_SPECIAL */
-enum NoteEventTypes
+enum EffectObjectTypes
 {
-  kBGA,
   kMIDI,
   kBmsKeyBind,      // key bind layer (bms #SWBGA)
   kBmsEXTCHR,       // #EXTCHR cmd from BMS. (not supported)
@@ -116,119 +67,208 @@ enum NoteEventTypes
   kBmsARGBLAYER,    // BGA opacity setting (#ARGB channel)
 };
 
+
 /**
- * @detail Contains base information of a Note, includes type and position data.
+ * @brief
+ * Note position contains beat / time / measure information.
+ * All position information is filled later by TimingData class.
  */
-class Note : public NotePos
+class NotePos
+{
+public:
+  NotePos();
+  NotePos(const NotePos&) = default;
+  NotePos& operator=(const NotePos &) = default;
+
+  double time_msec;
+  double beat;
+  int measure;
+  RowPos num, deno;
+
+  void SetRowPos(int measure, RowPos deno, RowPos num);
+  void SetBeatPos(double beat);
+  void SetTime(double time_msec);
+  void SetDenominator(uint32_t denominator);
+  NotePosTypes postype() const;
+  double GetBeatPos() const;
+  double GetTimePos() const;
+  void set_track(int track);
+  int get_track() const;
+  virtual NotePos& endpos();
+
+  bool operator==(const NotePos &other) const noexcept;
+  bool operator<(const NotePos &other) const noexcept;
+  std::string toString() const;
+  virtual NotePos* clone() const;
+
+private:
+  NotePosTypes type;
+  int track_;
+};
+
+
+/**
+ * @brief
+ * Description of position of tappable(scoreable) object.
+ *
+ * @param x, y, z position of note object.
+ * @param tap_type required tapping type for this note.
+ */
+class NoteDesc : public NotePos
+{
+public:
+  NoteDesc();
+  void set_pos(int x, int y);
+  void set_pos(int x, int y, int z);
+  void get_pos(int &x, int &y) const;
+  void get_pos(int &x, int &y, int &z) const;
+  virtual NoteDesc* clone() const;
+
+private:
+  int x_, y_, z_;
+};
+
+
+/**
+ * @brief
+ * Description of note sound information.
+ */
+class NoteSoundDesc
+{
+public:
+  NoteSoundDesc();
+
+  void set_channel(Channel ch);
+  void set_length(uint32_t len_ms);
+  void set_volume(float v);
+  void set_key(int key);
+  Channel channel() const;
+  float volume() const;
+  uint32_t length() const;
+  int key() const;
+  virtual NoteSoundDesc* clone() const;
+
+private:
+  Channel channel_;
+  uint32_t length_; /* in milisecond */
+  float volume_; /* 0 ~ 1 */
+  int key_;
+};
+
+
+/**
+ * @brief
+ * Scorable element.
+ * If combo breaks in chain, then next element of the chain is inavailable.
+ * Therefore, need to enter full chain correctly to get full score.
+ *
+ * @warn
+ * Add/modify/delete note is done by NoteData class.
+ * Do not add Note object into NoteData class manually!
+ */
+class Note : public NoteDesc, public NoteSoundDesc
 {
 public:
   Note();
-  Note(const Note&) = default;
-  Note& operator=(const Note &) = default;
+  Note(const Note& note);
+  Note(Note&& note) = default;
+  Note& operator=(const Note& note) = default;
+  ~Note();
 
   NoteType type() const;
-  NoteType subtype() const;
   void set_type(NoteType t);
-  void set_subtype(NoteType t);
+  int player() const;
+  void set_player(int player);
+
+  std::vector<NoteDesc*>::iterator begin();
+  std::vector<NoteDesc*>::iterator end();
+  std::vector<NoteDesc*>::const_iterator begin() const;
+  std::vector<NoteDesc*>::const_iterator end() const;
+
+  NoteDesc* NewChain();
+  void RemoveAllChain();
+  size_t chainsize() const;
+  virtual NotePos& endpos();
+
+  /**
+   * @brief get tapping method for this type of note.
+   * 0: generally tapping to all note
+   * 1: tapping to all note except to last one - touch-up.
+   * 2: first tap, and sliding(key-down).
+   */
+  int get_tap_type() const;
+
+  /**
+   * @brief is key-up allowed while chain is processing.
+   */
+  bool is_focusout_allowed() const;
 
   bool operator==(const Note &other) const noexcept;
   std::string toString() const;
+  virtual Note* clone() const;
+
 private:
-  virtual std::string getValueAsString() const = 0;
+  // type of note
   NoteType type_;
-  NoteType subtype_;
 
-  // A flag whether this note is created by some conditional options, not by default.
-  // Default is 0.
-  int is_conditional_object_;
+  // note player
+  int player_;
+
+  // Chains for this note.
+  // @warn first chain is pointing to this Note object.
+  std::vector<NoteDesc*> chains_;
 };
 
-struct NoteChain;
 
 /**
- * @detail
- * Soundable note object (Bgm / Tappable)
- *
- * @param
- * prev previous chained object (null when normal note)
- * next next chained object (null when normal note)
- * value
- *   value : general value
- *   sound : type (wav or midi), channel (which channel)
+ * @brief
+ * Bgm object
  */
-class SoundNote : public Note
+class BgmObject : public NotePos, public NoteSoundDesc
 {
 public:
-  SoundNote();
-  SoundNote(const SoundNote &) = default;
-  SoundNote& operator=(const SoundNote &) = default;
-  SoundNote(SoundNote &&note) noexcept = default; // move constructor for vector resize
+  BgmObject();
+  void set_bgm_type(int bgm_type);
+  void set_column(int col);
+  int get_bgm_type() const;
+  int get_column() const;
+  virtual BgmObject* clone() const;
 
-  void SetAsBGM(uint8_t col);
-  void SetAsTouchNote();
-  void SetAsTapNote(uint8_t player, uint8_t lane);
-  void SetAsChainNote();
-  void SetMidiNote(float duration_ms, int32_t key, float volume = 1.0f);
-  void SetLongnoteLength(double delta_value);
-  void SetLongnoteEndPos(const NotePos& row_pos);
-  void SetLongnoteEndValue(Channel v);
-  void AddChain(const NotePos& pos, uint8_t col);
-  void AddTouch(const NotePos& pos, uint8_t x, uint8_t y);
-  void ClearChain();
-  bool IsLongnote() const;
-  bool IsScoreable() const;
-
-  uint8_t GetPlayer() const;
-  uint8_t GetLane() const;
-  uint8_t GetBGMCol() const;
-  uint8_t GetX() const;
-  uint8_t GetY() const;
-  NotePos& endpos();
-  const NotePos& endpos() const;
-
-  // basic note attributes
-  NoteTrack track;
-  // track / channel of sound source.
-  Channel value;
-  // indicates channel source type : WAVE or MIDI (or somewhat other?)
-  int channel_type;
-  
-  // midi related properties (or somewhat sound effector)
-  struct {
-    // sound wave duration
-    float duration_ms;
-    // pitch diff or base pitch of sound
-    int32_t key;
-    // volume of sound (default 1.0f)
-    float volume;
-    // bmson attribute. (loop)
-    bool restart;
-  } effect;
-
-  // longnote / chain data
-  // main reason why SoundNote object requires move constructor.
-  std::vector<NoteChain> chains;
-
-  bool operator==(const SoundNote &other) const noexcept;
 private:
-  virtual std::string getValueAsString() const;
+  int bgm_type_;
+  int column_;
 };
 
-struct NoteChain
-{
-  NoteTrack track;
-  NotePos pos;
-  Channel value;
-};
 
 /**
- * @detail
- * Tempo note object
+ * @brief
+ * Bga object
  */
-class TempoNote : public Note
+class BgaObject : public NotePos
 {
 public:
-  TempoNote();
+  BgaObject();
+  void set_layer(uint32_t layer);
+  void set_channel(Channel ch);
+  uint32_t layer() const;
+  Channel channel() const;
+  virtual BgaObject* clone() const;
+
+private:
+  uint32_t layer_; /* layer id */
+  Channel channel_; /* channel to set */
+};
+
+
+/**
+ * @brief
+ * Timing related object.
+ * @warn Position type may be set as Time.
+ */
+class TimingObject : public NotePos
+{
+public:
+  TimingObject();
 
   void SetBpm(float bpm);
   void SetBmsBpm(Channel bms_channel);
@@ -241,116 +281,297 @@ public:
   float GetFloatValue() const;
   int32_t GetIntValue() const;
 
-  bool operator==(const TempoNote &other) const noexcept;
+  virtual TimingObject* clone() const;
+  bool operator==(const TimingObject &other) const noexcept;
+
 private:
+  int type_;
   union
   {
     float f;
     int32_t i;
   } value;
+  void set_type(int type);
+  int get_type() const;
+  virtual std::string getValueAsString() const;
+};
+
+
+/**
+ * @brief
+ * Other event related objects (not tempo / sound related; BGA, ...)
+ */
+class EffectObject : public NotePos
+{
+public:
+  EffectObject();
+
+  void SetMidiCommand(uint8_t command, uint8_t arg1, uint8_t arg2 = 0);
+  void SetBmsARGBCommand(BgaTypes bgatype, Channel channel);
+
+  void GetBga(int &bga_type, Channel &channel) const;
+  void GetMidiCommand(uint8_t &command, uint8_t &arg1, uint8_t &arg2) const;
+
+  virtual EffectObject* clone() const;
+  bool operator==(const EffectObject &other) const noexcept;
+
+private:
+  int type_;
+  int32_t command_, arg1_, arg2_;
+
+  void set_type(int type);
+  int get_type() const;
   virtual std::string getValueAsString() const;
 };
 
 /**
- * @detail
- * Other event related objects (not tempo / sound related; BGA, ...)
+ * @brief
+ * Contains objects for single track.
+ * All objects are always sorted by beat position,
+ * and used for adding object without position duplication.
+ * (Object position duplication is also available
+ *  with AddObjectDuplicated())
+ *
+ * @warn
+ * All object's postype/track should be Beat,
+ * and should not modified outside TrackData.
  */
-class EventNote : public Note
+class Track
 {
 public:
-  EventNote();
-  EventNote(const EventNote&) = default;
+  Track();
+  ~Track();
 
-  void SetBga(BgaTypes bgatype, Channel channel, uint8_t column = 0);
-  void SetMidiCommand(uint8_t command, uint8_t arg1, uint8_t arg2 = 0);
-  void SetBmsARGBCommand(BgaTypes bgatype, Channel channel);
+  void AddObject(NotePos* object);
+  void AddObjectDuplicated(NotePos* object);
+  void RemoveObject(NotePos* object);
+  NotePos* GetObjectByPos(int measure, int nu, int de);
+  NotePos* GetObjectByBeat(double beat);
+  void RemoveObjectByPos(int measure, int nu, int de);
+  void RemoveObjectByBeat(double beat);
+  bool IsHoldNoteAt(double beat) const;
+  bool IsRangeEmpty(double beat_start, double beat_end) const;
+  void GetObjectByRange(double beat_start, double beat_end, std::vector<NotePos*> &out);
 
-  void GetMidiCommand(uint8_t &command, uint8_t &arg1, uint8_t &arg2) const;
-  void GetBga(int &bga_type, Channel &channel) const;
+  void ClearAll();
+  void ClearRange(double beat_begin, double beat_end);
+  void CopyRange(const Track& from, double beat_begin, double beat_end);
+  void CopyAll(const Track& from);
+  void MoveRange(double beat_delta, double beat_begin, double beat_end);
+  void MoveAll(double beat_delta);
 
-  bool operator==(const EventNote &other) const noexcept;
-private:
-  int32_t command_, arg1_, arg2_;
-  virtual std::string getValueAsString() const;
+  typedef std::vector<NotePos*>::iterator iterator;
+  typedef std::vector<NotePos*>::const_iterator const_iterator;
+  iterator begin();
+  iterator end();
+  const_iterator begin() const;
+  const_iterator end() const;
+  NotePos& front();
+  NotePos& back();
+  void swap(Track &track);
+  size_t size() const;
+  bool is_empty() const;
+  void clear();
+
+protected:
+  std::vector<NotePos*> objects_;
 };
 
-
-template <typename N>
-class NoteData
+/* @brief TrackData class with implicit type casting */
+template <typename T>
+class TrackWithType : public Track
 {
 public:
-  NoteData(): is_sorted_(false) {};
-  NoteData(const NoteData& notedata)
-    : notes_(notedata.notes_), is_sorted_(notedata.is_sorted_) { }
-  void swap(NoteData& notedata) noexcept
+  void AddObject(T* object)
   {
-    std::swap(notes_, notedata.notes_);
-    std::swap(is_sorted_, notedata.is_sorted_);
+    TrackData::AddObject(object);
   }
-  void clear()
+
+  void AddObjectDuplicated(NotePos* object)
   {
-    notes_.clear();
-    is_sorted_ = false;
+    TrackData::AddObjectDuplicated(object);
   }
-  void Merge(const NoteData& notedata, RowPos rowstart = 0)
+
+  void RemoveObject(T* object)
   {
-    // TODO: implement rowFrom
-    notes_.insert(notes_.end(), notedata.begin(), notedata.end());
+    TrackData::RemoveObject(object);
   }
-  void Cut(double start_beat, double end_beat) { /* TODO */ }
-  void SortByBeat()
+
+  T* GetObjectByPos(int measure, int nu, int de)
   {
-    if (is_sorted_) return;
-    std::sort(begin(), end());
-    is_sorted_ = true;
+    TrackData::GetObjectByPos(measure, nu, de);
   }
-  void SortModeOff() { is_sorted_ = false; }
-  bool IsSorted() { return is_sorted_; }
-  void AddNote(const N &n) noexcept
+
+  T* GetObjectByBeat(double beat)
   {
-    if (is_sorted_)
-    {
-      auto it = std::upper_bound(begin(), end(), n);
-      notes_.insert(it, n);
-    }
-    else notes_.push_back(n);
+    TrackData::GetObjectByBeat(beat);
   }
-  void AddNote(N &&n) noexcept
-  {
-    if (is_sorted_)
-    {
-      auto it = std::upper_bound(begin(), end(), n);
-      notes_.emplace(it, n);
-    }
-    else notes_.emplace_back(n);
-  }
-  size_t size() const { return notes_.size(); }
-  N& front() { return notes_.front(); }
-  N& back() { return notes_.back(); }
-  const N& back() const { return notes_.back(); }
-  const N& front() const { return notes_.front(); }
-  N& get(size_t i) { return notes_[i]; }
-  const N& get(size_t i) const { return notes_[i]; }
-  typename std::vector<N>::iterator begin() { return notes_.begin(); }
-  typename std::vector<N>::iterator end() { return notes_.end(); }
-  const typename std::vector<N>::const_iterator begin() const { return notes_.begin(); }
-  const typename std::vector<N>::const_iterator end() const { return notes_.end(); }
-  typename std::vector<N>::reverse_iterator rbegin() { return notes_.rbegin(); }
-  typename std::vector<N>::reverse_iterator rend() { return notes_.rend(); }
-  const typename std::vector<N>::const_reverse_iterator rbegin() const { return notes_.rbegin(); }
-  const typename std::vector<N>::const_reverse_iterator rend() const { return notes_.rend(); }
-  bool IsEmpty() const { return notes_.size(); }
-  std::string toString() const
-  {
-    std::stringstream ss;
-    ss << "Total note count: " << notes_.size() << std::endl;
-    ss << "Is sorted? " << is_sorted_ << std::endl;
-    return ss.str();
-  }
-private:
-  std::vector<N> notes_;
-  bool is_sorted_;
 };
+
+using EffectData = TrackWithType<EffectObject>;
+using BgmData = TrackWithType<BgmObject>;
+using BgaData = TrackWithType<BgaObject>;
+//using TimingData = ObjectDataWithType<EffectObject>;
+
+constexpr size_t kMaxTrackSize = 128;
+
+/**
+ * @brief Objects with multiple tracks.
+ *
+ * @warn
+ * All object's postype/track should be Beat,
+ * and should not modified outside TrackData.
+ */
+class TrackData
+{
+public:
+  TrackData();
+
+  void set_track_count(int track_count);
+  int get_track_count() const;
+  void auto_set_track_count();
+
+  void AddObject(NotePos* object);
+  void AddObjectDuplicated(NotePos* object);
+  void RemoveObject(NotePos* object);
+  NotePos* GetObjectByPos(size_t track, int measure, int nu, int de);
+  NotePos* GetObjectByBeat(size_t track, double beat);
+  NotePos** GetRowByPos(int measure, int nu, int de);
+  NotePos** GetRowByBeat(double beat);
+  void RemoveObjectByPos(int measure, int nu, int de);
+  void RemoveObjectByBeat(double beat);
+  void RemoveObjectByPos(size_t track, int measure, int nu, int de);
+  void RemoveObjectByBeat(size_t track, double beat);
+  bool IsHoldNoteAt(double beat) const;
+  bool IsRangeEmpty(double beat_start, double beat_end) const;
+  void GetNoteByRange(double beat_start, double beat_end, std::vector<NotePos*> &out);
+  void GetAllTrackNote(std::vector<NotePos*> &out);
+
+  void ClearAll();
+  void ClearTrack(size_t track);
+  void ClearRange(double beat_begin, double beat_end);
+  void CopyRange(const TrackData& from, double beat_begin, double beat_end);
+  void CopyAll(const TrackData& from);
+  void MoveRange(double beat_delta, double beat_begin, double beat_end);
+  void MoveAll(double beat_delta);
+  void RemapTracks(size_t *track_map);
+
+  typedef std::vector<NotePos*>::iterator iterator;
+  typedef std::vector<NotePos*>::const_iterator const_iterator;
+  iterator begin(size_t track);
+  iterator end(size_t track);
+  const_iterator begin(size_t track) const;
+  const_iterator end(size_t track) const;
+  NotePos* front();
+  NotePos* back();
+  const NotePos* front() const;
+  const NotePos* back() const;
+  Track& get_track(size_t track);
+  const Track& get_track(size_t track) const;
+
+  /* all track iterator */
+  class all_track_iterator
+  {
+  public:
+    NotePos* p();
+    void next();
+    all_track_iterator &operator++();
+    NotePos& operator*();
+    const NotePos& operator*() const;
+    bool is_end() const;
+    friend class TrackData;
+  private:
+    std::vector<NotePos*> notes_;
+    std::vector<NotePos*>::iterator iter_;
+  };
+  all_track_iterator GetAllTrackIterator() const;
+  all_track_iterator GetAllTrackIterator(double beat_start, double beat_end) const;
+
+  /* row number iterator */
+  class row_iterator
+  {
+  public:
+    row_iterator();
+    row_iterator(double beat_start, double beat_end);
+    double get_beat() const;
+    void next();
+    bool is_end() const;
+    row_iterator &operator++();
+    NotePos& operator[](size_t i);
+    const NotePos& operator[](size_t i) const;
+    double operator*() const;
+    friend class TrackData;
+  private:
+    double beat_start, beat_end;
+    double beat;
+    all_track_iterator all_track_iter_;
+    NotePos* curr_row_notes[kMaxTrackSize];
+  };
+  row_iterator GetRowIterator() const;
+  row_iterator GetRowIterator(double beat_start, double beat_end) const;
+
+  void swap(TrackData &data);
+  size_t size() const;
+  bool is_empty() const;
+  void clear();
+  std::string toString() const;
+
+private:
+  // XXX: max track size is 128?
+  Track track_[kMaxTrackSize];
+
+  // track data of currently selected row by GetTracks
+  NotePos* track_row_[kMaxTrackSize];
+
+  // number of track
+  int track_count_;
+
+  // number of track count for shuffle
+  int track_count_shuffle_;
+};
+
+/* @brief TrackData with type */
+template <typename T>
+class TrackDataWithType : public TrackData
+{
+public:
+  void AddObject(T* object)
+  {
+    TrackData::AddObject(object);
+  }
+
+  void AddObjectDuplicated(T* object)
+  {
+    TrackData::AddObjectDuplicated(object);
+  }
+
+  void RemoveObject(T* object)
+  {
+    TrackData::RemoveObject(object);
+  }
+
+  T* GetObjectByPos(size_t track, int measure, int nu, int de)
+  {
+    return static_cast<T*>(TrackData::GetObjectByPos(track, measure, nu, de));
+  }
+
+  T* GetObjectByBeat(size_t track, double beat)
+  {
+    return static_cast<T*>(TrackData::GetObjectByPos(track, beat));
+  }
+
+  T** GetRowByPos(int measure, int nu, int de)
+  {
+    return static_cast<T**>(TrackData::GetRowByPos(measure, nu, de));
+  }
+
+  T** GetRowByBeat(double beat)
+  {
+    return static_cast<T**>(TrackData::GetRowByPos(beat));
+  }
+};
+
+using NoteData = TrackDataWithType<Note>;
 
 }
 

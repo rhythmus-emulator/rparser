@@ -288,8 +288,6 @@ bool ChartLoaderVOS::Load( Chart &c, const void* p, int len ) {
 
   if (!ParseMIDI()) return false;
 
-  c.GetNoteData().SortByBeat();
-
   return true;
 }
 
@@ -452,6 +450,7 @@ bool ChartLoaderVOS::ParseNoteDataV2()
   VOSNoteDataV2* vnote;
   size_t _tappable_cnt = 0;
   auto &nd = chart_->GetNoteData();
+  auto &bgm = chart_->GetBgmData();
   for (int i=0; i<cnt_inst; i++) {
     int channel = i;
     int notecnt = stream.GetInt32();
@@ -500,25 +499,37 @@ bool ChartLoaderVOS::ParseNoteDataV2()
   }
   
   /** Append data to NoteData and cleanup */
-  SoundNote n;
   for (auto *p : vnotes)
   {
-    // clear previous longnote info
-    n.ClearChain();
-
-    // XXX in midi time ... time pos or beat pos?
-    n.SetBeatPos(p->time / (double)timedivision_);
-    n.SetMidiNote(p->duration, p->pitch, p->volume / 127.0f);
-    n.value = p->inst;
     if (p->istappable)
     {
-      n.SetAsTapNote(0, p->lane);
+      Note *n = new Note();
+
+      // XXX in midi time ... time pos or beat pos?
+      n->SetBeatPos(p->time / (double)timedivision_);
+      n->set_volume(p->volume / 127.0f);
+      n->set_key(p->pitch);
+      n->set_length(p->duration);
+      n->set_channel(p->inst);
+      n->set_track(p->lane);
       if (p->islongnote)
-        n.SetLongnoteLength(p->duration / (double)timedivision_);
+      {
+        auto *chain = n->NewChain();
+        // XXX: length is not correct ...
+        chain->SetBeatPos(n->beat + p->duration / (double)timedivision_);
+      }
+      nd.AddObjectDuplicated(n);
     }
     else
-      n.SetAsBGM(0);
-    nd.AddNote(n);
+    {
+      BgmObject *n = new BgmObject();
+      n->SetBeatPos(p->time / (double)timedivision_);
+      n->set_volume(p->volume / 127.0f);
+      n->set_key(p->pitch);
+      n->set_length(p->duration);
+      n->set_channel(p->inst);
+      bgm.AddObjectDuplicated(n);
+    }
   }
   for (auto* p : vnotes)
     delete p;
@@ -530,9 +541,9 @@ bool ChartLoaderVOS::ParseNoteDataV3()
 {
   // start to read note data
   VOSNoteDataV3 note;
-  SoundNote n;
   uint32_t cnt;
   auto &nd = chart_->GetNoteData();
+  auto &bgm = chart_->GetBgmData();
   size_t segment_idx = 0;   // maybe midi channel no?
 
   while (stream.GetOffset() < vos_v3_midi_offset_) {
@@ -551,24 +562,38 @@ bool ChartLoaderVOS::ParseNoteDataV3()
       uint8_t istappable = (note.type & 0b010000000) > 0;
       uint8_t islongnote = (note.type & 0b01000000000000000) > 0;
       uint8_t keybits = (note.type >> 4) & 0b0111;
+      bool is_tap = (segment_idx == 16 && istappable);
+      unsigned channel = (note.midicmd & 0x0F);
 
-      // clear previous longnote info
-      n.ClearChain();
-
-      n.SetBeatPos(note.time / (double)timedivision_);
-      n.SetMidiNote(note.duration, note.midikey, note.vol / 127.0f);
-      n.value = (note.midicmd & 0x0F);
-      if (segment_idx == 16 && istappable)
+      if (is_tap)
       {
-        n.SetAsTapNote(0, keybits);
+        Note *n = new Note();
+        n->SetBeatPos(note.time / (double)timedivision_);
+        n->set_volume(note.vol / 127.0f);
+        n->set_key(note.midikey);
+        n->set_length(note.duration);
+        n->set_channel(channel);
+        n->set_track(keybits);
+
         if (islongnote)
-          n.SetLongnoteLength(note.duration / (double)timedivision_);
+        {
+          auto *chain = n->NewChain();
+          // XXX: need to be fixed
+          chain->SetBeatPos(n->beat + note.duration / (double)timedivision_);
+        }
+
+        nd.AddObjectDuplicated(n);
       }
       else
-        n.SetAsBGM(0);
-
-      nd.AddNote(n);
-
+      {
+        BgmObject *n = new BgmObject();
+        n->SetBeatPos(note.time / (double)timedivision_);
+        n->set_volume(note.vol / 127.0f);
+        n->set_key(note.midikey);
+        n->set_length(note.duration);
+        n->set_channel(channel);
+        bgm.AddObjectDuplicated(n);
+      }
     }
     segment_idx++;
   }
@@ -613,27 +638,24 @@ bool ChartLoaderVOS::ParseMIDI()
   if (timedivision_ != timedivision)
   {
     double ratio = (double)timedivision_ / timedivision;
-    for (auto &n : chart_->GetNoteData())
+    auto alliter = chart_->GetNoteData().GetAllTrackIterator();
+    while (!alliter.is_end())
     {
-      n.SetBeatPos(n.beat * ratio);
-      if (n.IsLongnote())
-      {
-        NotePos p;
-        p.SetBeatPos(n.endpos().beat * ratio);
-        n.SetLongnoteEndPos(p);
-      }
+      auto &np = *alliter;
+      np.SetBeatPos(np.beat * ratio);
+      np.endpos().SetBeatPos(np.endpos().beat * ratio);
+      alliter++;
     }
     timedivision_ = timedivision;
   }
   double cur_beat = 0;
 
-  TempoNote tn;
-  SoundNote sn;
-  EventNote en;
-  auto &td = chart_->GetTempoData();
-  auto &tnd = td.GetTempoNoteData();
+  TimingObject *tn;
+  Note *sn;
+  EffectObject *en;
+  auto &td = chart_->GetTimingData();
   auto &nd = chart_->GetNoteData();
-  auto &ed = chart_->GetEventNoteData();
+  auto &ed = chart_->GetEffectData();
   uint32_t val, val2;
 
   int trackidx = 0;
@@ -667,17 +689,19 @@ bool ChartLoaderVOS::ParseMIDI()
       switch (midisig)
       {
       case MIDISIG::MIDISIG_TEMPO:
+        tn = new TimingObject();
         val = GetMSFixedInt_internal((uint8_t*)mprog.text.c_str(), 3);
-        tn.SetBeatPos(cur_beat);
-        tn.SetBpm(60'000'000 / timedivision * 120 / (double)val);
-        tnd.AddNote(tn);
+        tn->SetBeatPos(cur_beat);
+        tn->SetBpm(60'000'000 / timedivision * 120 / (double)val);
+        td.AddObject(tn);
         break;
       case MIDISIG::MIDISIG_MEASURE:
+        tn = new TimingObject();
         val = mprog.text.c_str()[0];
         val2 = mprog.text.c_str()[1];
-        tn.SetBeatPos(cur_beat);
-        tn.SetMeasure(4.0 * val / val2);
-        tnd.AddNote(tn);
+        tn->SetBeatPos(cur_beat);
+        tn->SetMeasure(4.0 * val / val2);
+        td.AddObject(tn);
         break;
       case MIDISIG::MIDISIG_END:
         is_midisegment_end = true;
@@ -691,9 +715,10 @@ bool ChartLoaderVOS::ParseMIDI()
       case MIDISIG::MIDISIG_PROGRAM:
       case MIDISIG::MIDISIG_OTHERS:
         // all of other metas & program info
-        en.SetBeatPos(cur_beat);
-        en.SetMidiCommand(mprog.cmd, mprog.a, mprog.b);
-        ed.AddNote(en);
+        en = new EffectObject();
+        en->SetBeatPos(cur_beat);
+        en->SetMidiCommand(mprog.cmd, mprog.a, mprog.b);
+        ed.AddObject(en);
         break;
       default:
         ASSERT(0);

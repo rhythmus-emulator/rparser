@@ -43,39 +43,6 @@ void AddLongNote(RowPos iRow, unsigned int lane, RowPos iLength);
  */
 void ExportToHTML(const Chart &c, std::string& out);
 
-struct SortedNoteObjects
-{
-  std::vector<Note*> nobj_by_beat;
-  std::vector<Note*> nobj_by_tempo;
-  std::vector<Note*> nobj_by_row;
-};
-struct ConstSortedNoteObjects
-{
-  std::vector<const Note*> nobj_by_beat;
-  std::vector<const Note*> nobj_by_tempo;
-  std::vector<const Note*> nobj_by_row;
-};
-// XXX: restrict note type to kTempo, really?
-template <typename A, typename B>
-void SortNoteObjectsByType(A& notedata, B& out)
-{
-  for (auto& nobj : notedata)
-  {
-    if (nobj.postype() == NotePosTypes::Beat)
-      out.nobj_by_beat.push_back(&nobj);
-    else if (nobj.postype() == NotePosTypes::Time)
-      out.nobj_by_tempo.push_back(&nobj);
-    else if (nobj.postype() == NotePosTypes::Bar)
-      out.nobj_by_row.push_back(&nobj);
-  }
-  std::sort(out.nobj_by_beat.begin(), out.nobj_by_beat.end(), [] (const Note* lhs, const Note* rhs)
-  { return lhs->pos().beat < rhs->pos().beat; });
-  std::sort(out.nobj_by_tempo.begin(), out.nobj_by_tempo.end(), [] (const Note* lhs, const Note* rhs)
-  { return lhs->pos().beat < rhs->pos().beat; });
-  std::sort(out.nobj_by_row.begin(), out.nobj_by_row.end(), [] (const Note* lhs, const Note* rhs)
-  { return lhs->pos().measure < rhs->pos().measure; });
-}
-
 namespace effector
 {
   enum LaneTypes
@@ -117,11 +84,6 @@ namespace effector
   void Flip(Chart &c, const EffectorParam& param);
 }
 
-bool IsRangeEmpty(double beat_start, double beat_end);
-bool IsHoldNoteAt(double beat);
-bool IsHoldNoteAt(double beat, NoteTrack track);
-bool IsTypeEmpty(int type, int subtype = -1);
-bool IsTrackEmpty(NoteTrack track);
 }
 
 #endif
