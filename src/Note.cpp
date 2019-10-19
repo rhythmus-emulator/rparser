@@ -171,6 +171,11 @@ NotePos& NotePos::endpos()
   return *this;
 }
 
+const NotePos& NotePos::endpos() const
+{
+  return const_cast<NotePos*>(this)->endpos();
+}
+
 bool NotePos::operator<(const NotePos &other) const noexcept
 {
   return beat < other.beat;
@@ -278,6 +283,11 @@ int Note::player() const
 void Note::set_player(int player)
 {
   player_ = player;
+}
+
+int Note::get_player() const
+{
+  return player_;
 }
 
 std::vector<NoteDesc*>::iterator Note::begin() { return chains_.begin(); }

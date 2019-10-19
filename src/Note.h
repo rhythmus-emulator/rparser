@@ -95,6 +95,7 @@ public:
   void set_track(int track);
   int get_track() const;
   virtual NotePos& endpos();
+  const NotePos& endpos() const;
 
   bool operator==(const NotePos &other) const noexcept;
   bool operator<(const NotePos &other) const noexcept;
@@ -179,6 +180,7 @@ public:
   void set_type(NoteType t);
   int player() const;
   void set_player(int player);
+  int get_player() const;
 
   std::vector<NoteDesc*>::iterator begin();
   std::vector<NoteDesc*>::iterator end();
@@ -189,6 +191,7 @@ public:
   void RemoveAllChain();
   size_t chainsize() const;
   virtual NotePos& endpos();
+  using NoteDesc::endpos;
 
   /**
    * @brief get tapping method for this type of note.
@@ -359,6 +362,7 @@ public:
   void CopyAll(const Track& from);
   void MoveRange(double beat_delta, double beat_begin, double beat_end);
   void MoveAll(double beat_delta);
+  void InsertBlank(double beat_begin, double beat_delta);
 
   typedef std::vector<NotePos*>::iterator iterator;
   typedef std::vector<NotePos*>::const_iterator const_iterator;
@@ -454,7 +458,9 @@ public:
   void CopyAll(const TrackData& from);
   void MoveRange(double beat_delta, double beat_begin, double beat_end);
   void MoveAll(double beat_delta);
+  void InsertBlank(double beat_begin, double beat_delta);
   void RemapTracks(size_t *track_map);
+  void UpdateTracks();
 
   typedef std::vector<NotePos*>::iterator iterator;
   typedef std::vector<NotePos*>::const_iterator const_iterator;
@@ -496,6 +502,7 @@ public:
     double get_beat() const;
     void next();
     bool is_end() const;
+    NotePos* col(size_t idx);
     row_iterator &operator++();
     NotePos& operator[](size_t i);
     const NotePos& operator[](size_t i) const;

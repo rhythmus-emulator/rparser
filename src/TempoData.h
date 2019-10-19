@@ -79,6 +79,7 @@ public:
   TimingData &GetTimingData();
   const TimingData &GetTimingData() const;
   const std::vector<BarObject>& GetBarObjects() const;
+  double GetBarLength(uint32_t measure) const;
   void Invalidate(const MetaData& m);
 
 private:

@@ -44,6 +44,12 @@ public:
   TimingData& GetTimingData();
   TimingSegmentData& GetTimingSegmentData();
   MetaData& GetMetaData();
+  const BgmData& GetBgmData() const;
+  const BgaData& GetBgaData() const;
+  const NoteData& GetNoteData() const;
+  const EffectData& GetEffectData() const;
+  const TimingData& GetTimingData() const;
+  const TimingSegmentData& GetTimingSegmentData() const;
   const MetaData& GetMetaData() const;
 
   uint32_t GetScoreableNoteCount() const;

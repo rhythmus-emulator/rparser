@@ -55,35 +55,21 @@ void Chart::Clear()
   timingsegmentdata_.clear();
 }
 
-NoteData& Chart::GetNoteData()
-{
-  return notedata_;
-}
+BgmData& Chart::GetBgmData() { return bgmdata_; }
+BgaData& Chart::GetBgaData() { return bgadata_; }
+NoteData& Chart::GetNoteData() { return notedata_; }
+EffectData& Chart::GetEffectData() { return effectdata_; }
+TimingData& Chart::GetTimingData() { return timingsegmentdata_.GetTimingData(); }
+TimingSegmentData& Chart::GetTimingSegmentData() { return timingsegmentdata_; }
+MetaData& Chart::GetMetaData() { return metadata_; }
 
-EffectData& Chart::GetEffectData()
-{
-  return effectdata_;
-}
-
-TimingData& Chart::GetTimingData()
-{
-  return timingsegmentdata_.GetTimingData();
-}
-
-TimingSegmentData& Chart::GetTimingSegmentData()
-{
-  return timingsegmentdata_;
-}
-
-MetaData& Chart::GetMetaData()
-{
-  return metadata_;
-}
-
-const MetaData& Chart::GetMetaData() const
-{
-  return metadata_;
-}
+const BgmData& Chart::GetBgmData() const { return bgmdata_; }
+const BgaData& Chart::GetBgaData() const { return bgadata_; }
+const NoteData& Chart::GetNoteData() const { return notedata_; }
+const EffectData& Chart::GetEffectData() const { return effectdata_; }
+const TimingData& Chart::GetTimingData() const { return timingsegmentdata_.GetTimingData(); }
+const TimingSegmentData& Chart::GetTimingSegmentData() const { return timingsegmentdata_; }
+const MetaData& Chart::GetMetaData() const { return metadata_; }
 
 uint32_t Chart::GetScoreableNoteCount() const
 {
