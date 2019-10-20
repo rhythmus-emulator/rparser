@@ -46,11 +46,11 @@ enum BgaTypes
 /** @detail Special object which changes tempo of the chart. */
 enum TimingObjectTypes
 {
+  kMeasure,         // Bms type bar length
+  kScroll,          // Stepmania type bar length
   kBpm,
   kStop,
   kWarp,
-  kScroll,          // Stepmania type bar length
-  kMeasure,         // Bms type bar length
   kTick,
   kBmsBpm,          // #BPM / #EXBPM command from metadata 
   kBmsStop,         // #STOP command from metadata

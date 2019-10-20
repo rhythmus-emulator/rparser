@@ -6,20 +6,20 @@
 namespace rparser
 {
 
-inline double GetTimeFromBeatInTempoSegment(const TimingSegment& tobj, double beat)
+inline double GetTimeFromBarInTempoSegment(const TimingSegment& tobj, double barpos)
 {
   const double msec_per_beat = 60.0 * 1000 / tobj.bpm_ / tobj.scrollspeed_;
-  const double beat_delta = beat - tobj.beat_ - tobj.warpbeat_;
+  const double beat_delta = barpos - tobj.barpos_ - tobj.warpbeat_ /* XXX: warpbeat is not affected by barlength? */;
   if (beat_delta < 0) return tobj.time_ + tobj.stoptime_;
   else return tobj.time_ + tobj.stoptime_ + tobj.delaytime_ + beat_delta * msec_per_beat;
 }
 
-inline double GetBeatFromTimeInTempoSegment(const TimingSegment& tobj, double time_msec)
+inline double GetBarFromTimeInTempoSegment(const TimingSegment& tobj, double time_msec)
 {
   const double beat_per_msec = tobj.bpm_ * tobj.scrollspeed_ / 60 / 1000;
   const double time_delta = time_msec - tobj.time_ - (tobj.stoptime_ + tobj.delaytime_);
-  if (time_delta <= 0) return tobj.beat_;
-  return tobj.beat_ + tobj.warpbeat_ + time_delta * beat_per_msec;
+  if (time_delta <= 0) return tobj.barpos_;
+  return tobj.barpos_ + tobj.warpbeat_ + time_delta * beat_per_msec;
 }
 
 inline double GetBarFromBeatInBarSegment(const BarObject& b, double beat)
@@ -116,6 +116,12 @@ void TimingSegmentData::Invalidate(const MetaData& m)
     // set tempo segment object attribute.
     switch (tobj.get_track())
     {
+    case TimingObjectTypes::kMeasure:
+      SetMeasureLengthChange(tobj.beat, tobj.GetFloatValue());
+      break;
+    case TimingObjectTypes::kScroll:
+      SetScrollSpeedChange(tobj.GetFloatValue());
+      break;
     case TimingObjectTypes::kBpm:
       SetBPMChange(tobj.GetFloatValue());
       break;
@@ -134,12 +140,6 @@ void TimingSegmentData::Invalidate(const MetaData& m)
         SetSTOP(v / 192.0 * 4.0);
       else
         RPARSER_LOG("Failed to fetch STOP information.");
-      break;
-    case TimingObjectTypes::kMeasure:
-      /** Do nothing */
-      break;
-    case TimingObjectTypes::kScroll:
-      SetScrollSpeedChange(tobj.GetFloatValue());
       break;
     case TimingObjectTypes::kTick:
       SetTick(tobj.GetIntValue());
@@ -176,7 +176,7 @@ double TimingSegmentData::GetTimeFromBeat(double beat) const
       l = m + 1;
     }
   }
-  return GetTimeFromBeatInTempoSegment(timingsegments_[idx], beat);
+  return GetTimeFromBarInTempoSegment(timingsegments_[idx], GetBarFromBeat(beat));
 }
 
 double TimingSegmentData::GetBeatFromTime(double time) const
@@ -202,7 +202,7 @@ double TimingSegmentData::GetBeatFromTime(double time) const
       l = m + 1;
     }
   }
-  return GetBeatFromTimeInTempoSegment(timingsegments_[idx], time);
+  return GetBeatFromBar(GetBarFromTimeInTempoSegment(timingsegments_[idx], time));
 }
 
 double TimingSegmentData::GetBarFromBeat(double beat) const
@@ -268,26 +268,40 @@ double TimingSegmentData::GetBeatFromBar(double bar) const
 
 std::vector<double> TimingSegmentData::GetTimeFromBeatArr(const std::vector<double>& sorted_beat) const
 {
-  std::vector<double> r_time;
+  std::vector<double> r_bar, r_time;
   size_t idx = 0;
-  for (double beat: sorted_beat)
+  for (double beat : sorted_beat)
+  {
+    if (idx + 1 < barobjs_.size() && beat > barobjs_[idx + 1].beat_) idx++;
+    r_bar.push_back(barobjs_[idx].barpos_ + (beat - barobjs_[idx].beat_) * barobjs_[idx].barlength_);
+  }
+
+  idx = 0;
+  for (double bar: r_bar)
   {
     // go to next segment if available.
-    if (idx+1 < timingsegments_.size() && beat > timingsegments_[idx+1].beat_) idx++;
-    r_time.push_back(GetTimeFromBeatInTempoSegment(timingsegments_[idx], beat));
+    if (idx+1 < timingsegments_.size() && bar > timingsegments_[idx+1].barpos_) idx++;
+    r_time.push_back(GetTimeFromBarInTempoSegment(timingsegments_[idx], bar));
   }
   return r_time;
 }
 
 std::vector<double> TimingSegmentData::GetBeatFromTimeArr(const std::vector<double>& sorted_time) const
 {
-  std::vector<double> r_beat;
+  std::vector<double> r_bar, r_beat;
   size_t idx = 0;
   for (double time: sorted_time)
   {
     // go to next segment if available.
     if (idx+1 < timingsegments_.size() && time > timingsegments_[idx+1].time_) idx++;
-    r_beat.push_back(GetBeatFromTimeInTempoSegment(timingsegments_[idx], time));
+    r_bar.push_back(GetBarFromTimeInTempoSegment(timingsegments_[idx], time));
+  }
+
+  idx = 0;
+  for (double bar : r_bar)
+  {
+    if (idx + 1 < barobjs_.size() && bar > barobjs_[idx + 1].barpos_) idx++;
+    r_beat.push_back(barobjs_[idx].beat_ + (bar - barobjs_[idx].barpos_) / barobjs_[idx].barlength_);
   }
   return r_beat;
 }
@@ -350,13 +364,13 @@ void TimingSegmentData::SetMeasureLengthChange(uint32_t measure_idx, double barl
 /* @depreciated */
 void TimingSegmentData::SeekByTime(double time)
 {
-  double beat = GetBeatFromTimeInLastSegment(time);
+  double beat = GetBarFromTimeInLastSegment(time);
   Seek(beat, time);
 }
 
 void TimingSegmentData::SeekByBeat(double beat)
 {
-  double time = GetTimeFromBeatInLastSegment(beat);
+  double time = GetTimeFromBarInLastSegment(beat);
   Seek(beat, time);
 }
 
@@ -432,19 +446,35 @@ void TimingSegmentData::SetScrollSpeedChange(double scrollspeed)
   timingsegments_.back().is_manipulated_ = true;
 }
 
-double TimingSegmentData::GetTimeFromBeatInLastSegment(double beat_delta) const
+double TimingSegmentData::GetTimeFromBarInLastSegment(double beat_delta) const
 {
-  return GetTimeFromBeatInTempoSegment(timingsegments_.back(), beat_delta);
+  return GetTimeFromBarInTempoSegment(timingsegments_.back(), beat_delta);
 }
 
-double TimingSegmentData::GetBeatFromTimeInLastSegment(double time_delta_msec) const
+double TimingSegmentData::GetBarFromTimeInLastSegment(double time_delta_msec) const
 {
-  return GetBeatFromTimeInTempoSegment(timingsegments_.back(), time_delta_msec);
+  return GetBarFromTimeInTempoSegment(timingsegments_.back(), time_delta_msec);
 }
 
 double TimingSegmentData::GetBarFromBeatInLastSegment(double beat) const
 {
   return GetBarFromBeatInBarSegment(barobjs_.back(), beat);
+}
+
+double TimingSegmentData::GetBeatFromBarInLastSegment(double bar) const
+{
+  auto &b = barobjs_.back();
+  return b.beat_ + (bar - b.barpos_) / b.barlength_;
+}
+
+double TimingSegmentData::GetTimeFromBeatInLastSegment(double beat) const
+{
+  return GetTimeFromBarInLastSegment(GetBarFromBeatInLastSegment(beat));
+}
+
+double TimingSegmentData::GetBeatFromTimeInLastSegment(double time) const
+{
+  return GetBeatFromBarInLastSegment(GetBarFromTimeInLastSegment(time));
 }
 
 double TimingSegmentData::GetMaxBpm() const

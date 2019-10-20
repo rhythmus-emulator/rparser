@@ -95,9 +95,12 @@ private:
   void SetTick(uint32_t tick);
   void SetScrollSpeedChange(double scrollspeed);
   void Seek(double beat, double time);
-  double GetTimeFromBeatInLastSegment(double beat) const;       // return msec time
+  double GetTimeFromBarInLastSegment(double  bar) const;       // return msec time
+  double GetBarFromTimeInLastSegment(double time) const;
+  double GetTimeFromBeatInLastSegment(double beat) const;
   double GetBeatFromTimeInLastSegment(double time) const;
   double GetBarFromBeatInLastSegment(double beat) const;
+  double GetBeatFromBarInLastSegment(double  bar) const;
 
   bool do_recover_measure_length_;        // set measure length to 4.0 implicitly.
   TimingData timingdata_;
