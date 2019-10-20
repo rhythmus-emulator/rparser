@@ -59,6 +59,11 @@ BarObject::BarObject()
 BarObject::BarObject(double barpos, double barlength, uint32_t measure)
   : barpos_(barpos), barlength_(barlength), beat_(measure) {}
 
+bool BarObject::operator<(const BarObject &other) const
+{
+  return beat_ < other.beat_;
+}
+
 TimingSegmentData::TimingSegmentData()
 {
   clear();
@@ -546,6 +551,14 @@ const TimingData& TimingSegmentData::GetTimingData() const
 const std::vector<BarObject>& TimingSegmentData::GetBarObjects() const
 {
   return barobjs_;
+}
+
+double TimingSegmentData::GetBarLength(uint32_t measure) const
+{
+  BarObject b;
+  b.beat_ = measure;
+  auto it = std::lower_bound(barobjs_.rbegin(), barobjs_.rend(), b);
+  return it->barlength_;
 }
 
 }
