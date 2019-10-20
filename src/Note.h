@@ -412,11 +412,6 @@ public:
   }
 };
 
-using EffectData = TrackWithType<EffectObject>;
-using BgmData = TrackWithType<BgmObject>;
-using BgaData = TrackWithType<BgaObject>;
-//using TimingData = ObjectDataWithType<EffectObject>;
-
 constexpr size_t kMaxTrackSize = 128;
 
 /**
@@ -504,6 +499,7 @@ public:
     bool is_end() const;
     NotePos* col(size_t idx);
     row_iterator &operator++();
+    row_iterator operator++(int) { return operator++(); }
     NotePos& operator[](size_t i);
     const NotePos& operator[](size_t i) const;
     double operator*() const;
@@ -579,6 +575,10 @@ public:
 };
 
 using NoteData = TrackDataWithType<Note>;
+using EffectData = TrackDataWithType<EffectObject>;
+using BgmData = TrackDataWithType<BgmObject>;
+using BgaData = TrackDataWithType<BgaObject>;
+//using TimingData = ObjectDataWithType<EffectObject>;
 
 }
 

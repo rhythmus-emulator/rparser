@@ -644,7 +644,7 @@ bool ChartLoaderVOS::ParseMIDI()
       auto &np = *alliter;
       np.SetBeatPos(np.beat * ratio);
       np.endpos().SetBeatPos(np.endpos().beat * ratio);
-      alliter++;
+      ++alliter;
     }
     timedivision_ = timedivision;
   }

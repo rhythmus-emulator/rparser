@@ -113,15 +113,15 @@ void InvalidateTrackDataTiming(T& td, const TimingSegmentData& tsd)
   std::vector<double> vBeat, vTime;
   size_t i = 0;
   auto iter = td.GetAllTrackIterator();
-  while (!all_track_iter.is_end())
+  while (!iter.is_end())
   {
-    vNpos.push_back(&(*all_track_iter));
+    vNpos.push_back(&(*iter));
   }
   for (auto *npos : vNpos)
   {
     vBeat.push_back(npos->beat);
   }
-  vTime = std::move(tempodata_.GetTimeFromBeatArr(vBeat));
+  vTime = std::move(tsd.GetTimeFromBeatArr(vBeat));
   for (auto *npos : vNpos)
   {
     npos->SetTime(vTime[i++]);
@@ -131,7 +131,7 @@ void InvalidateTrackDataTiming(T& td, const TimingSegmentData& tsd)
 void Chart::InvalidateAllNotePos()
 {
   InvalidateTrackDataTiming(bgmdata_, timingsegmentdata_);
-  InvalidateTrackDataTiming(bgmdata_, timingsegmentdata_);
+  InvalidateTrackDataTiming(bgadata_, timingsegmentdata_);
   InvalidateTrackDataTiming(notedata_, timingsegmentdata_);
   InvalidateTrackDataTiming(effectdata_, timingsegmentdata_);
 }

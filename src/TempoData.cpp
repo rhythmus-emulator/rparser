@@ -149,7 +149,7 @@ void TimingSegmentData::Invalidate(const MetaData& m)
       break;
     }
 
-    timingobjiter++;
+    ++timingobjiter;
   }
 }
 

@@ -75,6 +75,9 @@ const char **pNoteSubtypeStr[] = {
   kNoteSpecialTypesStr,
 };
 
+const auto noteposcompfunc
+  = [](const NotePos *a, const NotePos *b)->bool { return *a < *b; };
+
 
 // ------------------------------ class NotePos
 
@@ -560,7 +563,8 @@ void Track::AddObject(NotePos* object)
 
   // find smart position to append object
   bool already_inserted = false;
-  auto it = std::lower_bound(objects_.begin(), objects_.end(), *object);
+  auto it = std::lower_bound(objects_.begin(), objects_.end(), object,
+    noteposcompfunc);
   if (it != objects_.begin())
   {
     // before insert, check previous note is overlapped.
@@ -577,7 +581,8 @@ void Track::AddObject(NotePos* object)
     objects_.insert(it, object);
   // check overlapping for next (long)notes.
   {
-    auto it = std::upper_bound(objects_.begin(), objects_.end(), *object);
+    auto it = std::upper_bound(objects_.begin(), objects_.end(), object,
+      noteposcompfunc);
     auto it_end = it;
     while (it_end != objects_.end() && **it_end < object->endpos())
     {
@@ -600,7 +605,8 @@ void Track::AddObjectDuplicated(NotePos* object)
   }
 
   // find smart position to append object
-  auto it = std::lower_bound(objects_.begin(), objects_.end(), *object);
+  auto it = std::lower_bound(objects_.begin(), objects_.end(), object,
+    noteposcompfunc);
   objects_.insert(it, object);
 }
 
@@ -650,7 +656,8 @@ bool Track::IsHoldNoteAt(double beat) const
   NotePos *n = objects_.front();
   NotePos p; /* temporary object to use lower_bound */
   p.beat = beat;
-  auto it = std::upper_bound(objects_.rbegin(), objects_.rend(), p);
+  auto it = std::upper_bound(objects_.rbegin(), objects_.rend(), &p,
+    noteposcompfunc);
   if (it != objects_.rend()) n = *it;
   return (n->endpos().beat >= beat);
 }
@@ -660,7 +667,8 @@ bool Track::IsRangeEmpty(double beat_start, double beat_end) const
   if (objects_.empty()) return false;
   NotePos p; /* temporary object to use lower_bound */
   p.beat = beat_start;
-  auto it = std::lower_bound(objects_.begin(), objects_.end(), p);
+  auto it = std::lower_bound(objects_.begin(), objects_.end(), &p,
+    noteposcompfunc);
   if (it != objects_.begin()) it = std::prev(it);
   if ((*it)->endpos().beat >= beat_start) return false;
   ++it;
@@ -767,10 +775,10 @@ void Track::MoveAll(double beat_delta)
   }
 }
 
-Track::iterator Track::begin() { objects_.begin(); }
-Track::iterator Track::end() { objects_.end(); }
-Track::const_iterator Track::begin() const { objects_.begin(); }
-Track::const_iterator Track::end() const { objects_.end(); }
+Track::iterator Track::begin() { return objects_.begin(); }
+Track::iterator Track::end() { return objects_.end(); }
+Track::const_iterator Track::begin() const { return objects_.begin(); }
+Track::const_iterator Track::end() const { return objects_.end(); }
 NotePos& Track::front() { return *objects_.front(); };
 NotePos& Track::back() { return *objects_.back(); };
 
@@ -880,13 +888,15 @@ void TrackData::RemoveObjectByBeat(size_t track, double beat)
 bool TrackData::IsHoldNoteAt(double beat) const
 {
   for (size_t i = 0; i < track_count_; ++i)
-    track_[i].IsHoldNoteAt(beat);
+    if (track_[i].IsHoldNoteAt(beat)) return true;
+  return false;
 }
 
 bool TrackData::IsRangeEmpty(double beat_start, double beat_end) const
 {
   for (size_t i = 0; i < track_count_; ++i)
-    track_[i].IsRangeEmpty(beat_start, beat_end);
+    if (!track_[i].IsRangeEmpty(beat_start, beat_end)) return false;
+  return true;
 }
 
 void TrackData::GetNoteByRange(double beat_start, double beat_end, std::vector<NotePos*> &out)
@@ -971,7 +981,7 @@ void TrackData::UpdateTracks()
   while (!alliter.is_end())
   {
     AddObjectDuplicated(&*alliter);
-    alliter++;
+    ++alliter;
   }
 }
 
@@ -1001,7 +1011,7 @@ const Track& TrackData::get_track(size_t track) const { return track_[track]; }
 NotePos* TrackData::all_track_iterator::p() { return *iter_; }
 void TrackData::all_track_iterator::next() { iter_++; }
 bool TrackData::all_track_iterator::is_end() const { return notes_.end() == iter_; }
-TrackData::all_track_iterator &TrackData::all_track_iterator::operator++() { next(); }
+TrackData::all_track_iterator &TrackData::all_track_iterator::operator++() { next(); return *this; }
 NotePos& TrackData::all_track_iterator::operator*() { return **iter_; }
 const NotePos& TrackData::all_track_iterator::operator*() const { return **iter_; }
 
@@ -1039,10 +1049,7 @@ TrackData::all_track_iterator TrackData::GetAllTrackIterator() const
 
   /* Use stable_sort to keep track order.
    * This result sorting in first position, then track. */
-  std::stable_sort(iter.notes_.begin(), iter.notes_.end(),
-    [](const Note* a, const Note *b) -> bool {
-      return *a == *b ? a->get_track() < b->get_track() : *a < *b;
-    });
+  std::stable_sort(iter.notes_.begin(), iter.notes_.end(), noteposcompfunc);
 
   iter.iter_ = iter.notes_.begin();
   return iter;
@@ -1063,10 +1070,7 @@ TrackData::all_track_iterator TrackData::GetAllTrackIterator(double beat_start, 
 
   /* Use stable_sort to keep track order.
    * This result sorting in first position, then track. */
-  std::stable_sort(iter.notes_.begin(), iter.notes_.end(),
-    [](const Note* a, const Note *b) -> bool {
-      return *a < *b;
-    });
+  std::stable_sort(iter.notes_.begin(), iter.notes_.end(), noteposcompfunc);
 
   iter.iter_ = iter.notes_.begin();
   return iter;
@@ -1105,7 +1109,7 @@ void TrackData::row_iterator::next()
   }
 }
 
-TrackData::row_iterator &TrackData::row_iterator::operator++() { next(); }
+TrackData::row_iterator &TrackData::row_iterator::operator++() { next(); return *this; }
 NotePos& TrackData::row_iterator::operator[](size_t i) { return *curr_row_notes[i]; }
 const NotePos& TrackData::row_iterator::operator[](size_t i) const { return *curr_row_notes[i]; }
 double TrackData::row_iterator::operator*() const { return get_beat(); }

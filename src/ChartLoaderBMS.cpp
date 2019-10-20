@@ -698,7 +698,7 @@ bool ChartLoaderBMS::ParseSoundNote()
     if (longnotetype == 2)
       longnote_idx_per_lane[channel] = UINT32_MAX;
     /** Don't do anything with 00 note */
-    return;
+    return true;
   }
 
   n = new Note();
