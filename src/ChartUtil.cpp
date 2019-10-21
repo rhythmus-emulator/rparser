@@ -417,7 +417,7 @@ inline bool CheckNoteValidity(Note& note, const EffectorParam& param)
   int current_player = note.get_player();
   if (current_player != param.player)
     return false;
-  ASSERT(note.track.lane.note.lane < kMaxSizeLane);
+  ASSERT(note.get_track() < kMaxSizeLane);
   return true;
 }
 
@@ -519,7 +519,7 @@ void RRandom(Chart &c, const EffectorParam& param, bool mapping_by_measure)
 
       if (change_mapping)
       {
-        shift_idx = floorl(mapping_by_measure
+        shift_idx = (size_t)floorl(mapping_by_measure
             ? n.time_msec / time_rotation_delta
             : delta_lane + n.beat);
       }

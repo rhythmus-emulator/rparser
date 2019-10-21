@@ -336,7 +336,7 @@ void TimingSegmentData::SetMeasureLengthChange(uint32_t measure_idx, double barl
   }
   // Only use last segment.
   BarObject& b = barobjs_.back();
-  ASSERT(measure_idx >= b.baridx_); /* same bar editing with do_recover_measure_length */
+  ASSERT(measure_idx >= b.beat_); /* same bar editing with do_recover_measure_length */
   if (b.barlength_ == barlength) return;
 
   // If same measure_idx, then update previous one.

@@ -586,7 +586,6 @@ bool ChartLoaderBMS::ParseNote()
   curr_note_syntax_.measure = current_line_->measure;
   curr_note_syntax_.channel = current_line_->bms_channel;
   curr_note_syntax_.deno = current_line_->value_len;
-  unsigned int value_u;
 
   for (unsigned int i = 0; i < len; i += 2)
   {

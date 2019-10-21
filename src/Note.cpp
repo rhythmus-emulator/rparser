@@ -495,8 +495,10 @@ std::string EffectObject::getValueAsString() const
 EffectObject::EffectObject() : type_(0), command_(0), arg1_(0), arg2_(0)
 {}
 
-void EffectObject::set_type(int type) { type_ = type; }
-int EffectObject::get_type() const { return type_; }
+/* @depreciated */
+void EffectObject::set_type(int type) { set_track(type); }
+/* @depreciated */
+int EffectObject::get_type() const { return get_track(); }
 
 void EffectObject::SetMidiCommand(uint8_t command, uint8_t arg1, uint8_t arg2)
 {
@@ -516,7 +518,7 @@ void EffectObject::SetBmsARGBCommand(BgaTypes bgatype, Channel channel)
 
 void EffectObject::GetMidiCommand(uint8_t &command, uint8_t &arg1, uint8_t &arg2) const
 {
-  ASSERT(subtype() == NoteEventTypes::kMIDI);
+  ASSERT(get_type() == EffectObjectTypes::kMIDI);
   command = (uint8_t)command_;
   arg1 = (uint8_t)arg1_;
   arg2 = (uint8_t)arg2_;

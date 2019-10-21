@@ -651,7 +651,6 @@ bool ChartLoaderVOS::ParseMIDI()
   double cur_beat = 0;
 
   TimingObject *tn;
-  Note *sn;
   EffectObject *en;
   auto &td = chart_->GetTimingData();
   auto &nd = chart_->GetNoteData();

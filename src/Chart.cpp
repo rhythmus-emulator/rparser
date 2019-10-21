@@ -74,11 +74,11 @@ const MetaData& Chart::GetMetaData() const { return metadata_; }
 uint32_t Chart::GetScoreableNoteCount() const
 {
   auto all_track_iter = notedata_.GetAllTrackIterator();
-  unsigned cnt;
+  unsigned cnt = 0;
   while (!all_track_iter.is_end())
   {
     //if (n.IsScoreable())
-    cnt++;
+    ++cnt;
     ++all_track_iter;
   }
   return cnt;
