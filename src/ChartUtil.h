@@ -30,6 +30,7 @@ namespace effector
     int lanesize;                   // default is 7
     int lockedlane[kMaxSizeLane];   // flag for locked lanes for changing (MUST sorted); ex: SC, pedal, ...
     int sc_lane;                    // scratch lane idx (for AllSC option)
+    int seed;
   };
 
   void SetLanefor7Key(EffectorParam& param);

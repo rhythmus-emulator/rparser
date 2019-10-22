@@ -2,11 +2,6 @@
 #include "Song.h"
 #include <list>
 
-/*
- * XXX: rand() method could be distrubed by other program/threads seed reseting.
- *      We may need to make rand method with its own context.
- */
-
 namespace rparser
 {
 
@@ -388,6 +383,8 @@ void SetLaneforBMSDP2P(EffectorParam& param)
 void GenerateRandomColumn(int *new_col, const EffectorParam& param)
 {
   ASSERT(param.lanesize < kMaxSizeLane);
+  rutil::Random random;
+  random.SetSeed(param.seed);
   int lanes_to_randomize = param.lanesize;
   for (int i=0; i<param.lanesize; i++)
   {
@@ -403,7 +400,7 @@ void GenerateRandomColumn(int *new_col, const EffectorParam& param)
     // randomly set free lanes
     if (param.lockedlane[i] == LaneTypes::NOTE)
     {
-      new_col[i] = rand() % lanes_to_randomize + lockedcnt;
+      new_col[i] = random.Next() % lanes_to_randomize + lockedcnt;
       lockedcnt++;
       lanes_to_randomize--;
     }
@@ -434,6 +431,7 @@ void SRandom(Chart &c, const EffectorParam& param)
 {
   // SRANDOM algorithm from
   // https://gall.dcinside.com/mgallery/board/view/?id=popn&no=3291&page=1484
+  // XXX: may need to use Random context consequentially?
   Random(c, param);
   RRandom(c, param, true);
   Random(c, param);
@@ -478,9 +476,11 @@ void HRandom(Chart &c, const EffectorParam& param)
  */
 void RRandom(Chart &c, const EffectorParam& param, bool mapping_by_measure)
 {
+  rutil::Random random;
   int lane_to_idx[kMaxSizeLane];
   int idx_to_lane[kMaxSizeLane];
-  const int delta_lane = rand();
+  random.SetSeed(param.seed);
+  const int delta_lane = random.Next();
   ASSERT(param.lanesize < kMaxSizeLane);
 
   int shufflelanecnt = 0;
