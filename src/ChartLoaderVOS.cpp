@@ -260,10 +260,10 @@ bool ChartLoaderVOS::BinaryStream::IsEnd()
   return offset_ >= len_;
 }
 
-ChartLoaderVOS::ChartLoaderVOS()
-  : vos_version_(VOS_UNKNOWN) {};
+ChartLoaderVOS::ChartLoaderVOS(Song *song)
+  : ChartLoader(song), vos_version_(VOS_UNKNOWN) {};
 
-bool ChartLoaderVOS::LoadFromDirectory(ChartListBase& chartlist, Directory& dir)
+bool ChartLoaderVOS::LoadFromDirectory()
 {
   return false;
 }

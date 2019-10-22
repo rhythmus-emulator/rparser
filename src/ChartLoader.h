@@ -13,6 +13,7 @@
 namespace rparser {
 
 class Chart;
+class Song;
 
 /**
  * @params
@@ -24,7 +25,7 @@ class Chart;
  */
 class ChartLoader {
 public:
-  ChartLoader(): error_(0), seed_(0) {};
+  ChartLoader(Song* song) : song_(song), error_(0), seed_(0) {};
   virtual bool Test(const void* p, int iLen);
   virtual void SetSeed(int seed = -1);
 
@@ -35,15 +36,17 @@ public:
   /* @brief used for files which song existing in directory
    * (e.g. most types of song) 
    * internally calls Load() method. */
-  virtual bool LoadFromDirectory(ChartListBase& chartlist, Directory& dir) = 0;
+  virtual bool LoadFromDirectory() = 0;
 
-  static ChartLoader* Create(SONGTYPE songtype);
+  static ChartLoader* Create(Song *song);
 
   // XXX: A global setting whether to load BMS file in edit mode or not.
   //      It's a kind of internal variable so it's roughly in temp static variable.
   //      Should be fixed later.
   static bool bOpenBmsFileWithoutProcessing;
+
 protected:
+  Song *song_;
   int error_;
   int seed_;
 };
@@ -51,10 +54,10 @@ protected:
 
 class ChartLoaderBMS : public ChartLoader {
 public:
-  ChartLoaderBMS();
+  ChartLoaderBMS(Song* song);
   virtual bool Test(const void* p, int iLen);
   virtual bool Load(Chart &c, const void* p, int iLen);
-  virtual bool LoadFromDirectory(ChartListBase& chartlist, Directory& dir);
+  virtual bool LoadFromDirectory();
 
   // Process command to chart data without clearing.
   void ProcessCommand(Chart &c, const char* p, int len);
@@ -127,9 +130,9 @@ enum class MIDISIG;
 
 class ChartLoaderVOS : public ChartLoader {
 public:
-  ChartLoaderVOS();
+  ChartLoaderVOS(Song* song);
   virtual bool Load(Chart &c, const void* p, int iLen);
-  virtual bool LoadFromDirectory(ChartListBase& chartlist, Directory& dir);
+  virtual bool LoadFromDirectory();
 private:
   Chart *chart_;
   int vos_version_;

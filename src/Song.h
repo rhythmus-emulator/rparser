@@ -59,14 +59,13 @@ public:
   Song();
   ~Song();
 
-  size_t GetChartCount();
+  size_t GetChartCount() const;
   Chart* NewChart();
-  Chart* GetChart(int i = 0);
+  Chart* GetChart(size_t i = 0);
   Chart* GetChart(const std::string& filename);
-  void CloseChart();
-  void DeleteChart(int i);
+  void DeleteChart(size_t i);
 
-  bool SetSongType(SONGTYPE songtype);
+  void SetSongType(SONGTYPE songtype);
   SONGTYPE GetSongType() const;
 
   bool Open(const std::string &path, SONGTYPE songtype = SONGTYPE::NONE);
@@ -88,7 +87,11 @@ private:
   std::shared_ptr<Directory> directory_;
   SONGTYPE songtype_;
   ERROR error_;
-  ChartListBase* chartlist_;
+
+  std::vector<Chart*> charts_;
+
+  // used for song sharing bga / bgm / timing as common data.
+  Chart chart_shared_;
 
   // in case of need ...
   std::string errormsg_detailed_;

@@ -15,7 +15,6 @@ bool ChartWriter::Write(Song* song)
   {
     c = song->GetChart(i);
     bool r = WriteChart(c);
-    song->CloseChart();
     if (!r) return false;
   }
   return true;

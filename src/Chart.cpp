@@ -26,6 +26,7 @@ Chart::Chart(const Chart &nd)
   metadata_ = nd.metadata_;
   timingsegmentdata_
     = std::move(TimingSegmentData(nd.timingsegmentdata_));
+  memset(&common_data_, 0, sizeof(common_data_));
 }
 
 Chart::~Chart()
@@ -42,6 +43,7 @@ void Chart::swap(Chart& c)
   timingsegmentdata_.swap(c.timingsegmentdata_);
   hash_.swap(c.hash_);
   filename_.swap(c.filename_);
+  std::swap(common_data_, c.common_data_);
 }
 
 
@@ -55,20 +57,24 @@ void Chart::Clear()
   timingsegmentdata_.clear();
 }
 
-BgmData& Chart::GetBgmData() { return bgmdata_; }
-BgaData& Chart::GetBgaData() { return bgadata_; }
+BgmData& Chart::GetBgmData() { return common_data_.bgmdata_ ? *common_data_.bgmdata_ : bgmdata_; }
+BgaData& Chart::GetBgaData() { return common_data_.bgadata_ ? *common_data_.bgadata_ : bgadata_; }
 NoteData& Chart::GetNoteData() { return notedata_; }
-EffectData& Chart::GetEffectData() { return effectdata_; }
-TimingData& Chart::GetTimingData() { return timingsegmentdata_.GetTimingData(); }
-TimingSegmentData& Chart::GetTimingSegmentData() { return timingsegmentdata_; }
+EffectData& Chart::GetEffectData() { return common_data_.effectdata_ ? *common_data_.effectdata_ : effectdata_; }
+TimingData& Chart::GetTimingData()
+{ return common_data_.timingsegmentdata_ ? common_data_.timingsegmentdata_->GetTimingData() : timingsegmentdata_.GetTimingData(); }
+TimingSegmentData& Chart::GetTimingSegmentData()
+{ return common_data_.timingsegmentdata_ ? *common_data_.timingsegmentdata_ : timingsegmentdata_; }
 MetaData& Chart::GetMetaData() { return metadata_; }
 
-const BgmData& Chart::GetBgmData() const { return bgmdata_; }
-const BgaData& Chart::GetBgaData() const { return bgadata_; }
+const BgmData& Chart::GetBgmData() const { return common_data_.bgmdata_ ? *common_data_.bgmdata_ : bgmdata_; }
+const BgaData& Chart::GetBgaData() const { return common_data_.bgadata_ ? *common_data_.bgadata_ : bgadata_; }
 const NoteData& Chart::GetNoteData() const { return notedata_; }
-const EffectData& Chart::GetEffectData() const { return effectdata_; }
-const TimingData& Chart::GetTimingData() const { return timingsegmentdata_.GetTimingData(); }
-const TimingSegmentData& Chart::GetTimingSegmentData() const { return timingsegmentdata_; }
+const EffectData& Chart::GetEffectData() const { return common_data_.effectdata_ ? *common_data_.effectdata_ : effectdata_; }
+const TimingData& Chart::GetTimingData() const
+{ return common_data_.timingsegmentdata_ ? common_data_.timingsegmentdata_->GetTimingData() : timingsegmentdata_.GetTimingData(); }
+const TimingSegmentData& Chart::GetTimingSegmentData() const
+{ return common_data_.timingsegmentdata_ ? *common_data_.timingsegmentdata_ : timingsegmentdata_ ; }
 const MetaData& Chart::GetMetaData() const { return metadata_; }
 
 uint32_t Chart::GetScoreableNoteCount() const
@@ -130,20 +136,20 @@ void InvalidateTrackDataTiming(T& td, const TimingSegmentData& tsd)
 
 void Chart::InvalidateAllNotePos()
 {
-  InvalidateTrackDataTiming(bgmdata_, timingsegmentdata_);
-  InvalidateTrackDataTiming(bgadata_, timingsegmentdata_);
-  InvalidateTrackDataTiming(notedata_, timingsegmentdata_);
-  InvalidateTrackDataTiming(effectdata_, timingsegmentdata_);
+  InvalidateTrackDataTiming(GetBgmData(), GetTimingSegmentData());
+  InvalidateTrackDataTiming(GetBgaData(), GetTimingSegmentData());
+  InvalidateTrackDataTiming(GetNoteData(), GetTimingSegmentData());
+  InvalidateTrackDataTiming(GetEffectData(), GetTimingSegmentData());
 }
 
 void Chart::InvalidateNotePos(Note &nobj)
 {
-  nobj.time_msec = timingsegmentdata_.GetTimeFromBeat(nobj.beat);
+  nobj.time_msec = GetTimingSegmentData().GetTimeFromBeat(nobj.beat);
 }
 
 void Chart::InvalidateTempoData()
 {
-  timingsegmentdata_.Invalidate(GetMetaData());
+  GetTimingSegmentData().Invalidate(GetMetaData());
 }
 
 void Chart::Invalidate()
@@ -158,7 +164,7 @@ std::string Chart::toString() const
 {
   std::stringstream ss;
   ss << "[NoteData]\n" << notedata_.toString() << std::endl;
-  ss << "[TempoData]\n" << timingsegmentdata_.toString() << std::endl;
+  ss << "[TempoData]\n" << GetTimingSegmentData().toString() << std::endl;
   ss << "[MetaData]\n" << metadata_.toString() << std::endl;
   return ss.str();
 }
@@ -199,149 +205,5 @@ SONGTYPE Chart::GetSongType() const
     return parent_song_->GetSongType();
   else return SONGTYPE::NONE;
 }
-
-
-
-ChartList::ChartList() : cur_edit_idx(-1) {}
-
-ChartList::~ChartList()
-{
-  for (auto c : charts_)
-  {
-    delete c;
-  }
-}
-
-size_t ChartList::size()
-{
-  return charts_.size();
-}
-
-int ChartList::AddNewChart()
-{
-  charts_.push_back(new Chart());
-  return charts_.size() - 1;
-}
-
-const Chart* ChartList::GetChartData(int idx) const
-{
-  return const_cast<ChartList*>(this)->GetChartData(idx);
-}
-
-Chart* ChartList::GetChartData(int idx)
-{
-  if (idx < 0 || idx >= (int)charts_.size() || cur_edit_idx >= 0) return 0;
-  cur_edit_idx = idx;
-  return charts_[idx];
-}
-
-void ChartList::CloseChartData()
-{
-  cur_edit_idx = -1;
-}
-
-void ChartList::DeleteChart(int idx)
-{
-  if (idx < 0 || idx >= (int)charts_.size() || cur_edit_idx == idx) return;
-  auto ii = charts_.begin() + idx;
-  delete *ii;
-  charts_.erase(ii);
-}
-
-void ChartList::UpdateTempoData()
-{
-  for (auto c : charts_)
-    c->InvalidateTempoData();
-}
-
-void ChartList::AppendChart(Chart* chart)
-{
-  charts_.push_back(chart);
-}
-
-Chart* ChartList::GetChart(int idx)
-{
-  if (idx < 0 || idx > (int)charts_.size()) return 0;
-  return charts_[idx];
-}
-
-bool ChartList::IsChartOpened()
-{
-  return cur_edit_idx >= 0;
-}
-
-int ChartList::GetChartIndexByName(const std::string& filename)
-{
-  int i = 0;
-  for (auto *c : charts_)
-  {
-    if (c->GetFilename() == filename)
-      return i;
-    i++;
-  }
-  return -1;
-}
-
-ChartNoteList::ChartNoteList() : cur_edit_idx(-1) {}
-
-ChartNoteList::~ChartNoteList() { }
-
-size_t ChartNoteList::size()
-{
-  return note_charts_.size();
-}
-
-int ChartNoteList::AddNewChart()
-{
-  note_charts_.emplace_back(NoteData());
-  return note_charts_.size() - 1;
-}
-
-const Chart* ChartNoteList::GetChartData(int idx) const
-{
-  return const_cast<Chart*>(GetChartData(idx));
-}
-
-Chart* ChartNoteList::GetChartData(int idx)
-{
-  if (idx < 0 || idx >= (int)note_charts_.size() || cur_edit_idx >= 0) return 0;
-  // swap note data context and return self object.
-  note_charts_[idx].swap(GetNoteData());
-  cur_edit_idx = idx;
-  return this;
-}
-
-void ChartNoteList::CloseChartData()
-{
-  if (cur_edit_idx >= 0)
-  {
-    // re-swap note data context.
-    std::swap(GetNoteData(), note_charts_[cur_edit_idx]);
-    cur_edit_idx = -1;
-  }
-}
-
-void ChartNoteList::DeleteChart(int idx)
-{
-  if (idx < 0 || idx >= (int)note_charts_.size() || cur_edit_idx == idx) return;
-  note_charts_.erase(note_charts_.begin() + idx);
-}
-
-bool ChartNoteList::IsChartOpened()
-{
-  return cur_edit_idx >= 0;
-}
-
-void ChartNoteList::UpdateTempoData()
-{
-  InvalidateTempoData();
-}
-
-int ChartNoteList::GetChartIndexByName(const std::string& filename)
-{
-  // not supported.
-  return -1;
-}
-
 
 } /* namespace rparser */

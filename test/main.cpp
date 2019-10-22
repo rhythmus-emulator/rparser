@@ -126,43 +126,55 @@ TEST(RPARSER, DIRECTORY_MANAGER)
   DirectoryManager::CloseDirectory(BASE_DIR + "bms_sample_angelico.zip");
 }
 
-TEST(RPARSER, TEMPODATA)
+TEST(RPARSER, TIMINGDATA)
 {
   Chart c;
-  TempoData &td = c.GetTempoData();
+  auto &td = c.GetTimingData();
+  auto &tsd = c.GetTimingSegmentData();
+  auto &md = c.GetMetaData();
 
-  // default value check
-  td.SetBPMChange(120.0);
-  EXPECT_EQ(120, td.GetMinBpm());
-  EXPECT_EQ(120, td.GetMaxBpm());
-  EXPECT_FALSE(td.HasBpmChange());
-  EXPECT_FALSE(td.HasStop());
-  EXPECT_FALSE(td.HasWarp());
+  /* add timing data manually */
+  md.bpm = 120.0;
+  {
+    TimingObject *t;
+    t = new TimingObject();
+    t->SetBeatPos(0.0);
+    t->SetBpm(180.0);
+    td.AddObject(t);
 
-  // add some time signature (default)
-  td.SetBPMChange(120.0);
-  EXPECT_EQ(60'000.0, td.GetTimeFromBeat(120.0));
-  EXPECT_EQ(120.0, td.GetBeatFromTime(60'000.0));
-  td.clear();
+    t = new TimingObject();
+    t->SetBeatPos(40.0);
+    t->SetBpm(90.0);
+    td.AddObject(t);
 
-  // add some time signature
-  td.SetMeasureLengthChange(48.0, 2.0);   // Measure length must be set first
-  td.SetBPMChange(180.0);
-  td.SeekByBeat(40.0);
-  td.SetBPMChange(90.0);
-  td.SeekByBeat(48.0);
-  td.SetSTOP(2000.0);
-  td.SetBPMChange(180.0);
-  // SeekByTime and add STOP (with last segment)
-  // -- Excluding these line may fail test below. do it for advanced test.
-  td.SeekByTime(50'000.0);
-  td.SetSTOP(2000.0);
-  EXPECT_EQ(90.0, td.GetMinBpm());
-  EXPECT_EQ(180.0, td.GetMaxBpm());
+    t = new TimingObject();
+    t->SetBeatPos(48.0);
+    t->SetStop(2000.0);
+    td.AddObject(t);
 
-  // add warp test
-  td.SeekByBeat(1000.0);
-  td.SetWarp(2.0);
+    t = new TimingObject();
+    t->SetBeatPos(48.0);
+    t->SetBpm(180.0);
+    td.AddObject(t);
+
+    t = new TimingObject();
+    t->SetBeatPos(48.0);
+    t->SetMeasure(2.0);
+    td.AddObject(t);
+
+    t = new TimingObject();
+    t->SetBeatPos(54.0);
+    t->SetStop(2000.0);
+    td.AddObject(t);
+
+    t = new TimingObject();
+    t->SetBeatPos(1000.0);
+    t->SetWarp(2.0);
+    td.AddObject(t);
+  }
+
+  /* invalidation */
+  c.GetTimingSegmentData().Invalidate(c.GetMetaData());
 
   // test time
 #if 0
@@ -178,42 +190,35 @@ TEST(RPARSER, TEMPODATA)
   std::cout << "60sec beat: " << td.GetBeatFromTime(60'000.0) << std::endl;
   std::cout << "120sec beat: " << td.GetBeatFromTime(120'000.0) << std::endl;
 #endif
-  EXPECT_NEAR(2'000.0, td.GetTimeFromBeat(48.0) - td.GetTimeFromBeat(47.99), 10.0);
-  EXPECT_NEAR(0.0, td.GetBeatFromTime(20'000.0) - td.GetBeatFromTime(19'000.0), 0.01);
-  EXPECT_NEAR(0.0, td.GetBeatFromTime(52'000.0) - td.GetBeatFromTime(50'000.0), 0.01);
-  EXPECT_NEAR(180.0, td.GetBeatFromTime(110'000.0 /* 60+2 sec */) - td.GetBeatFromTime(48'000.0), 0.01);
-  EXPECT_NEAR(td.GetBeatFromRow(13 + 2.0/4), 48.0+3.0, 0.01);
 
-  const double warp_time = td.GetTimeFromBeat(1000.0);
-  EXPECT_NEAR(2.0, td.GetBeatFromTime(warp_time + 0.01) - td.GetBeatFromTime(warp_time), 0.01);
+  /* check */
+  /*
+  EXPECT_EQ(120, tsd.GetMinBpm());
+  EXPECT_EQ(120, tsd.GetMaxBpm());
+  */
+  EXPECT_EQ(90.0, tsd.GetMinBpm());
+  EXPECT_EQ(180.0, tsd.GetMaxBpm());
+  EXPECT_FALSE(tsd.HasBpmChange());
+  EXPECT_FALSE(tsd.HasStop());
+  EXPECT_FALSE(tsd.HasWarp());
 
-  td.clear();
+  EXPECT_EQ(60'000.0, tsd.GetTimeFromBeat(120.0));
+  EXPECT_EQ(120.0, tsd.GetBeatFromTime(60'000.0));
 
-  // now use Invalidate method
-  auto &n = td.GetTempoNoteData();
-  MetaData md;
-  TempoNote tn;
+  EXPECT_NEAR(2'000.0, tsd.GetTimeFromBeat(48.0) - tsd.GetTimeFromBeat(47.99), 10.0);
+  EXPECT_NEAR(0.0, tsd.GetBeatFromTime(20'000.0) - tsd.GetBeatFromTime(19'000.0), 0.01);
+  EXPECT_NEAR(0.0, tsd.GetBeatFromTime(52'000.0) - tsd.GetBeatFromTime(50'000.0), 0.01);
+  EXPECT_NEAR(180.0, tsd.GetBeatFromTime(110'000.0 /* 60+2 sec */) - tsd.GetBeatFromTime(48'000.0), 0.01);
+  EXPECT_NEAR(tsd.GetBarFromBeat(13 + 2.0 / 4), 48.0 + 3.0, 0.01);
 
-  tn.SetBeatPos(0);
-  tn.SetBpm(180);
-  n.AddNote(tn);
-  tn.SetBeatPos(40);
-  tn.SetBpm(90);
-  n.AddNote(tn);
-  tn.SetBeatPos(48);
-  tn.SetStop(2000);
-  n.AddNote(tn);
-  tn.SetBpm(180);
-  n.AddNote(tn);
-  tn.SetMeasure(2.0);
-  n.AddNote(tn);
+  const double warp_time = tsd.GetTimeFromBeat(1000.0);
+  EXPECT_NEAR(2.0, tsd.GetBeatFromTime(warp_time + 0.01) - tsd.GetBeatFromTime(warp_time), 0.01);
 
-  td.Invalidate(md);
-
-  // do same test
-  EXPECT_NEAR(2'000.0, td.GetTimeFromBeat(48.0) - td.GetTimeFromBeat(47.99), 10.0);
-  EXPECT_NEAR(0.0, td.GetBeatFromTime(20'000.0) - td.GetBeatFromTime(19'000.0), 0.01);
-  EXPECT_NEAR(td.GetBeatFromRow(13 + 2.0/4), 48.0 + 3.0, 0.01);
+  EXPECT_NEAR(2'000.0, tsd.GetTimeFromBeat(48.0) - tsd.GetTimeFromBeat(47.99), 10.0);
+  EXPECT_NEAR(0.0, tsd.GetBeatFromTime(20'000.0) - tsd.GetBeatFromTime(19'000.0), 0.01);
+  EXPECT_NEAR(0.0, tsd.GetBeatFromTime(52'000.0) - tsd.GetBeatFromTime(50'000.0), 0.01);
+  EXPECT_NEAR(180.0, tsd.GetBeatFromTime(110'000.0 /* 60+2 sec */) - tsd.GetBeatFromTime(48'000.0), 0.01);
+  EXPECT_NEAR(tsd.GetBarFromBeat(13 + 2.0/4), 48.0+3.0, 0.01);
 }
 
 TEST(RPARSER, CHART)
@@ -225,86 +230,106 @@ TEST(RPARSER, CHART)
   Chart c;
   auto &nd = c.GetNoteData();
   auto &md = c.GetMetaData();
-  SoundNote n;
 
-  n.SetBeatPos(0.0);
-  n.SetAsTapNote(0, 0);
-  nd.AddNote(n);
-  n.SetBeatPos(0.5);
-  n.SetAsTapNote(0, 1);
-  nd.AddNote(n);
-  n.SetBeatPos(1.0);
-  n.SetAsTapNote(0, 2);
-  nd.AddNote(n);
-  n.SetBeatPos(1.5);
-  n.SetAsTapNote(0, 3);
-  nd.AddNote(n);
-  n.SetBeatPos(2.0);
-  n.SetAsTapNote(0, 4);
-  nd.AddNote(n);
+  {
+    Note *n;
+    n = new Note();
+    n->SetBeatPos(0.0);
+    n->set_track(0);
+    nd.AddObject(n);
+
+    n = new Note();
+    n->SetBeatPos(0.5);
+    n->set_track(1);
+    nd.AddObject(n);
+
+    n = new Note();
+    n->SetBeatPos(1.0);
+    n->set_track(2);
+    nd.AddObject(n);
+
+    n = new Note();
+    n->SetBeatPos(1.5);
+    n->set_track(3);
+    nd.AddObject(n);
+
+    n = new Note();
+    n->SetBeatPos(2.0);
+    n->set_track(4);
+    nd.AddObject(n);
+  }
 
   md.bpm = 90.0;
   md.title = "ABCD";
   md.subtitle = "EFG";
   md.artist = "TEST";
 
-  c.InvalidateTempoData();
-  c.InvalidateAllNotePos();
+  c.Invalidate();
 
-  EXPECT_EQ(2, nd.back().GetBeatPos());
-  EXPECT_NEAR(1333.33, nd.back().GetTimePos(), 0.01);
+  EXPECT_EQ(2, nd.back()->GetBeatPos());
+  EXPECT_NEAR(1333.33, nd.back()->GetTimePos(), 0.01);
 }
 
 TEST(RPARSER, LONGNOTE)
 {
   Chart c;
-  //EXPECT_FALSE(c.GetNoteData().HasLongnote());
+  Note *n;
+  auto &nd = c.GetNoteData();
+  EXPECT_FALSE(c.HasLongnote());
 
   // long note object count
-  SoundNote note;
-  note.SetBeatPos(0);
-  note.SetAsTapNote(0, 2);
-  note.SetLongnoteLength(1);
-  
-  c.GetNoteData().AddNote(note);
-  //EXPECT_TRUE(c.GetNoteData().HasLongnote());
+  n = new Note();
+  n->SetBeatPos(.0);
+  n->set_track(2);
+  n->NewChain()->SetBeatPos(1.0);
+  nd.AddObject(n);
+  EXPECT_TRUE(c.HasLongnote());
 
-  // long note song length test
+  // TODO: long note song length test
   //c.GetSongLength();
+
+  // long note duplication test
+  n = new Note();
+  n->SetBeatPos(.5);
+  n->set_track(2);
+  nd.AddObject(n);
+  EXPECT_TRUE(nd.size() == 1);
+  EXPECT_FALSE(c.HasLongnote());
 }
 
 TEST(RPARSER, CHARTLIST)
 {
-  ChartList clist;
+  Song s;
   Chart *c = nullptr;
+  Note *n = nullptr;
 
-  clist.AddNewChart();
-  clist.AddNewChart();
-  clist.AddNewChart();
+  c = s.NewChart();
+  c->GetMetaData().bpm = 120;
+  n = new Note();
+  n->set_track(0);
+  c->GetNoteData().AddObject(n);
+  c->Invalidate();
 
-  SoundNote n;
-  n.SetBeatPos(1.0);
+  c = s.NewChart();
+  c->GetMetaData().bpm = 121;
+  n = new Note();
+  n->set_track(1);
+  c->GetNoteData().AddObject(n);
+  c->Invalidate();
 
-  c = clist.GetChart(0);
-  c->GetTempoData().SetBPMChange(120);
-  n.SetAsTapNote(0, 0);
-  c->GetNoteData().AddNote(n);
+  c = s.NewChart();
+  c->GetMetaData().bpm = 122;
+  n = new Note();
+  n->set_track(2);
+  c->GetNoteData().AddObject(n);
+  c->Invalidate();
 
-  c = clist.GetChart(1);
-  c->GetTempoData().SetBPMChange(121);
-  n.SetAsTapNote(0, 1);
-  c->GetNoteData().AddNote(n);
-
-  c = clist.GetChart(2);
-  c->GetTempoData().SetBPMChange(122);
-  n.SetAsTapNote(0, 2);
-  c->GetNoteData().AddNote(n);
-
-  c = clist.GetChart(1);
-  EXPECT_EQ(c->GetNoteData().back().GetLane(), 1);
-  EXPECT_EQ(c->GetTempoData().GetMinBpm(), 121);
+  c = s.GetChart(1);
+  EXPECT_EQ(c->GetNoteData().back()->get_track(), 1);
+  EXPECT_EQ(c->GetTimingSegmentData().GetMinBpm(), 121);
 }
 
+#if 0
 TEST(RPARSER, CHARTNOTELIST)
 {
   ChartNoteList clist;
@@ -340,6 +365,7 @@ TEST(RPARSER, CHARTNOTELIST)
   EXPECT_EQ(c->GetTempoData().GetMinBpm(), 122);
   clist.CloseChartData();
 }
+#endif
 
 TEST(RPARSER, VOSFILE_V2)
 {
@@ -353,13 +379,8 @@ TEST(RPARSER, VOSFILE_V2)
     ASSERT_TRUE(song.Open(BASE_DIR + songpath));
     Chart *c = song.GetChart(0);
     auto &md = c->GetMetaData();
-    auto &nd = c->GetNoteData();
-    auto &td = c->GetTempoData();
-    md.SetMetaFromAttribute();
-    c->InvalidateTempoData();
-    c->InvalidateAllNotePos();
-    std::cout << "Total time of song " << md.title << " : " << c->GetSongLastScorableObjectTime() << std::endl;
-    song.CloseChart();
+    c->Invalidate();
+    std::cout << "Total time of song " << md.title << " : " << c->GetSongLastObjectTime() << std::endl;
     song.Close();
   }
 }
@@ -377,14 +398,8 @@ TEST(RPARSER, VOSFILE_V3)
     ASSERT_TRUE(song.Open(BASE_DIR + songpath));
     Chart *c = song.GetChart(0);
     auto &md = c->GetMetaData();
-    auto &nd = c->GetNoteData();
-    auto &td = c->GetTempoData();
-    md.SetMetaFromAttribute();
-    c->InvalidateTempoData();
-    c->InvalidateAllNotePos();
-
-    std::cout << "Total time of song " << md.title << " : " << c->GetSongLastScorableObjectTime() << std::endl;
-    song.CloseChart();
+    c->Invalidate();
+    std::cout << "Total time of song " << md.title << " : " << c->GetSongLastObjectTime() << std::endl;
     song.Close();
   }
 }
@@ -397,24 +412,19 @@ TEST(RPARSER, BMSARCHIVE)
   Chart *c = song.GetChart(0);
   ASSERT_TRUE(c);
   auto &md = c->GetMetaData();
-  auto &nd = c->GetNoteData();
-  auto &td = c->GetTempoData();
+  c->Invalidate();
 
   // metadata, note count (including longnote) check
-  md.SetMetaFromAttribute();
   ASSERT_STREQ("Angelico [Max]", md.title.c_str());
   EXPECT_EQ(1088, c->GetScoreableNoteCount());
   EXPECT_TRUE(c->HasLongnote());
 
   // time check
-  c->InvalidateTempoData();
-  c->InvalidateAllNotePos();
-  std::cout << "Total time of song " << md.title.c_str() << " is: " << c->GetSongLastScorableObjectTime() << std::endl;
-  EXPECT_EQ(140, c->GetTempoData().GetMaxBpm());
-  EXPECT_EQ(70, c->GetTempoData().GetMinBpm());
-  EXPECT_NEAR(95'000, c->GetSongLastScorableObjectTime(), 1'500);  // nearly 1m'35s
+  std::cout << "Total time of song " << md.title.c_str() << " is: " << c->GetSongLastObjectTime() << std::endl;
+  EXPECT_EQ(140, c->GetTimingSegmentData().GetMaxBpm());
+  EXPECT_EQ(70, c->GetTimingSegmentData().GetMinBpm());
+  EXPECT_NEAR(95'000, c->GetSongLastObjectTime(), 1'500);  // nearly 1m'35s
 
-  song.CloseChart();
   song.Close();
 }
 
@@ -457,7 +467,6 @@ TEST(RPARSER, BMS_STRESS)
     if (md.title == "Mokugyo AllnightMIX") c_test_mokugyo = c;
     else if (md.title == "L") c_test_l_nanasi = c;
     else if (md.title == "L9999999999999^99999999999") c_test_l99 = c;
-    song.CloseChart();
   }
 
 
@@ -467,27 +476,22 @@ TEST(RPARSER, BMS_STRESS)
   {
     auto &md = c->GetMetaData();
     auto &nd = c->GetNoteData();
-    auto &td = c->GetTempoData();
-
-    c->InvalidateTempoData();
-    c->InvalidateAllNotePos();
-    std::cout << "Total time of song " << md.title.c_str() << " is: " << c->GetSongLastScorableObjectTime() << std::endl;
+    c->Invalidate();
+    std::cout << "Total time of song " << md.title.c_str() << " is: " << c->GetSongLastObjectTime() << std::endl;
     EXPECT_STREQ("Mokugyo AllnightMIX", md.title.c_str());
     // 30566 sec = 510m = 8h 30m
-    EXPECT_NEAR(3.05559e+07, c->GetSongLastScorableObjectTime(), 10'000);
+    EXPECT_NEAR(3.05559e+07, c->GetSongLastObjectTime(), 10'000);
   }
-  song.CloseChart();
 
 
-  /** TEST for l-for-nanasi (ConditionalStmt) */
+  /** TEST for l-for-nanasi (ConditionalStmt) TODO */
   c = c_test_l_nanasi;
   ASSERT_TRUE(c);
   {
     auto &md = c->GetMetaData();
     auto &nd = c->GetNoteData();
-    auto &td = c->GetTempoData();
+    c->Invalidate();
   }
-  song.CloseChart();
 
 
   /** TEST for L99^9 */
@@ -496,32 +500,29 @@ TEST(RPARSER, BMS_STRESS)
   {
     auto &md = c->GetMetaData();
     auto &nd = c->GetNoteData();
-    auto &td = c->GetTempoData();
-
-    md.SetMetaFromAttribute();
-    c->InvalidateTempoData();
-    c->InvalidateAllNotePos();
+    c->Invalidate();
 
     // is timingobj is in order
     double m = -1;
     size_t idx = 0;
-    for (const auto &n : td.GetTempoNoteData())
+    auto iter = c->GetTimingData().GetAllTrackIterator();
+    while (!iter.is_end())
     {
-      idx++;
-      if (n.postype() == NotePosTypes::Time) continue;
-      if (n.subtype() == NoteTempoTypes::kMeasure) continue;
-      if (m > n.measure)
+      ++idx;
+      auto &n = *iter;
+      if (m > n.beat)
       {
         std::cout << "error occured on idx " << idx << std::endl;
       }
-      else m = n.measure;
+      else m = n.beat;
+      ++iter;
     }
 
-    std::cout << "Total time of song " << md.title.c_str() << " is: " << c->GetSongLastScorableObjectTime() << std::endl;
+    std::cout << "Total time of song " << md.title.c_str() << " is: " << c->GetSongLastObjectTime() << std::endl;
     EXPECT_EQ(32678, c->GetScoreableNoteCount());
     /** Comment: Temponote idx 801 is bpm 1 obj */
     /** Comment: Beat of last note is nearly 179.5 ~= 180 */
-    EXPECT_NEAR(78'000, c->GetSongLastScorableObjectTime(), 1'000);    // about 1m'18s
+    EXPECT_NEAR(78'000, c->GetSongLastObjectTime(), 1'000);    // about 1m'18s
   }
 
   song.Close();

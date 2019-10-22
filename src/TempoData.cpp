@@ -22,14 +22,30 @@ inline double GetBarFromTimeInTempoSegment(const TimingSegment& tobj, double tim
   return tobj.barpos_ + tobj.warpbeat_ + time_delta * beat_per_msec;
 }
 
-inline double GetBarFromBeatInBarSegment(const BarObject& b, double beat)
+inline double GetBarFromBeatInBarSegment(const BarObject& b, double beat, bool recover_length)
 {
-  return b.barpos_ + (beat - (double)b.beat_) * b.barlength_;
+  double diff = beat - (double)b.beat_;
+  if (recover_length && diff > 1.0)
+    return b.barpos_ + (diff - 1.0) * kDefaultMeasureLength + b.barlength_;
+  else
+    return b.barpos_ + diff * b.barlength_;
 }
 
-inline uint32_t GetMeasureFromBarInBarSegment(const BarObject& b, double bar)
+inline double GetBeatFromBarInBarSegment(const BarObject& b, double bar, bool recover_length)
 {
-  return b.beat_ + static_cast<uint32_t>((bar - b.barpos_) / b.barlength_ + 0.000001 /* for calculation error */);
+  double diff = bar - b.barpos_;
+  if (recover_length && diff > b.barlength_)
+    return b.beat_ + 1.0 + (diff - b.barlength_) / kDefaultMeasureLength;
+  else
+    return b.beat_ + diff / b.barlength_;
+}
+
+inline uint32_t GetMeasureFromBarInBarSegment(const BarObject& b, double bar, bool recover_length)
+{
+  return static_cast<uint32_t>(
+    GetBeatFromBarInBarSegment(b, bar, recover_length)
+    + 0.000001 /* for calculation error */
+    );
 }
 
 TimingSegment::TimingSegment()
@@ -236,7 +252,7 @@ double TimingSegmentData::GetBarFromBeat(double beat) const
     }
   }
 
-  return GetBarFromBeatInBarSegment(barobjs_[idx], beat);
+  return GetBarFromBeatInBarSegment(barobjs_[idx], beat, do_recover_measure_length_);
 }
 
 double TimingSegmentData::GetBeatFromBar(double bar) const
@@ -262,8 +278,7 @@ double TimingSegmentData::GetBeatFromBar(double bar) const
       l = m + 1;
     }
   }
-  return (double)barobjs_[idx].beat_
-    + (bar - barobjs_[idx].barpos_) / barobjs_[idx].barlength_;
+  return GetBeatFromBarInBarSegment(barobjs_[idx], bar, do_recover_measure_length_);
 }
 
 std::vector<double> TimingSegmentData::GetTimeFromBeatArr(const std::vector<double>& sorted_beat) const
@@ -273,7 +288,7 @@ std::vector<double> TimingSegmentData::GetTimeFromBeatArr(const std::vector<doub
   for (double beat : sorted_beat)
   {
     if (idx + 1 < barobjs_.size() && beat > barobjs_[idx + 1].beat_) idx++;
-    r_bar.push_back(barobjs_[idx].barpos_ + (beat - barobjs_[idx].beat_) * barobjs_[idx].barlength_);
+    r_bar.push_back(GetBarFromBeatInBarSegment(barobjs_[idx], beat, do_recover_measure_length_));
   }
 
   idx = 0;
@@ -301,7 +316,7 @@ std::vector<double> TimingSegmentData::GetBeatFromTimeArr(const std::vector<doub
   for (double bar : r_bar)
   {
     if (idx + 1 < barobjs_.size() && bar > barobjs_[idx + 1].barpos_) idx++;
-    r_beat.push_back(barobjs_[idx].beat_ + (bar - barobjs_[idx].barpos_) / barobjs_[idx].barlength_);
+    r_beat.push_back(GetBeatFromBarInBarSegment(barobjs_[idx], bar, do_recover_measure_length_));
   }
   return r_beat;
 }
@@ -315,7 +330,7 @@ std::vector<double> TimingSegmentData::GetBarFromBeatArr(const std::vector<doubl
     // go to next segment if available.
     // -- measure pos might be same, so move as much as possible.
     while (idx+1 < barobjs_.size() && beat > (double)barobjs_[idx+1].beat_) idx++;
-    r_beat.push_back(GetBarFromBeatInBarSegment(barobjs_[idx], beat));
+    r_beat.push_back(GetBarFromBeatInBarSegment(barobjs_[idx], beat, do_recover_measure_length_));
   }
   return r_beat;
 }
@@ -458,7 +473,7 @@ double TimingSegmentData::GetBarFromTimeInLastSegment(double time_delta_msec) co
 
 double TimingSegmentData::GetBarFromBeatInLastSegment(double beat) const
 {
-  return GetBarFromBeatInBarSegment(barobjs_.back(), beat);
+  return GetBarFromBeatInBarSegment(barobjs_.back(), beat, do_recover_measure_length_);
 }
 
 double TimingSegmentData::GetBeatFromBarInLastSegment(double bar) const
@@ -588,7 +603,9 @@ double TimingSegmentData::GetBarLength(uint32_t measure) const
   BarObject b;
   b.beat_ = measure;
   auto it = std::lower_bound(barobjs_.rbegin(), barobjs_.rend(), b);
-  return it->barlength_;
+  return (do_recover_measure_length_ && it->beat_ != measure)
+    ? kDefaultMeasureLength
+    : it->barlength_;
 }
 
 }

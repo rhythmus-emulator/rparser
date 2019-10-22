@@ -32,8 +32,8 @@ void ChartLoaderBMS::LineContext::clear()
   terminator_type = 0;
 }
 
-ChartLoaderBMS::ChartLoaderBMS()
-  : chart_context_(0), process_conditional_statement_(true)
+ChartLoaderBMS::ChartLoaderBMS(Song *song)
+  : ChartLoader(song), chart_context_(0), process_conditional_statement_(true)
 {
 
 }
@@ -47,8 +47,12 @@ bool TestName( const char *fn )
          endsWith(fn_lower, ".pms");
 }
 
-bool ChartLoaderBMS::LoadFromDirectory(ChartListBase& chartlist, Directory& dir)
+bool ChartLoaderBMS::LoadFromDirectory()
 {
+  if (!song_->GetDirectory())
+    return false;
+  auto &dir = *song_->GetDirectory();
+
   if (dir.count() <= 0)
     return false;
 
@@ -60,19 +64,17 @@ bool ChartLoaderBMS::LoadFromDirectory(ChartListBase& chartlist, Directory& dir)
     if (!TestName(filename.c_str())) continue;
     if (!dir.Read(f->filename)) continue;
 
-    Chart *c = chartlist.GetChartData(chartlist.AddNewChart());
+    Chart *c = song_->NewChart();
     if (!c) return false;
 
     bool r = Load(*c, f->p, f->len);
     c->SetFilename(filename);
     c->SetHash(rutil::md5_str(f->p, f->len));
 
-    chartlist.CloseChartData();
-
     if (!r)
     {
       std::cerr << "Failed to read chart file (may be invalid) : " << filename << std::endl;
-      chartlist.DeleteChart(chartlist.size() - 1);
+      song_->DeleteChart(song_->GetChartCount() - 1);
     }
   }
 

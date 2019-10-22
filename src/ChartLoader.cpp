@@ -7,19 +7,19 @@ bool ChartLoader::bOpenBmsFileWithoutProcessing = false;
 
 bool ChartLoader::Test(const void* p, int iLen) { return false; }
 
-ChartLoader* ChartLoader::Create(SONGTYPE songtype)
+ChartLoader* ChartLoader::Create(Song *song)
 {
-  switch (songtype)
+  switch (song->GetSongType())
   {
   case SONGTYPE::BMS:
   {
-    ChartLoaderBMS * cl = new ChartLoaderBMS();
+    ChartLoaderBMS * cl = new ChartLoaderBMS(song);
     // also consider for edit mode
     cl->ProcessConditionalStatement(!bOpenBmsFileWithoutProcessing);
     return cl;
   }
   case SONGTYPE::VOS:
-    return new ChartLoaderVOS();
+    return new ChartLoaderVOS(song);
   default:
     ASSERT(0);
   }
