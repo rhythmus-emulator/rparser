@@ -25,8 +25,8 @@ inline double GetBarFromTimeInTempoSegment(const TimingSegment& tobj, double tim
 inline double GetBarFromBeatInBarSegment(const BarObject& b, double beat, bool recover_length)
 {
   double diff = beat - (double)b.beat_;
-  if (recover_length && diff > 1.0)
-    return b.barpos_ + (diff - 1.0) * kDefaultMeasureLength + b.barlength_;
+  if (recover_length && diff > 4.0)
+    return b.barpos_ + (diff - 4.0) * kDefaultMeasureLength + b.barlength_;
   else
     return b.barpos_ + diff * b.barlength_;
 }
@@ -35,7 +35,7 @@ inline double GetBeatFromBarInBarSegment(const BarObject& b, double bar, bool re
 {
   double diff = bar - b.barpos_;
   if (recover_length && diff > b.barlength_)
-    return b.beat_ + 1.0 + (diff - b.barlength_) / kDefaultMeasureLength;
+    return b.beat_ + 4.0 + (diff - b.barlength_) / kDefaultMeasureLength;
   else
     return b.beat_ + diff / b.barlength_;
 }

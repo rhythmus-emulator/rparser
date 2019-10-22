@@ -17,9 +17,9 @@ struct TimingSegment
   TimingSegment();
   TimingSegment(const TimingSegment&) = default;
   
-  double beat_;
+  double beat_;           // edit object position, regarding all tempo as 4/4 (not used, just for debugging)
   double time_;           // in second
-  double barpos_;
+  double barpos_;         // real object position - used for time calculation
   double bpm_;
   double stoptime_;
   double delaytime_;

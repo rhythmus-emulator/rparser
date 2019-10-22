@@ -4,6 +4,61 @@
 namespace py = pybind11;
 using namespace rparser;
 
+template <typename A, typename T>
+py::class_<T> pyclass_track(A &m, const char* name)
+{
+  return py::class_<T>(m, name)
+    .def("clear", &T::clear)
+    .def("toString", &T::toString)
+    .def("size", &T::size)
+    .def("front", &T::front)
+    .def("end", &T::end)
+    .def("set_track_count", &T::set_track_count)
+    .def("IsEmpty", &T::is_empty)
+    .def("AddObject", &T::AddObject)
+    .def("AddObjectDuplicated", &T::AddObjectDuplicated)
+    .def("ClearAll", &T::ClearAll)
+    .def("ClearRange", &T::ClearRange)
+    .def("MoveAll", &T::MoveAll)
+    .def("MoveRange", &T::MoveRange)
+    .def("RemoveObject", &T::RemoveObject)
+    .def("RemoveObjectByBeat", &T::RemoveObjectByBeat)
+    .def("RemoveObjectByPos", &T::RemoveObjectByPos)
+    .def("swap", &T::swap)
+    .def("InsertBlank", &T::InsertBlank)
+    .def("IsHoldNoteAt", &T::IsHoldNoteAt)
+    .def("IsRangeEmpty", &T::IsRangeEmpty);
+}
+
+template <typename A, typename T>
+py::class_<T> pyclass_datatype(A &m, const char* name)
+{
+  return pyclass_track<A, T>(m, name)
+    .def("ClearTrack", &T::ClearTrack)
+    .def("UpdateTracks", &T::UpdateTracks)
+    .def("GetAllTrackIterator", [](T& nd) { return nd.GetAllTrackIterator(); })
+    .def("GetRowIterator", [](T& nd) { return nd.GetRowIterator(); })
+    .def("get_track", [](const T& d, size_t i) { return d.get_track(i); })
+    .def("__getitem__", [](const T& d, size_t i) { return d.get_track(i); });
+}
+
+template <typename A, typename T>
+py::class_<T> pyclass_objtype(A &m, const char* name)
+{
+  return py::class_<T>(m, name)
+    .def(py::init<>())
+    .def_readwrite("time", &T::time_msec)
+    .def_readwrite("beat", &T::beat)
+    .def_readwrite("measure", &T::measure)
+    .def("toString", &T::toString)
+    .def("clone", &T::clone)
+    .def("SetRowPos", (void (T::*)(uint32_t, RowPos, RowPos)) &T::SetRowPos)
+    .def("SetRowPos", (void (T::*)(double)) &T::SetRowPos)
+    .def("SetBeatPos", &T::SetBeatPos)
+    .def("get_track", &T::get_track)
+    .def("set_track", &T::set_track);
+}
+
 PYBIND11_MODULE(rparser_py, m)
 {
   py::class_<Song>(m, "Song")
@@ -13,22 +68,24 @@ PYBIND11_MODULE(rparser_py, m)
     .def("Close", &Song::Close)
     .def("GetChartCount", &Song::GetChartCount)
     .def("GetPath", &Song::GetPath)
-    .def("GetChart", (Chart* (Song::*)(int)) &Song::GetChart)
+    .def("GetChart", (Chart* (Song::*)(size_t)) &Song::GetChart)
     .def("GetChart", (Chart* (Song::*)(const std::string&)) &Song::GetChart)
-    .def("CloseChart", &Song::CloseChart)
     .def("NewChart", &Song::NewChart)
+    .def("DeleteChart", &Song::DeleteChart)
     ;
 
   py::class_<Chart>(m, "Chart")
     .def(py::init<>())
+    .def("GetBgaData", (BgaData& (Chart::*)()) &Chart::GetBgaData)
+    .def("GetBgmData", (BgmData& (Chart::*)()) &Chart::GetBgmData)
     .def("GetMetaData", (MetaData& (Chart::*)()) &Chart::GetMetaData)
-    .def("GetNoteData", (NoteData<SoundNote>& (Chart::*)()) &Chart::GetNoteData)
-    .def("GetTempoData", (TempoData& (Chart::*)()) &Chart::GetTempoData)
-    .def("GetEventNoteData", (NoteData<EventNote>& (Chart::*)()) &Chart::GetEventNoteData)
+    .def("GetNoteData", (NoteData& (Chart::*)()) &Chart::GetNoteData)
+    .def("GetTimingData", (TimingData& (Chart::*)()) &Chart::GetTimingData)
+    .def("GetTimingSegmentData", (TimingSegmentData& (Chart::*)()) &Chart::GetTimingSegmentData)
+    .def("GetEffectData", (EffectData& (Chart::*)()) &Chart::GetEffectData)
 
     .def("GetNoteCount", &Chart::GetScoreableNoteCount)
     .def("GetLastObjectTime", &Chart::GetSongLastObjectTime)
-    .def("GetLastScoreableObjectTime", &Chart::GetSongLastScorableObjectTime)
     .def("HasLongNote", &Chart::HasLongnote)
     .def("GetPlayLaneCount", &Chart::GetPlayLaneCount)
     .def("IsEmpty", &Chart::IsEmpty)
@@ -73,86 +130,74 @@ PYBIND11_MODULE(rparser_py, m)
     .def("toString", &MetaData::toString)
     ;
 
-  py::class_<TempoData>(m, "TempoData")
-    .def("GetTimeFromBeat", &TempoData::GetTimeFromBeat)
-    .def("GetBeatFromTime", &TempoData::GetBeatFromTime)
-    .def("GetBeatFromRow", &TempoData::GetBeatFromRow)
-    .def("GetMeasureFromBeat", &TempoData::GetMeasureFromBeat)
-    .def("GetMaxBpm", &TempoData::GetMaxBpm)
-    .def("GetMinBpm", &TempoData::GetMinBpm)
-    .def("HasBpmChange", &TempoData::HasBpmChange)
-    .def("HasStop", &TempoData::HasStop)
-    .def("HasWarp", &TempoData::HasWarp)
-    .def("clear", &TempoData::clear)
-    .def("toString", &TempoData::toString)
+  py::class_<TimingSegmentData>(m, "TimingSegmentData")
+    .def("GetTimeFromBeat", &TimingSegmentData::GetTimeFromBeat)
+    .def("GetBeatFromTime", &TimingSegmentData::GetBeatFromTime)
+    .def("GetBeatFromBar", &TimingSegmentData::GetBeatFromBar)
+    .def("GetBarFromBeat", &TimingSegmentData::GetBarFromBeat)
+    .def("GetMaxBpm", &TimingSegmentData::GetMaxBpm)
+    .def("GetMinBpm", &TimingSegmentData::GetMinBpm)
+    .def("HasBpmChange", &TimingSegmentData::HasBpmChange)
+    .def("HasStop", &TimingSegmentData::HasStop)
+    .def("HasWarp", &TimingSegmentData::HasWarp)
+    .def("clear", &TimingSegmentData::clear)
+    .def("toString", &TimingSegmentData::toString)
     ;
 
-  py::class_< NoteData<SoundNote> >(m, "NoteData")
-    .def("clear", &NoteData<SoundNote>::clear)
-    .def("toString", &NoteData<SoundNote>::toString)
-    .def("size", &NoteData<SoundNote>::size)
-    .def("IsEmpty", &NoteData<SoundNote>::IsEmpty)
-    .def("front", (SoundNote& (NoteData<SoundNote>::*)()) &NoteData<SoundNote>::front)
-    .def("back", (SoundNote& (NoteData<SoundNote>::*)()) &NoteData<SoundNote>::back)
-    .def("get", (SoundNote& (NoteData<SoundNote>::*)(size_t)) &NoteData<SoundNote>::get)
-    .def("__getitem__", [](const NoteData<SoundNote>& d, size_t i) { return d.get(i); })
+  pyclass_datatype<decltype(m), BgaData>(m, "BgaData");
+
+  pyclass_datatype<decltype(m), BgmData>(m, "BgmData");
+
+  pyclass_datatype<decltype(m), NoteData>(m, "NoteData");
+
+  pyclass_datatype<decltype(m), EffectData>(m, "EffectData");
+
+  pyclass_datatype<decltype(m), TimingData>(m, "TimingData");
+
+  pyclass_datatype<decltype(m), TrackData>(m, "TrackData");
+
+  pyclass_track<decltype(m), Track>(m, "Track");
+
+  pyclass_objtype<decltype(m), NotePos>(m, "NotePos");
+
+  pyclass_objtype<decltype(m), Note>(m, "Note")
+    .def("chainsize", &Note::chainsize)
+    .def("IsLongnote", [](Note& n) { return n.chainsize() > 1; })
+    .def("get_player", &Note::get_player)
+    .def("set_player", &Note::set_player)
     ;
 
-  py::class_< NoteData<EventNote> >(m, "EventNoteData")
-    .def("clear", &NoteData<EventNote>::clear)
-    .def("toString", &NoteData<EventNote>::toString)
-    .def("size", &NoteData<EventNote>::size)
-    .def("IsEmpty", &NoteData<EventNote>::IsEmpty)
-    .def("front", (EventNote& (NoteData<EventNote>::*)()) &NoteData<EventNote>::front)
-    .def("back", (EventNote& (NoteData<EventNote>::*)()) &NoteData<EventNote>::back)
-    .def("get", (EventNote& (NoteData<EventNote>::*)(size_t)) &NoteData<EventNote>::get)
-    .def("__getitem__", [](const NoteData<EventNote>& d, size_t i) { return d.get(i); })
-    ;
+  pyclass_objtype<decltype(m), EffectObject>(m, "EffectObject")
+    .def("SetMidiCommand", &EffectObject::SetMidiCommand)
+    .def("SetBmsARGBCommand", &EffectObject::SetBmsARGBCommand)
+    .def("GetBga", &EffectObject::GetBga)
+    .def("GetMidiCommand", &EffectObject::GetMidiCommand);
 
-  py::enum_<NotePosTypes>(m, "NotePosTypes")
-    .value("NullPos", NotePosTypes::NullPos)
-    .value("Time", NotePosTypes::Time)
-    .value("Beat", NotePosTypes::Beat)
-    .value("Bar", NotePosTypes::Bar)
-    ;
+  pyclass_objtype<decltype(m), BgmObject>(m, "BgmObject")
+    .def("set_bgm_type", &BgmObject::set_bgm_type)
+    .def("get_bgm_type", &BgmObject::get_bgm_type)
+    .def("set_column", &BgmObject::set_column)
+    .def("get_column", &BgmObject::get_column);
 
-  py::class_<NotePos>(m, "NotePos")
-    .def(py::init<>())
-    .def_readwrite("type", &NotePos::type)
-    .def_readwrite("time", &NotePos::time_msec)
-    .def_readwrite("beat", &NotePos::beat)
-    .def_readwrite("measure", &NotePos::measure)
-    .def("toString", &NotePos::toString)
+  pyclass_objtype<decltype(m), BgaObject>(m, "BgaObject")
+    .def("layer", &BgaObject::layer)
+    .def("set_layer", &BgaObject::set_layer)
+    .def("channel", &BgaObject::channel)
+    .def("set_channel", &BgaObject::set_channel);
 
-    .def("SetRowPos", (void (NotePos::*)(uint32_t, RowPos, RowPos)) &NotePos::SetRowPos)
-    .def("SetRowPos", (void (NotePos::*)(double)) &NotePos::SetRowPos)
-    .def("SetBeatPos", &NotePos::SetBeatPos)
-    .def("SetTimePos", &NotePos::SetTimePos)
-    ;
+  pyclass_objtype<decltype(m), TimingObject>(m, "TimingObject")
+    .def("SetBpm", &TimingObject::SetBpm)
+    .def("SetBmsBpm", &TimingObject::SetBmsBpm)
+    .def("SetStop", &TimingObject::SetStop)
+    .def("SetBmsStop", &TimingObject::SetBmsStop)
+    .def("SetMeasure", &TimingObject::SetMeasure)
+    .def("SetScroll", &TimingObject::SetScroll)
+    .def("SetTick", &TimingObject::SetTick)
+    .def("SetWarp", &TimingObject::SetWarp)
+    .def("GetFloatValue", &TimingObject::GetFloatValue)
+    .def("GetIntValue", &TimingObject::GetIntValue);
 
-  py::class_<SoundNote>(m, "SoundNote")
-    .def(py::init<>())
-    .def("type", &SoundNote::type)
-    .def_readwrite("time", &SoundNote::time_msec)
-    .def_readwrite("beat", &SoundNote::beat)
-    .def_readwrite("measure", &SoundNote::measure)
-    .def("toString", &SoundNote::toString)
-
-    .def("SetRowPos", (void (SoundNote::*)(uint32_t, RowPos, RowPos)) &SoundNote::SetRowPos)
-    .def("SetRowPos", (void (SoundNote::*)(double)) &SoundNote::SetRowPos)
-    .def("SetBeatPos", &SoundNote::SetBeatPos)
-    .def("SetTimePos", &SoundNote::SetTimePos)
-
-    .def("SetAsBGM", &SoundNote::SetAsBGM)
-    .def("SetAsTapNote", &SoundNote::SetAsTapNote)
-    .def("SetMidiNote", &SoundNote::SetMidiNote)
-    .def("SetLongnoteLength", &SoundNote::SetLongnoteLength)
-
-    .def("IsLongnote", &SoundNote::IsLongnote)
-    .def("IsScoreable", &SoundNote::IsScoreable)
-    .def("GetPlayer", &SoundNote::GetPlayer)
-    .def("GetLane", &SoundNote::GetLane)
-
-    .def_readwrite("value", &SoundNote::value)
-    ;
+  // TODO: add iterator for TrackData
+  // TODO: add ChartUtil functions
+  // TODO: add definition for adding note with smart pointer
 }
