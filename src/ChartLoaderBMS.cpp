@@ -557,7 +557,7 @@ bool ChartLoaderBMS::ParseMeasureLength()
 {
   std::string v(current_line_->value, current_line_->value_len);
   TimingObject *n = new TimingObject();
-  n->SetRowPos(current_line_->measure, 0, 0);
+  n->SetRowPos(current_line_->measure, 1, 0);
   n->SetMeasure(atof(v.c_str()) * kDefaultMeasureLength);
   chart_context_->GetTimingData().AddObject(n);
   return true;

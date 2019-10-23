@@ -104,6 +104,7 @@ bool Chart::HasLongnote() const
     Note &n = static_cast<Note&>(*all_track_iter);
     if (n.chainsize() > 1)
       return true;
+    ++all_track_iter;
   }
   return false;
 }

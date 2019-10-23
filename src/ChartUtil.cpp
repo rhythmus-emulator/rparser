@@ -131,7 +131,8 @@ void ExportNoteToHTML(const Chart &c, HTMLExporter &e)
             "></div>";
         }
       }
-      nd_idx++;
+      ++nd_idx;
+      ++iter_note;
     }
 
     // STEP 2-2. TempoData
@@ -143,7 +144,8 @@ void ExportNoteToHTML(const Chart &c, HTMLExporter &e)
         "' style='top:" << (int)ypos << "%'" << /* style end */
         " data-y=" << (int)ypos << " data-beat=" << n.beat << " data-time=" << n.time_msec << /* data end */
         "></div>";
-      td_idx++;
+      ++td_idx;
+      ++iter_tobj;
     }
 
     // measure end.

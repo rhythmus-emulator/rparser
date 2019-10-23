@@ -593,7 +593,7 @@ double TimingSegmentData::GetBarLength(uint32_t measure) const
 {
   BarObject b;
   b.beat_ = measure;
-  auto it = std::lower_bound(barobjs_.rbegin(), barobjs_.rend(), b);
+  auto it = std::lower_bound(barobjs_.rbegin(), std::prev(barobjs_.rend()), b);
   return (do_recover_measure_length_ && it->beat_ != measure)
     ? kDefaultMeasureLength
     : it->barlength_;
