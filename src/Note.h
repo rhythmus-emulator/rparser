@@ -288,14 +288,13 @@ public:
   bool operator==(const TimingObject &other) const noexcept;
 
 private:
-  int type_;
+  void set_type(int type);
+  int get_type() const;
   union
   {
     float f;
     int32_t i;
   } value;
-  void set_type(int type);
-  int get_type() const;
   virtual std::string getValueAsString() const;
 };
 

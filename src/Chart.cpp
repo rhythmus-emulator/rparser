@@ -10,6 +10,7 @@ namespace rparser
 
 Chart::Chart() : parent_song_(nullptr)
 {
+  memset(&common_data_, 0, sizeof(common_data_));
 }
 
 /*
@@ -26,7 +27,7 @@ Chart::Chart(const Chart &nd)
   metadata_ = nd.metadata_;
   timingsegmentdata_
     = std::move(TimingSegmentData(nd.timingsegmentdata_));
-  memset(&common_data_, 0, sizeof(common_data_));
+  memcpy(&common_data_, &nd.common_data_, sizeof(common_data_));
 }
 
 Chart::~Chart()
@@ -122,6 +123,7 @@ void InvalidateTrackDataTiming(T& td, const TimingSegmentData& tsd)
   while (!iter.is_end())
   {
     vNpos.push_back(&(*iter));
+    ++iter;
   }
   for (auto *npos : vNpos)
   {

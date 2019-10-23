@@ -85,10 +85,13 @@ Chart* Song::NewChart()
   switch (songtype_)
   {
   case SONGTYPE::BMS:
+    c->GetNoteData().set_track_count(8);
+    break;
   case SONGTYPE::VOS:
-    /* nothing to do; each chart has its own data. */
+    c->GetNoteData().set_track_count(7);
     break;
   case SONGTYPE::SM:
+    c->GetNoteData().set_track_count(4);
     c->common_data_.bgadata_ = &chart_shared_.bgadata_;
     c->common_data_.bgmdata_ = &chart_shared_.bgmdata_;
     c->common_data_.timingsegmentdata_ = &chart_shared_.timingsegmentdata_;

@@ -230,6 +230,7 @@ TEST(RPARSER, CHART)
   Chart c;
   auto &nd = c.GetNoteData();
   auto &md = c.GetMetaData();
+  nd.set_track_count(7);
 
   {
     Note *n;
@@ -266,6 +267,7 @@ TEST(RPARSER, CHART)
 
   c.Invalidate();
 
+  EXPECT_EQ(5, nd.size());
   EXPECT_EQ(2, nd.back()->GetBeatPos());
   EXPECT_NEAR(1333.33, nd.back()->GetTimePos(), 0.01);
 }
@@ -275,6 +277,7 @@ TEST(RPARSER, LONGNOTE)
   Chart c;
   Note *n;
   auto &nd = c.GetNoteData();
+  nd.set_track_count(7);
   EXPECT_FALSE(c.HasLongnote());
 
   // long note object count
@@ -300,6 +303,7 @@ TEST(RPARSER, LONGNOTE)
 TEST(RPARSER, CHARTLIST)
 {
   Song s;
+  s.SetSongType(SONGTYPE::BMS);
   Chart *c = nullptr;
   Note *n = nullptr;
 

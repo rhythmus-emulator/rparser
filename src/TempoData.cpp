@@ -8,7 +8,7 @@ namespace rparser
 
 inline double GetTimeFromBarInTempoSegment(const TimingSegment& tobj, double barpos)
 {
-  const double msec_per_beat = 60.0 * 1000 / tobj.bpm_ / tobj.scrollspeed_;
+  const double msec_per_beat = 60.0 * 1000 / tobj.bpm_ / tobj.scrollspeed_ / 4;
   const double beat_delta = barpos - tobj.barpos_ - tobj.warpbeat_ /* XXX: warpbeat is not affected by barlength? */;
   if (beat_delta < 0) return tobj.time_ + tobj.stoptime_;
   else return tobj.time_ + tobj.stoptime_ + tobj.delaytime_ + beat_delta * msec_per_beat;
@@ -16,7 +16,7 @@ inline double GetTimeFromBarInTempoSegment(const TimingSegment& tobj, double bar
 
 inline double GetBarFromTimeInTempoSegment(const TimingSegment& tobj, double time_msec)
 {
-  const double beat_per_msec = tobj.bpm_ * tobj.scrollspeed_ / 60 / 1000;
+  const double beat_per_msec = tobj.bpm_ * tobj.scrollspeed_ / 60 / 1000 * 4;
   const double time_delta = time_msec - tobj.time_ - (tobj.stoptime_ + tobj.delaytime_);
   if (time_delta <= 0) return tobj.barpos_;
   return tobj.barpos_ + tobj.warpbeat_ + time_delta * beat_per_msec;
@@ -101,13 +101,6 @@ void TimingSegmentData::Invalidate(const MetaData& m)
   // Set first bpm from metadata
   SetBPMChange(m.bpm);
 
-  // Set measure info first, as measure length effects to time calculation.
-  for (auto *obj : timingdata_.get_track(TimingObjectTypes::kMeasure))
-  {
-    auto &tobj = *static_cast<TimingObject*>(obj);
-    SetMeasureLengthChange(tobj.beat, tobj.GetFloatValue());
-  }
-
   /**
    * COMMENT
    * Bpm channel and Bmsbpm channel object may exist in same place,
@@ -123,7 +116,7 @@ void TimingSegmentData::Invalidate(const MetaData& m)
   while (!timingobjiter.is_end())
   {
     auto &tobj = static_cast<TimingObject&>(*timingobjiter);
-    if (tobj.get_track() == TimingObjectTypes::kMeasure) continue;
+    ++timingobjiter;
 
     // seek for next tempo segment object and update note object beat value.
     SeekByBeat(tobj.beat);
@@ -164,8 +157,6 @@ void TimingSegmentData::Invalidate(const MetaData& m)
       SetWarp(tobj.GetFloatValue());
       break;
     }
-
-    ++timingobjiter;
   }
 }
 

@@ -387,19 +387,19 @@ BgaObject* BgaObject::clone() const
 
 // ------------------------------- TimingObject
 
-TimingObject::TimingObject() : type_(0)
+TimingObject::TimingObject()
 {
   value.i = 0;
 }
 
 void TimingObject::set_type(int type)
 {
-  type_ = type;
+  set_track(type);
 }
 
 int TimingObject::get_type() const
 {
-  return type_;
+  return get_track();
 }
 
 void TimingObject::SetBpm(float bpm)
