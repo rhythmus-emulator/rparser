@@ -329,44 +329,6 @@ TEST(RPARSER, CHARTLIST)
   EXPECT_EQ(c->GetTimingSegmentData().GetMinBpm(), 121);
 }
 
-#if 0
-TEST(RPARSER, CHARTNOTELIST)
-{
-  ChartNoteList clist;
-  Chart *c = nullptr;
-
-  clist.AddNewChart();
-  clist.AddNewChart();
-  clist.AddNewChart();
-
-  SoundNote n;
-  n.SetBeatPos(1.0);
-
-  c = clist.GetChartData(0);
-  c->GetTempoData().SetBPMChange(120);
-  n.SetAsTapNote(0, 0);
-  c->GetNoteData().AddNote(n);
-  clist.CloseChartData();
-
-  c = clist.GetChartData(1);
-  c->GetTempoData().SetBPMChange(121);
-  n.SetAsTapNote(0, 1);
-  c->GetNoteData().AddNote(n);
-  clist.CloseChartData();
-
-  c = clist.GetChartData(2);
-  c->GetTempoData().SetBPMChange(122);
-  n.SetAsTapNote(0, 2);
-  c->GetNoteData().AddNote(n);
-  clist.CloseChartData();
-
-  c = clist.GetChartData(1);
-  EXPECT_EQ(c->GetNoteData().back().GetLane(), 1);
-  EXPECT_EQ(c->GetTempoData().GetMinBpm(), 122);
-  clist.CloseChartData();
-}
-#endif
-
 TEST(RPARSER, VOSFILE_V2)
 {
   Song song;

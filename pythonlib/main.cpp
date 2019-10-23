@@ -1,10 +1,11 @@
 #include "pybind11/pybind11.h"
 #include "Song.h"
+#include "ChartUtil.h"
 
 namespace py = pybind11;
 using namespace rparser;
 
-template <typename A, typename T>
+template <typename A, typename T, typename NT>
 py::class_<T> pyclass_track(A &m, const char* name)
 {
   return py::class_<T>(m, name)
@@ -17,6 +18,8 @@ py::class_<T> pyclass_track(A &m, const char* name)
     .def("IsEmpty", &T::is_empty)
     .def("AddObject", &T::AddObject)
     .def("AddObjectDuplicated", &T::AddObjectDuplicated)
+    .def("AddObject", [](T& t, const NT& n) { t.AddObject(n.clone()); })
+    .def("AddObjectDuplicated", [](T& t, const NT& n) { t.AddObjectDuplicated(n.clone()); })
     .def("ClearAll", &T::ClearAll)
     .def("ClearRange", &T::ClearRange)
     .def("MoveAll", &T::MoveAll)
@@ -30,10 +33,10 @@ py::class_<T> pyclass_track(A &m, const char* name)
     .def("IsRangeEmpty", &T::IsRangeEmpty);
 }
 
-template <typename A, typename T>
+template <typename A, typename T, typename NT>
 py::class_<T> pyclass_datatype(A &m, const char* name)
 {
-  return pyclass_track<A, T>(m, name)
+  return pyclass_track<A, T, NT>(m, name)
     .def("ClearTrack", &T::ClearTrack)
     .def("UpdateTracks", &T::UpdateTracks)
     .def("GetAllTrackIterator", [](T& nd) { return nd.GetAllTrackIterator(); })
@@ -144,19 +147,30 @@ PYBIND11_MODULE(rparser_py, m)
     .def("toString", &TimingSegmentData::toString)
     ;
 
-  pyclass_datatype<decltype(m), BgaData>(m, "BgaData");
+  pyclass_datatype<decltype(m), TrackData, NotePos>(m, "TrackData");
 
-  pyclass_datatype<decltype(m), BgmData>(m, "BgmData");
+  pyclass_track<decltype(m), Track, NotePos>(m, "Track");
 
-  pyclass_datatype<decltype(m), NoteData>(m, "NoteData");
+  py::class_<TrackData::all_track_iterator>(m, "AllTrackIterator")
+    .def("p", &TrackData::all_track_iterator::p)
+    .def("next", &TrackData::all_track_iterator::next)
+    .def("is_end", &TrackData::all_track_iterator::is_end);
 
-  pyclass_datatype<decltype(m), EffectData>(m, "EffectData");
+  py::class_<TrackData::row_iterator>(m, "RowIterator")
+    .def("get", [](const TrackData::row_iterator &riter, size_t i) { return riter.curr_row_notes[i]; })
+    .def("get_beat", &TrackData::row_iterator::get_beat)
+    .def("next", &TrackData::row_iterator::next)
+    .def("is_end", &TrackData::row_iterator::is_end);
 
-  pyclass_datatype<decltype(m), TimingData>(m, "TimingData");
+  pyclass_datatype<decltype(m), BgaData, BgaObject>(m, "BgaData");
 
-  pyclass_datatype<decltype(m), TrackData>(m, "TrackData");
+  pyclass_datatype<decltype(m), BgmData, BgmObject>(m, "BgmData");
 
-  pyclass_track<decltype(m), Track>(m, "Track");
+  pyclass_datatype<decltype(m), NoteData, Note>(m, "NoteData");
+
+  pyclass_datatype<decltype(m), EffectData, EffectObject>(m, "EffectData");
+
+  pyclass_datatype<decltype(m), TimingData, TimingObject>(m, "TimingData");
 
   pyclass_objtype<decltype(m), NotePos>(m, "NotePos");
 
@@ -197,7 +211,23 @@ PYBIND11_MODULE(rparser_py, m)
     .def("GetFloatValue", &TimingObject::GetFloatValue)
     .def("GetIntValue", &TimingObject::GetIntValue);
 
-  // TODO: add iterator for TrackData
-  // TODO: add ChartUtil functions
+  // ChartUtil functions
+  m.def("ExportToHTML", ExportToHTML);
+  py::class_<effector::EffectorParam>(m, "EffectorParam");
+  m.def("SetLanefor7Key", effector::SetLanefor7Key);
+  m.def("SetLanefor9Key", effector::SetLanefor9Key);
+  m.def("SetLaneforBMS1P", effector::SetLaneforBMS1P);
+  m.def("SetLaneforBMS2P", effector::SetLaneforBMS2P);
+  m.def("SetLaneforBMSDP1P", effector::SetLaneforBMSDP1P);
+  m.def("SetLaneforBMSDP2P", effector::SetLaneforBMSDP2P);
+  m.def("GenerateRandomColumn", effector::GenerateRandomColumn);
+  m.def("Random", effector::Random);
+  m.def("SRandom", effector::SRandom);
+  m.def("HRandom", effector::HRandom);
+  m.def("RRandom", effector::RRandom);
+  m.def("Mirror", effector::Mirror);
+  m.def("AllSC", effector::AllSC);
+  m.def("Flip", effector::Flip);
+
   // TODO: add definition for adding note with smart pointer
 }
