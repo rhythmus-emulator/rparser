@@ -6,15 +6,13 @@ namespace py = pybind11;
 using namespace rparser;
 
 template <typename A, typename T, typename NT>
-py::class_<T> pyclass_track(A &m, const char* name)
+py::class_<T> pyclass_trackbase(A &m, const char* name)
 {
   return py::class_<T>(m, name)
     .def("clear", &T::clear)
-    .def("toString", &T::toString)
     .def("size", &T::size)
-    .def("front", &T::front)
-    .def("end", &T::end)
-    .def("set_track_count", &T::set_track_count)
+    .def("front", [](T &t) { return t.front(); })
+    .def("back", [](T &t) { return t.back(); })
     .def("IsEmpty", &T::is_empty)
     .def("AddObject", &T::AddObject)
     .def("AddObjectDuplicated", &T::AddObjectDuplicated)
@@ -24,9 +22,9 @@ py::class_<T> pyclass_track(A &m, const char* name)
     .def("ClearRange", &T::ClearRange)
     .def("MoveAll", &T::MoveAll)
     .def("MoveRange", &T::MoveRange)
+    .def("GetObjectByBeat", &T::GetObjectByBeat)
+    .def("GetObjectByPos", &T::GetObjectByPos)
     .def("RemoveObject", &T::RemoveObject)
-    .def("RemoveObjectByBeat", &T::RemoveObjectByBeat)
-    .def("RemoveObjectByPos", &T::RemoveObjectByPos)
     .def("swap", &T::swap)
     .def("InsertBlank", &T::InsertBlank)
     .def("IsHoldNoteAt", &T::IsHoldNoteAt)
@@ -34,9 +32,23 @@ py::class_<T> pyclass_track(A &m, const char* name)
 }
 
 template <typename A, typename T, typename NT>
+py::class_<T> pyclass_track(A &m, const char* name)
+{
+  return pyclass_trackbase<A, T, NT>(m, name)
+    .def("RemoveObjectByBeat", &T::RemoveObjectByBeat)
+    .def("RemoveObjectByPos", &T::RemoveObjectByPos);
+}
+
+template <typename A, typename T, typename NT>
 py::class_<T> pyclass_datatype(A &m, const char* name)
 {
-  return pyclass_track<A, T, NT>(m, name)
+  return pyclass_trackbase<A, T, NT>(m, name)
+    .def("RemoveObjectByBeat", [](T &t, double beat) { t.RemoveObjectByBeat(beat); })
+    .def("RemoveObjectByBeat", [](T &t, size_t track, double beat) { t.RemoveObjectByBeat(track, beat); })
+    .def("RemoveObjectByPos", [](T &t, int measure, int nu, int de) { t.RemoveObjectByPos(measure, nu, de); })
+    .def("RemoveObjectByPos", [](T &t, size_t track, int measure, int nu, int de) { t.RemoveObjectByPos(track, measure, nu, de); })
+    .def("set_track_count", &T::set_track_count)
+    .def("toString", &T::toString)
     .def("ClearTrack", &T::ClearTrack)
     .def("UpdateTracks", &T::UpdateTracks)
     .def("GetAllTrackIterator", [](T& nd) { return nd.GetAllTrackIterator(); })
@@ -54,9 +66,8 @@ py::class_<T> pyclass_objtype(A &m, const char* name)
     .def_readwrite("beat", &T::beat)
     .def_readwrite("measure", &T::measure)
     .def("toString", &T::toString)
-    .def("clone", &T::clone)
-    .def("SetRowPos", (void (T::*)(uint32_t, RowPos, RowPos)) &T::SetRowPos)
-    .def("SetRowPos", (void (T::*)(double)) &T::SetRowPos)
+    .def("clone", (T* (T::*)() const) &T::clone)
+    .def("SetRowPos", &T::SetRowPos)
     .def("SetBeatPos", &T::SetBeatPos)
     .def("get_track", &T::get_track)
     .def("set_track", &T::set_track);
@@ -157,7 +168,7 @@ PYBIND11_MODULE(rparser_py, m)
     .def("is_end", &TrackData::all_track_iterator::is_end);
 
   py::class_<TrackData::row_iterator>(m, "RowIterator")
-    .def("get", [](const TrackData::row_iterator &riter, size_t i) { return riter.curr_row_notes[i]; })
+    .def("get", [](const TrackData::row_iterator &riter, size_t i) { return riter[i]; })
     .def("get_beat", &TrackData::row_iterator::get_beat)
     .def("next", &TrackData::row_iterator::next)
     .def("is_end", &TrackData::row_iterator::is_end);

@@ -559,7 +559,7 @@ public:
 
   T* GetObjectByBeat(size_t track, double beat)
   {
-    return static_cast<T*>(TrackData::GetObjectByPos(track, beat));
+    return static_cast<T*>(TrackData::GetObjectByBeat(track, beat));
   }
 
   T** GetRowByPos(int measure, int nu, int de)
