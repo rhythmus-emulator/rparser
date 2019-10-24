@@ -557,7 +557,7 @@ Track::~Track()
 void Track::AddObject(NotePos* object)
 {
   // if object is added sequentially, add it directly
-  if (objects_.empty() || *objects_.back() < *object)
+  if (objects_.empty() || objects_.back()->endpos() < *object)
   {
     objects_.push_back(object);
     return;
