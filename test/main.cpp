@@ -137,10 +137,12 @@ TEST(RPARSER, TIMINGDATA)
   md.bpm = 120.0;
   {
     TimingObject *t;
+    /*
     t = new TimingObject();
     t->SetBeatPos(0.0);
-    t->SetBpm(180.0);
+    t->SetBpm(120.0);
     td.AddObject(t);
+    */
 
     t = new TimingObject();
     t->SetBeatPos(40.0);
@@ -159,7 +161,7 @@ TEST(RPARSER, TIMINGDATA)
 
     t = new TimingObject();
     t->SetBeatPos(48.0);
-    t->SetMeasure(2.0);
+    t->SetMeasure(0.5);
     td.AddObject(t);
 
     t = new TimingObject();
@@ -174,7 +176,7 @@ TEST(RPARSER, TIMINGDATA)
   }
 
   /* invalidation */
-  c.GetTimingSegmentData().Invalidate(c.GetMetaData());
+  c.Invalidate();
 
   // test time
 #if 0
@@ -198,27 +200,113 @@ TEST(RPARSER, TIMINGDATA)
   */
   EXPECT_EQ(90.0, tsd.GetMinBpm());
   EXPECT_EQ(180.0, tsd.GetMaxBpm());
-  EXPECT_FALSE(tsd.HasBpmChange());
-  EXPECT_FALSE(tsd.HasStop());
-  EXPECT_FALSE(tsd.HasWarp());
+  EXPECT_TRUE(tsd.HasBpmChange());
+  EXPECT_TRUE(tsd.HasStop());
+  EXPECT_TRUE(tsd.HasWarp());
 
-  EXPECT_EQ(60'000.0, tsd.GetTimeFromBeat(120.0));
-  EXPECT_EQ(120.0, tsd.GetBeatFromTime(60'000.0));
+  EXPECT_EQ(10'000.0, tsd.GetTimeFromBeat(20.0));
+  EXPECT_EQ(20.0, tsd.GetBeatFromTime(10'000.0));
+  EXPECT_NEAR(60'000.0, tsd.GetTimeFromBeat(460.0) - tsd.GetTimeFromBeat(100.0), 0.01);
+  EXPECT_NEAR(48.0 + 1.0, tsd.GetBarFromBeat(12.5 * 4), 0.01);
 
+  /* stop check */
   EXPECT_NEAR(2'000.0, tsd.GetTimeFromBeat(48.0) - tsd.GetTimeFromBeat(47.99), 10.0);
-  EXPECT_NEAR(0.0, tsd.GetBeatFromTime(20'000.0) - tsd.GetBeatFromTime(19'000.0), 0.01);
-  EXPECT_NEAR(0.0, tsd.GetBeatFromTime(52'000.0) - tsd.GetBeatFromTime(50'000.0), 0.01);
-  EXPECT_NEAR(180.0, tsd.GetBeatFromTime(110'000.0 /* 60+2 sec */) - tsd.GetBeatFromTime(48'000.0), 0.01);
-  EXPECT_NEAR(tsd.GetBarFromBeat(13 + 2.0 / 4), 48.0 + 3.0, 0.01);
 
+  /* warp check (warp change to 4 due to measure length change) */
+  const double warp_time = tsd.GetTimeFromBeat(1000.0);
+  EXPECT_NEAR(4.0, tsd.GetBeatFromTime(warp_time + 0.01) - tsd.GetBeatFromTime(warp_time - 0.01), 0.01);
+}
+
+TEST(RPARSER, TIMINGDATA_RECOVER)
+{
+  Chart c;
+  auto &td = c.GetTimingData();
+  auto &tsd = c.GetTimingSegmentData();
+  auto &md = c.GetMetaData();
+  tsd.SetMeasureLengthRecover(true);
+
+  /* add timing data manually */
+  md.bpm = 120.0;
+  {
+    TimingObject *t;
+    /*
+    t = new TimingObject();
+    t->SetBeatPos(0.0);
+    t->SetBpm(120.0);
+    td.AddObject(t);
+    */
+
+    t = new TimingObject();
+    t->SetBeatPos(40.0);
+    t->SetBpm(90.0);
+    td.AddObject(t);
+
+    t = new TimingObject();
+    t->SetBeatPos(48.0);
+    t->SetStop(2000.0);
+    td.AddObject(t);
+
+    t = new TimingObject();
+    t->SetBeatPos(48.0);
+    t->SetBpm(180.0);
+    td.AddObject(t);
+
+    t = new TimingObject();
+    t->SetBeatPos(48.0);
+    t->SetMeasure(0.5);
+    td.AddObject(t);
+
+    t = new TimingObject();
+    t->SetBeatPos(54.0);
+    t->SetStop(2000.0);
+    td.AddObject(t);
+
+    t = new TimingObject();
+    t->SetBeatPos(1000.0);
+    t->SetWarp(2.0);
+    td.AddObject(t);
+  }
+
+  /* invalidation */
+  c.Invalidate();
+
+  // test time
+#if 0
+  std::cout << "40Beat time: " << td.GetTimeFromBeat(40.0) << std::endl;
+  std::cout << "47.99Beat time: " << td.GetTimeFromBeat(47.99) << std::endl;
+  std::cout << "48Beat time: " << td.GetTimeFromBeat(48.0) << std::endl;
+  std::cout << "48.01Beat time: " << td.GetTimeFromBeat(48.01) << std::endl;
+  std::cout << "18sec beat: " << td.GetBeatFromTime(18'000.0) << std::endl;
+  std::cout << "19sec beat: " << td.GetBeatFromTime(19'000.0) << std::endl;
+  std::cout << "20sec beat: " << td.GetBeatFromTime(20'000.0) << std::endl;
+  std::cout << "50sec beat: " << td.GetBeatFromTime(50'000.0) << std::endl;
+  std::cout << "52sec beat: " << td.GetBeatFromTime(52'000.0) << std::endl;
+  std::cout << "60sec beat: " << td.GetBeatFromTime(60'000.0) << std::endl;
+  std::cout << "120sec beat: " << td.GetBeatFromTime(120'000.0) << std::endl;
+#endif
+
+  /* check */
+  /*
+  EXPECT_EQ(120, tsd.GetMinBpm());
+  EXPECT_EQ(120, tsd.GetMaxBpm());
+  */
+  EXPECT_EQ(90.0, tsd.GetMinBpm());
+  EXPECT_EQ(180.0, tsd.GetMaxBpm());
+  EXPECT_TRUE(tsd.HasBpmChange());
+  EXPECT_TRUE(tsd.HasStop());
+  EXPECT_TRUE(tsd.HasWarp());
+
+  EXPECT_EQ(10'000.0, tsd.GetTimeFromBeat(20.0));
+  EXPECT_EQ(20.0, tsd.GetBeatFromTime(10'000.0));
+  EXPECT_EQ(60'000.0, tsd.GetTimeFromBeat(280.0) - tsd.GetTimeFromBeat(100.0));
+  EXPECT_NEAR(48.0 + 1.0, tsd.GetBarFromBeat(12.5 * 4), 0.01);
+
+  /* stop check */
+  EXPECT_NEAR(2'000.0, tsd.GetTimeFromBeat(48.0) - tsd.GetTimeFromBeat(47.99), 10.0);
+
+  /* warp check */
   const double warp_time = tsd.GetTimeFromBeat(1000.0);
   EXPECT_NEAR(2.0, tsd.GetBeatFromTime(warp_time + 0.01) - tsd.GetBeatFromTime(warp_time), 0.01);
-
-  EXPECT_NEAR(2'000.0, tsd.GetTimeFromBeat(48.0) - tsd.GetTimeFromBeat(47.99), 10.0);
-  EXPECT_NEAR(0.0, tsd.GetBeatFromTime(20'000.0) - tsd.GetBeatFromTime(19'000.0), 0.01);
-  EXPECT_NEAR(0.0, tsd.GetBeatFromTime(52'000.0) - tsd.GetBeatFromTime(50'000.0), 0.01);
-  EXPECT_NEAR(180.0, tsd.GetBeatFromTime(110'000.0 /* 60+2 sec */) - tsd.GetBeatFromTime(48'000.0), 0.01);
-  EXPECT_NEAR(tsd.GetBarFromBeat(13 + 2.0/4), 48.0+3.0, 0.01);
 }
 
 TEST(RPARSER, CHART)

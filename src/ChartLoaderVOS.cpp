@@ -699,7 +699,7 @@ bool ChartLoaderVOS::ParseMIDI()
         val = mprog.text.c_str()[0];
         val2 = mprog.text.c_str()[1];
         tn->SetBeatPos(cur_beat);
-        tn->SetMeasure(4.0 * val / val2);
+        tn->SetMeasure(val / val2);
         td.AddObject(tn);
         break;
       case MIDISIG::MIDISIG_END:

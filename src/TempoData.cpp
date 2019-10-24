@@ -8,7 +8,7 @@ namespace rparser
 
 inline double GetTimeFromBarInTempoSegment(const TimingSegment& tobj, double barpos)
 {
-  const double msec_per_beat = 60.0 * 1000 / tobj.bpm_ / tobj.scrollspeed_ / 4;
+  const double msec_per_beat = 60.0 * 1000 / tobj.bpm_ / tobj.scrollspeed_;
   const double beat_delta = barpos - tobj.barpos_ - tobj.warpbeat_ /* XXX: warpbeat is not affected by barlength? */;
   if (beat_delta < 0) return tobj.time_ + tobj.stoptime_;
   else return tobj.time_ + tobj.stoptime_ + tobj.delaytime_ + beat_delta * msec_per_beat;
@@ -16,7 +16,7 @@ inline double GetTimeFromBarInTempoSegment(const TimingSegment& tobj, double bar
 
 inline double GetBarFromTimeInTempoSegment(const TimingSegment& tobj, double time_msec)
 {
-  const double beat_per_msec = tobj.bpm_ * tobj.scrollspeed_ / 60 / 1000 * 4;
+  const double beat_per_msec = tobj.bpm_ * tobj.scrollspeed_ / 60 / 1000;
   const double time_delta = time_msec - tobj.time_ - (tobj.stoptime_ + tobj.delaytime_);
   if (time_delta <= 0) return tobj.barpos_;
   return tobj.barpos_ + tobj.warpbeat_ + time_delta * beat_per_msec;
@@ -25,8 +25,8 @@ inline double GetBarFromTimeInTempoSegment(const TimingSegment& tobj, double tim
 inline double GetBarFromBeatInBarSegment(const BarObject& b, double beat, bool recover_length)
 {
   double diff = beat - (double)b.beat_;
-  if (recover_length && diff > 4.0)
-    return b.barpos_ + (diff - 4.0) * kDefaultMeasureLength + b.barlength_;
+  if (recover_length && diff > kDefaultMeasureLength)
+    return b.barpos_ + (diff - kDefaultMeasureLength) + kDefaultMeasureLength * b.barlength_;
   else
     return b.barpos_ + diff * b.barlength_;
 }
@@ -34,8 +34,8 @@ inline double GetBarFromBeatInBarSegment(const BarObject& b, double beat, bool r
 inline double GetBeatFromBarInBarSegment(const BarObject& b, double bar, bool recover_length)
 {
   double diff = bar - b.barpos_;
-  if (recover_length && diff > b.barlength_)
-    return b.beat_ + 4.0 + (diff - b.barlength_) / kDefaultMeasureLength;
+  if (recover_length && diff > b.barlength_ * kDefaultMeasureLength)
+    return b.beat_ + kDefaultMeasureLength + (diff - b.barlength_);
   else
     return b.beat_ + diff / b.barlength_;
 }
@@ -49,7 +49,7 @@ inline uint32_t GetMeasureFromBarInBarSegment(const BarObject& b, double bar, bo
 }
 
 TimingSegment::TimingSegment()
-: bpm_(kDefaultBpm), beat_(0), time_(0),
+: beat_(0), time_(0), barpos_(0), bpm_(kDefaultBpm),
   stoptime_(0), delaytime_(0), warpbeat_(0), scrollspeed_(1), tick_(1), is_manipulated_(false) {}
 
 // called when TempoObject is copied for new block (e.g. Seek methods)
@@ -70,7 +70,7 @@ std::string TimingSegment::toString()
 }
 
 BarObject::BarObject()
-  : barpos_(0), barlength_(4.0), beat_(0) {}
+  : barpos_(0), barlength_(1.0), beat_(0) {}
 
 BarObject::BarObject(double barpos, double barlength, uint32_t measure)
   : barpos_(barpos), barlength_(barlength), beat_(measure) {}
@@ -370,31 +370,31 @@ void TimingSegmentData::SetMeasureLengthChange(uint32_t measure_idx, double barl
 /* @depreciated */
 void TimingSegmentData::SeekByTime(double time)
 {
-  double beat = GetBarFromTimeInLastSegment(time);
-  Seek(beat, time);
+  double bar = GetBarFromTimeInLastSegment(time);
+  Seek(bar, time);
 }
 
 void TimingSegmentData::SeekByBeat(double beat)
 {
-  double time = GetTimeFromBarInLastSegment(beat);
-  Seek(beat, time);
+  double bar = GetBarFromBeatInLastSegment(beat);
+  double time = GetTimeFromBarInLastSegment(bar);
+  Seek(bar, time);
 }
 
-void TimingSegmentData::Seek(double beat, double time)
+void TimingSegmentData::Seek(double bar, double time)
 {
-  ASSERT(beat >= timingsegments_.back().beat_);
+  ASSERT(bar >= timingsegments_.back().barpos_);
   ASSERT(time >= timingsegments_.back().time_);
-  if (timingsegments_.back().beat_ == beat) return;
+  if (timingsegments_.back().barpos_ == bar) return;
 
   BarObject &barobj = barobjs_.back();
   TimingSegment new_tobj(timingsegments_.back());
   new_tobj.clearForCopiedSegment();
   new_tobj.time_ = time;
-  new_tobj.beat_ = beat;
-  new_tobj.barpos_ = barobj.barpos_ + (do_recover_measure_length_ && (beat - barobj.beat_) > 1)
-    ? (beat - barobj.beat_) * barobj.barlength_
-    : barobj.barlength_ + (beat - barobj.beat_ - 1) * kDefaultMeasureLength
-    ;
+#if _DEBUG
+  new_tobj.beat_ = GetBeatFromBarInLastSegment(bar);
+#endif
+  new_tobj.barpos_ = bar;
 
   // if previous tempoobj did not manipulated, then overwrite to it.
   if (timingsegments_.back().is_manipulated_)
@@ -564,6 +564,7 @@ void TimingSegmentData::clear()
   barobjs_.clear();
   // Dummy object to avoid crashing
   timingsegments_.emplace_back(TimingSegment());
+  timingsegments_.back().is_manipulated_ = true; /* prevent segment to be removed */
   barobjs_.emplace_back(BarObject());
 }
 
@@ -595,7 +596,7 @@ double TimingSegmentData::GetBarLength(uint32_t measure) const
   b.beat_ = measure;
   auto it = std::lower_bound(barobjs_.rbegin(), std::prev(barobjs_.rend()), b);
   return (do_recover_measure_length_ && it->beat_ != measure)
-    ? kDefaultMeasureLength
+    ? 1.0
     : it->barlength_;
 }
 

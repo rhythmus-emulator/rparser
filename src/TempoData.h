@@ -50,7 +50,7 @@ struct BarObject
 
   uint32_t beat_;
   double barpos_;
-  double barlength_;
+  double barlength_;    // 0 ~ 1
 };
 
 /*
@@ -94,7 +94,7 @@ private:
   void SetWarp(double warp_length_in_beat);
   void SetTick(uint32_t tick);
   void SetScrollSpeedChange(double scrollspeed);
-  void Seek(double beat, double time);
+  void Seek(double bar, double time);
   double GetTimeFromBarInLastSegment(double  bar) const;       // return msec time
   double GetBarFromTimeInLastSegment(double time) const;
   double GetTimeFromBeatInLastSegment(double beat) const;

@@ -10,6 +10,10 @@ namespace rparser
 
 Chart::Chart() : parent_song_(nullptr)
 {
+  bgmdata_.set_track_count(128);
+  bgadata_.set_track_count(128);
+  effectdata_.set_track_count(128 /* ?? */);
+  timingsegmentdata_.GetTimingData().set_track_count(128 /* XXX: use kTimingTypeCount */);
   memset(&common_data_, 0, sizeof(common_data_));
 }
 
