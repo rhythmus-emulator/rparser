@@ -24,7 +24,7 @@ inline double GetBarFromTimeInTempoSegment(const TimingSegment& tobj, double tim
 
 inline double GetBarFromBeatInBarSegment(const BarObject& b, double beat, bool recover_length)
 {
-  double diff = beat - (double)b.beat_;
+  double diff = beat - (double)b.measure_ * kDefaultMeasureLength;
   if (recover_length && diff > kDefaultMeasureLength)
     return b.barpos_ + (diff - kDefaultMeasureLength) + kDefaultMeasureLength * b.barlength_;
   else
@@ -35,9 +35,9 @@ inline double GetBeatFromBarInBarSegment(const BarObject& b, double bar, bool re
 {
   double diff = bar - b.barpos_;
   if (recover_length && diff > b.barlength_ * kDefaultMeasureLength)
-    return b.beat_ + kDefaultMeasureLength + (diff - b.barlength_);
+    return b.measure_ * kDefaultMeasureLength + kDefaultMeasureLength + (diff - b.barlength_ * kDefaultMeasureLength);
   else
-    return b.beat_ + diff / b.barlength_;
+    return b.measure_ * kDefaultMeasureLength + diff / b.barlength_;
 }
 
 inline uint32_t GetMeasureFromBarInBarSegment(const BarObject& b, double bar, bool recover_length)
@@ -70,14 +70,14 @@ std::string TimingSegment::toString()
 }
 
 BarObject::BarObject()
-  : barpos_(0), barlength_(1.0), beat_(0) {}
+  : barpos_(0), barlength_(1.0), measure_(0) {}
 
 BarObject::BarObject(double barpos, double barlength, uint32_t measure)
-  : barpos_(barpos), barlength_(barlength), beat_(measure) {}
+  : barpos_(barpos), barlength_(barlength), measure_(measure) {}
 
 bool BarObject::operator<(const BarObject &other) const
 {
-  return beat_ < other.beat_;
+  return measure_ < other.measure_;
 }
 
 TimingSegmentData::TimingSegmentData()
@@ -126,7 +126,7 @@ void TimingSegmentData::Invalidate(const MetaData& m)
     switch (tobj.get_track())
     {
     case TimingObjectTypes::kMeasure:
-      SetMeasureLengthChange(tobj.beat, tobj.GetFloatValue());
+      SetMeasureLengthChange(static_cast<uint32_t>(tobj.beat / 4.0), tobj.GetFloatValue());
       break;
     case TimingObjectTypes::kScroll:
       SetScrollSpeedChange(tobj.GetFloatValue());
@@ -223,17 +223,17 @@ double TimingSegmentData::GetBarFromBeat(double beat) const
   int min = 0, max = barobjs_.size() - 1;
   int l = min, r = max;
   int idx = 0;
-  uint32_t measure = static_cast<uint32_t>(floorl(beat));
+  uint32_t measure = static_cast<uint32_t>(floorl(beat / kDefaultMeasureLength));
   while( l <= r )
   {
     int m = ( l + r ) / 2;
 
-    if( ( m == min || barobjs_[m].beat_ <= measure) && ( m == max || measure < barobjs_[m+1].beat_) )
+    if( ( m == min || barobjs_[m].measure_ <= measure) && ( m == max || measure < barobjs_[m+1].measure_) )
     {
       idx = m;
       break;
     }
-    else if(barobjs_[m].beat_ > measure)
+    else if(barobjs_[m].measure_ > measure)
     {
       r = m - 1;
     }
@@ -278,7 +278,8 @@ std::vector<double> TimingSegmentData::GetTimeFromBeatArr(const std::vector<doub
   size_t idx = 0;
   for (double beat : sorted_beat)
   {
-    if (idx + 1 < barobjs_.size() && beat > barobjs_[idx + 1].beat_) idx++;
+    if (idx + 1 < barobjs_.size() && beat > (double)barobjs_[idx + 1].measure_ * kDefaultMeasureLength)
+      idx++;
     r_bar.push_back(GetBarFromBeatInBarSegment(barobjs_[idx], beat, do_recover_measure_length_));
   }
 
@@ -320,7 +321,8 @@ std::vector<double> TimingSegmentData::GetBarFromBeatArr(const std::vector<doubl
   {
     // go to next segment if available.
     // -- measure pos might be same, so move as much as possible.
-    while (idx+1 < barobjs_.size() && beat > (double)barobjs_[idx+1].beat_) idx++;
+    while (idx+1 < barobjs_.size() && beat > (double)barobjs_[idx+1].measure_ * kDefaultMeasureLength)
+      idx++;
     r_beat.push_back(GetBarFromBeatInBarSegment(barobjs_[idx], beat, do_recover_measure_length_));
   }
   return r_beat;
@@ -342,11 +344,11 @@ void TimingSegmentData::SetMeasureLengthChange(uint32_t measure_idx, double barl
   }
   // Only use last segment.
   BarObject& b = barobjs_.back();
-  ASSERT(measure_idx >= b.beat_); /* same bar editing with do_recover_measure_length */
+  ASSERT(measure_idx >= b.measure_); /* same bar editing with do_recover_measure_length */
   if (b.barlength_ == barlength) return;
 
   // If same measure_idx, then update previous one.
-  if (measure_idx == b.beat_)
+  if (measure_idx == b.measure_)
   {
     barobjs_.back().barlength_ = barlength;
     return;
@@ -354,15 +356,15 @@ void TimingSegmentData::SetMeasureLengthChange(uint32_t measure_idx, double barl
 
   // Set bar segment
   BarObject new_obj(b);
-  uint32_t measure_count = measure_idx - b.beat_;
+  uint32_t measure_count = measure_idx - b.measure_;
   uint32_t defmeasure_count = 0;
   if (do_recover_measure_length_)
   {
     defmeasure_count = measure_count - 1;
     measure_count = 1;
   }
-  new_obj.barpos_ = b.barpos_ + measure_count * b.barlength_ + defmeasure_count * kDefaultMeasureLength;
-  new_obj.beat_ = measure_idx;
+  new_obj.barpos_ = (b.barpos_ + measure_count * b.barlength_ + defmeasure_count) * kDefaultMeasureLength;
+  new_obj.measure_ = measure_idx;
   new_obj.barlength_ = barlength;
   barobjs_.push_back(new_obj);
 }
@@ -470,7 +472,7 @@ double TimingSegmentData::GetBarFromBeatInLastSegment(double beat) const
 double TimingSegmentData::GetBeatFromBarInLastSegment(double bar) const
 {
   auto &b = barobjs_.back();
-  return b.beat_ + (bar - b.barpos_) / b.barlength_;
+  return b.measure_ * kDefaultMeasureLength + (bar - b.barpos_) / b.barlength_;
 }
 
 double TimingSegmentData::GetTimeFromBeatInLastSegment(double beat) const
@@ -593,9 +595,9 @@ const std::vector<BarObject>& TimingSegmentData::GetBarObjects() const
 double TimingSegmentData::GetBarLength(uint32_t measure) const
 {
   BarObject b;
-  b.beat_ = measure;
+  b.measure_ = measure;
   auto it = std::lower_bound(barobjs_.rbegin(), std::prev(barobjs_.rend()), b);
-  return (do_recover_measure_length_ && it->beat_ != measure)
+  return (do_recover_measure_length_ && it->measure_ != measure)
     ? 1.0
     : it->barlength_;
 }

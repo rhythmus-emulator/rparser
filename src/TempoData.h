@@ -48,7 +48,7 @@ struct BarObject
   BarObject(const BarObject&) = default;
   bool operator<(const BarObject &) const;
 
-  uint32_t beat_;
+  uint32_t measure_;
   double barpos_;
   double barlength_;    // 0 ~ 1
 };
