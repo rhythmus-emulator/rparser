@@ -206,15 +206,15 @@ TEST(RPARSER, TIMINGDATA)
 
   EXPECT_EQ(10'000.0, tsd.GetTimeFromBeat(20.0));
   EXPECT_EQ(20.0, tsd.GetBeatFromTime(10'000.0));
-  EXPECT_NEAR(60'000.0, tsd.GetTimeFromBeat(460.0) - tsd.GetTimeFromBeat(100.0), 0.01);
+  EXPECT_NEAR(60'000.0, tsd.GetTimeFromBeat(280.0) - tsd.GetTimeFromBeat(100.0), 0.01);
   EXPECT_NEAR(48.0 + 1.0, tsd.GetBeatFromMeasure(12.5), 0.01);
 
   /* stop check */
   EXPECT_NEAR(2'000.0, tsd.GetTimeFromBeat(48.0) - tsd.GetTimeFromBeat(47.99), 10.0);
 
   /* warp check (warp change to 4 due to measure length change) */
-  const double warp_time = tsd.GetTimeFromBeat(1000.0);
-  EXPECT_NEAR(4.0, tsd.GetBeatFromTime(warp_time + 0.01) - tsd.GetBeatFromTime(warp_time - 0.01), 0.01);
+  const double warp_time = tsd.GetTimeFromMeasure(250.0);
+  EXPECT_NEAR(2.0, tsd.GetBeatFromTime(warp_time + 0.01) - tsd.GetBeatFromTime(warp_time - 0.01), 0.01);
 }
 
 TEST(RPARSER, TIMINGDATA_RECOVER)
@@ -298,14 +298,14 @@ TEST(RPARSER, TIMINGDATA_RECOVER)
 
   EXPECT_EQ(10'000.0, tsd.GetTimeFromBeat(20.0));
   EXPECT_EQ(20.0, tsd.GetBeatFromTime(10'000.0));
-  EXPECT_EQ(60'000.0, tsd.GetTimeFromBeat(280.0) - tsd.GetTimeFromBeat(100.0));
+  EXPECT_NEAR(60'000.0, tsd.GetTimeFromBeat(280.0) - tsd.GetTimeFromBeat(100.0), 0.01);
   EXPECT_NEAR(48.0 + 1.0, tsd.GetBeatFromMeasure(12.5), 0.01);
 
   /* stop check */
   EXPECT_NEAR(2'000.0, tsd.GetTimeFromBeat(48.0) - tsd.GetTimeFromBeat(47.99), 10.0);
 
   /* warp check */
-  const double warp_time = tsd.GetTimeFromBeat(1000.0);
+  const double warp_time = tsd.GetTimeFromMeasure(250.0);
   EXPECT_NEAR(2.0, tsd.GetBeatFromTime(warp_time + 0.01) - tsd.GetBeatFromTime(warp_time), 0.01);
 }
 

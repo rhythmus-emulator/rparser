@@ -26,9 +26,9 @@ inline double GetBeatFromMeasureInBarSegment(const BarObject& b, double measure,
 {
   double diff = measure - (double)b.measure_;
   if (recover_length && diff > 1)
-    return (b.beat_ + (diff - 1) + b.barlength_) * kDefaultMeasureLength;
+    return b.beat_ + ((diff - 1) + b.barlength_) * kDefaultMeasureLength;
   else
-    return (b.beat_ + diff * b.barlength_) * kDefaultMeasureLength;
+    return b.beat_ + (diff * b.barlength_) * kDefaultMeasureLength;
 }
 
 inline double GetMeasureFromBeatInBarSegment(const BarObject& b, double beat, bool recover_length)
