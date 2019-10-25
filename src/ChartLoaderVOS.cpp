@@ -516,7 +516,7 @@ bool ChartLoaderVOS::ParseNoteDataV2()
       {
         auto *chain = n->NewChain();
         // XXX: length is not correct ...
-        chain->SetBeatPos(n->beat + p->duration / (double)timedivision_);
+        chain->SetBeatPos(n->measure * 4.0 + p->duration / (double)timedivision_);
       }
       nd.AddObjectDuplicated(n);
     }
@@ -579,7 +579,7 @@ bool ChartLoaderVOS::ParseNoteDataV3()
         {
           auto *chain = n->NewChain();
           // XXX: need to be fixed
-          chain->SetBeatPos(n->beat + note.duration / (double)timedivision_);
+          chain->SetBeatPos(n->measure * 4.0 + note.duration / (double)timedivision_);
         }
 
         nd.AddObjectDuplicated(n);
@@ -642,8 +642,8 @@ bool ChartLoaderVOS::ParseMIDI()
     while (!alliter.is_end())
     {
       auto &np = *alliter;
-      np.SetBeatPos(np.beat * ratio);
-      np.endpos().SetBeatPos(np.endpos().beat * ratio);
+      np.measure *= ratio;
+      np.endpos().measure *= ratio;
       ++alliter;
     }
     timedivision_ = timedivision;

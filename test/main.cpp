@@ -207,7 +207,7 @@ TEST(RPARSER, TIMINGDATA)
   EXPECT_EQ(10'000.0, tsd.GetTimeFromBeat(20.0));
   EXPECT_EQ(20.0, tsd.GetBeatFromTime(10'000.0));
   EXPECT_NEAR(60'000.0, tsd.GetTimeFromBeat(460.0) - tsd.GetTimeFromBeat(100.0), 0.01);
-  EXPECT_NEAR(48.0 + 1.0, tsd.GetBarFromBeat(12.5 * 4), 0.01);
+  EXPECT_NEAR(48.0 + 1.0, tsd.GetBeatFromMeasure(12.5), 0.01);
 
   /* stop check */
   EXPECT_NEAR(2'000.0, tsd.GetTimeFromBeat(48.0) - tsd.GetTimeFromBeat(47.99), 10.0);
@@ -299,7 +299,7 @@ TEST(RPARSER, TIMINGDATA_RECOVER)
   EXPECT_EQ(10'000.0, tsd.GetTimeFromBeat(20.0));
   EXPECT_EQ(20.0, tsd.GetBeatFromTime(10'000.0));
   EXPECT_EQ(60'000.0, tsd.GetTimeFromBeat(280.0) - tsd.GetTimeFromBeat(100.0));
-  EXPECT_NEAR(48.0 + 1.0, tsd.GetBarFromBeat(12.5 * 4), 0.01);
+  EXPECT_NEAR(48.0 + 1.0, tsd.GetBeatFromMeasure(12.5), 0.01);
 
   /* stop check */
   EXPECT_NEAR(2'000.0, tsd.GetTimeFromBeat(48.0) - tsd.GetTimeFromBeat(47.99), 10.0);
@@ -564,11 +564,11 @@ TEST(RPARSER, BMS_STRESS)
     {
       ++idx;
       auto &n = *iter;
-      if (m > n.beat)
+      if (m > n.measure)
       {
         std::cout << "error occured on idx " << idx << std::endl;
       }
-      else m = n.beat;
+      else m = n.measure;
       ++iter;
     }
 

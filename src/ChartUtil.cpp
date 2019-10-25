@@ -71,14 +71,14 @@ void ExportNoteToHTML(const Chart &c, HTMLExporter &e)
       double endpos = (measure_idx - endrow) * 100 + 1 /* round-up */;
       e.line() << "<div class='chartobject noteobject longnote longnote_body lane" << (int)n.get_track() <<
         "' style='top:0%; height:" << (int)endpos << "%'" << /* style end */
-        " data-x=" << (int)n.get_track() << " data-beat=" << n.beat << " data-time=" << n.time_msec <<
+        " data-x=" << (int)n.get_track() << " data-beat=" << n.measure << " data-time=" << n.time_msec <<
         " data-id=" << nd_idx - 1 << " data-value=" << n.channel() << /* data end */
         "></div>";
       if (is_longnote_end_here)
       {
         e.line() << "<div class='chartobject noteobject longnote longnote_end lane" << (int)n.get_track() <<
           "' style='top:" << (int)endpos << "%'" << /* style end */
-          " data-x=" << (int)n.get_track() << " data-beat=" << n.beat << " data-time=" << n.time_msec <<
+          " data-x=" << (int)n.get_track() << " data-beat=" << n.measure << " data-time=" << n.time_msec <<
           " data-id=" << nd_idx - 1 << " data-value=" << n.channel() << /* data end */
           "></div>";
       }
@@ -89,11 +89,11 @@ void ExportNoteToHTML(const Chart &c, HTMLExporter &e)
     }
 
     // STEP 2-1-1. NoteData (General)
-    while (!iter_note.is_end() && (*iter_note).beat < measure_idx + 1)
+    while (!iter_note.is_end() && (*iter_note).measure < measure_idx + 1)
     {
       /* XXX: don't use continue here; MUST go through full loop. */
       auto &n = static_cast<Note&>(*iter_note);
-      double ypos = (n.beat - (double)measure_idx) * 100;
+      double ypos = (n.measure - (double)measure_idx) * 100;
       bool is_longnote = n.chainsize() > 1;
       std::string cls = "chartobject noteobject";
       if (is_longnote) /* check is longnote */
@@ -102,13 +102,13 @@ void ExportNoteToHTML(const Chart &c, HTMLExporter &e)
         cls += " tapnote";
       e.line() << "<div id='nd" << nd_idx << "' class='" << cls << " lane" << n.get_track() <<
         "' style='top:" << (int)ypos << "%'" << /* style end */
-        " data-x=" << n.get_track() << " data-y=" << (int)ypos << " data-beat=" << n.beat << " data-time=" << n.time_msec <<
+        " data-x=" << n.get_track() << " data-y=" << (int)ypos << " data-beat=" << n.measure << " data-time=" << n.time_msec <<
         " data-id=" << nd_idx << " data-value=" << n.channel() << /* data end */
         "></div>";
       if (is_longnote)
       {
         // draw longnote body & end
-        double endrow = n.endpos().beat;
+        double endrow = n.endpos().measure;
         bool is_longnote_end_here = true;
         if (endrow > measure_idx)
         {
@@ -119,14 +119,14 @@ void ExportNoteToHTML(const Chart &c, HTMLExporter &e)
         double endpos = (endrow - (double)measure_idx) * 100 + 1 /* round-up */;
         e.line() << "<div class='chartobject noteobject longnote longnote_body lane" << n.get_track() <<
           "' style='top:" << (int)ypos << "%; height:" << (int)endpos << "%'" << /* style end */
-          " data-x=" << n.get_track() << " data-beat=" << n.beat << " data-time=" << n.time_msec <<
+          " data-x=" << n.get_track() << " data-beat=" << n.measure << " data-time=" << n.time_msec <<
           " data-id=" << nd_idx << " data-value=" << n.channel() << /* data end */
           "></div>";
         if (is_longnote_end_here)
         {
           e.line() << "<div class='chartobject noteobject longnote longnote_end lane" << n.get_track() <<
             "' style='top:" << (int)(ypos + endpos) << "%'" << /* style end */
-            " data-x=" << n.get_track() << " data-beat=" << n.beat << " data-time=" << n.time_msec <<
+            " data-x=" << n.get_track() << " data-beat=" << n.measure << " data-time=" << n.time_msec <<
             " data-id=" << nd_idx << " data-value=" << n.channel() << /* data end */
             "></div>";
         }
@@ -136,13 +136,13 @@ void ExportNoteToHTML(const Chart &c, HTMLExporter &e)
     }
 
     // STEP 2-2. TempoData
-    while (!iter_tobj.is_end() && (*iter_tobj).beat < measure_idx + 1)
+    while (!iter_tobj.is_end() && (*iter_tobj).measure < measure_idx + 1)
     {
       auto &n = static_cast<TimingObject&>(*iter_tobj);
-      double ypos = (n.beat - (double)measure_idx) * 100;
+      double ypos = (n.measure - (double)measure_idx) * 100;
       e.line() << "<div id='td" << td_idx << "' class='chartobject tempoobject tempotype" << n.get_track() <<
         "' style='top:" << (int)ypos << "%'" << /* style end */
-        " data-y=" << (int)ypos << " data-beat=" << n.beat << " data-time=" << n.time_msec << /* data end */
+        " data-y=" << (int)ypos << " data-beat=" << n.measure << " data-time=" << n.time_msec << /* data end */
         "></div>";
       ++td_idx;
       ++iter_tobj;
@@ -456,11 +456,11 @@ void HRandom(Chart &c, const EffectorParam& param)
   while (!iter.is_end())
   {
     auto &note = static_cast<Note&>(*iter);
-    int curr_measure_idx = static_cast<int>(note.beat);
+    int curr_measure_idx = static_cast<int>(note.measure);
     if (measure_idx != curr_measure_idx)
     {
       measure_idx = curr_measure_idx;
-      if (!c.GetNoteData().IsHoldNoteAt(note.beat))
+      if (!c.GetNoteData().IsHoldNoteAt(note.measure))
         GenerateRandomColumn(new_col, param);
     }
     note.set_track(new_col[note.get_track()]);
@@ -506,7 +506,7 @@ void RRandom(Chart &c, const EffectorParam& param, bool mapping_by_measure)
   while (!rowiter.is_end())
   {
     /* Only shift if no longnote in current row. */
-    change_mapping = !c.GetNoteData().IsHoldNoteAt(rowiter.get_beat());
+    change_mapping = !c.GetNoteData().IsHoldNoteAt(rowiter.get_measure());
 
     for (int i = 0; i < param.lanesize; ++i)
     {
@@ -523,7 +523,7 @@ void RRandom(Chart &c, const EffectorParam& param, bool mapping_by_measure)
       {
         shift_idx = (size_t)floorl(mapping_by_measure
             ? n.time_msec / time_rotation_delta
-            : delta_lane + n.beat);
+            : delta_lane + n.measure);
       }
 
       new_idx = lane_to_idx[n.get_track()] + shift_idx;

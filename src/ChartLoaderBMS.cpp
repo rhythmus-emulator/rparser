@@ -591,6 +591,7 @@ bool ChartLoaderBMS::ParseNote()
 
   for (unsigned int i = 0; i < len; i += 2)
   {
+    curr_note_syntax_.num = i;
     curr_note_syntax_.value = current_line_->value + i;
     curr_note_syntax_.value_u = atoi_bms_channel(curr_note_syntax_.value);
 

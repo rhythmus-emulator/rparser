@@ -81,8 +81,7 @@ public:
   NotePos& operator=(const NotePos &) = default;
 
   double time_msec;
-  double beat;
-  int measure;
+  double measure;
   RowPos num, deno;
 
   void SetRowPos(int measure, RowPos deno, RowPos num);
@@ -348,20 +347,20 @@ public:
   void AddObjectDuplicated(NotePos* object);
   void RemoveObject(NotePos* object);
   NotePos* GetObjectByPos(int measure, int nu, int de);
-  NotePos* GetObjectByBeat(double beat);
+  NotePos* GetObjectByMeasure(double measure);
   void RemoveObjectByPos(int measure, int nu, int de);
-  void RemoveObjectByBeat(double beat);
-  bool IsHoldNoteAt(double beat) const;
-  bool IsRangeEmpty(double beat_start, double beat_end) const;
-  void GetObjectByRange(double beat_start, double beat_end, std::vector<NotePos*> &out);
+  void RemoveObjectByMeasure(double measure);
+  bool IsHoldNoteAt(double measure) const;
+  bool IsRangeEmpty(double m_start, double m_end) const;
+  void GetObjectByRange(double m_start, double m_end, std::vector<NotePos*> &out);
 
   void ClearAll();
-  void ClearRange(double beat_begin, double beat_end);
-  void CopyRange(const Track& from, double beat_begin, double beat_end);
+  void ClearRange(double m_begin, double m_end);
+  void CopyRange(const Track& from, double m_begin, double m_end);
   void CopyAll(const Track& from);
-  void MoveRange(double beat_delta, double beat_begin, double beat_end);
-  void MoveAll(double beat_delta);
-  void InsertBlank(double beat_begin, double beat_delta);
+  void MoveRange(double m_delta, double m_begin, double m_end);
+  void MoveAll(double m_delta);
+  void InsertBlank(double m_begin, double m_delta);
 
   typedef std::vector<NotePos*>::iterator iterator;
   typedef std::vector<NotePos*>::const_iterator const_iterator;
@@ -405,9 +404,9 @@ public:
     TrackData::GetObjectByPos(measure, nu, de);
   }
 
-  T* GetObjectByBeat(double beat)
+  T* GetObjectByMeasure(double measure)
   {
-    TrackData::GetObjectByBeat(beat);
+    TrackData::GetObjectByBeat(measure);
   }
 };
 
@@ -433,15 +432,15 @@ public:
   void AddObjectDuplicated(NotePos* object);
   void RemoveObject(NotePos* object);
   NotePos* GetObjectByPos(size_t track, int measure, int nu, int de);
-  NotePos* GetObjectByBeat(size_t track, double beat);
+  NotePos* GetObjectByMeasure(size_t track, double measure);
   NotePos** GetRowByPos(int measure, int nu, int de);
-  NotePos** GetRowByBeat(double beat);
+  NotePos** GetRowByMeasure(double measure);
   void RemoveObjectByPos(int measure, int nu, int de);
-  void RemoveObjectByBeat(double beat);
+  void RemoveObjectByMeasure(double measure);
   void RemoveObjectByPos(size_t track, int measure, int nu, int de);
-  void RemoveObjectByBeat(size_t track, double beat);
-  bool IsHoldNoteAt(double beat) const;
-  bool IsRangeEmpty(double beat_start, double beat_end) const;
+  void RemoveObjectByMeasure(size_t track, double measure);
+  bool IsHoldNoteAt(double measure) const;
+  bool IsRangeEmpty(double beat_start, double m_end) const;
   void GetNoteByRange(double beat_start, double beat_end, std::vector<NotePos*> &out);
   void GetAllTrackNote(std::vector<NotePos*> &out);
 
@@ -485,15 +484,15 @@ public:
     std::vector<NotePos*>::iterator iter_;
   };
   all_track_iterator GetAllTrackIterator() const;
-  all_track_iterator GetAllTrackIterator(double beat_start, double beat_end) const;
+  all_track_iterator GetAllTrackIterator(double m_start, double m_end) const;
 
   /* row number iterator */
   class row_iterator
   {
   public:
     row_iterator();
-    row_iterator(double beat_start, double beat_end);
-    double get_beat() const;
+    row_iterator(double m_start, double m_end);
+    double get_measure() const;
     void next();
     bool is_end() const;
     NotePos* col(size_t idx);
@@ -504,13 +503,13 @@ public:
     double operator*() const;
     friend class TrackData;
   private:
-    double beat_start, beat_end;
-    double beat;
+    double m_start, m_end;
+    double measure;
     all_track_iterator all_track_iter_;
     NotePos* curr_row_notes[kMaxTrackSize];
   };
   row_iterator GetRowIterator() const;
-  row_iterator GetRowIterator(double beat_start, double beat_end) const;
+  row_iterator GetRowIterator(double m_start, double m_end) const;
 
   void swap(TrackData &data);
   size_t size() const;

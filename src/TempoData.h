@@ -17,9 +17,9 @@ struct TimingSegment
   TimingSegment();
   TimingSegment(const TimingSegment&) = default;
   
-  double beat_;           // edit object position, regarding all tempo as 4/4 (not used, just for debugging)
   double time_;           // in second
-  double barpos_;         // real object position - used for time calculation
+  double beat_;           // real object position used for time calculation (4/4 beat by default)
+  double measure_;        // edit object position (only for debug, not used)
   double bpm_;
   double stoptime_;
   double delaytime_;
@@ -44,12 +44,12 @@ struct TimingSegment
 struct BarObject
 {
   BarObject();
-  BarObject(double barpos, double barlength, uint32_t measure);
+  BarObject(double beat, double barlength, uint32_t measure);
   BarObject(const BarObject&) = default;
   bool operator<(const BarObject &) const;
 
   uint32_t measure_;
-  double barpos_;
+  double beat_;
   double barlength_;    // 0 ~ 1
 };
 
@@ -61,13 +61,15 @@ class TimingSegmentData
 {
 public:
   TimingSegmentData();
+  double GetTimeFromMeasure(double measure) const;
+  double GetMeasureFromTime(double time) const;
   double GetTimeFromBeat(double beat) const;
   double GetBeatFromTime(double time) const;
-  double GetBarFromBeat(double beat) const;
-  double GetBeatFromBar(double beat) const;
-  std::vector<double> GetTimeFromBeatArr(const std::vector<double>& sorted_beat) const;
-  std::vector<double> GetBeatFromTimeArr(const std::vector<double>& sorted_time) const;
-  std::vector<double> GetBarFromBeatArr(const std::vector<double>& sorted_beat) const;
+  double GetBeatFromMeasure(double measure) const;
+  double GetMeasureFromBeat(double beat) const;
+  std::vector<double> GetTimeFromMeasureArr(const std::vector<double>& sorted_measure) const;
+  std::vector<double> GetMeasureFromTimeArr(const std::vector<double>& sorted_time) const;
+  std::vector<double> GetBeatFromMeasureArr(const std::vector<double>& sorted_measure) const;
   double GetMaxBpm() const;
   double GetMinBpm() const;
   bool HasBpmChange() const;
@@ -86,21 +88,21 @@ public:
 private:
   void SetFirstObjectFromMetaData(const MetaData &md);
   void SetMeasureLengthChange(uint32_t measure_idx /* beat */, double measure_length);
-  void SeekByBeat(double beat);
+  void SeekByMeasure(double measure);
   void SeekByTime(double time);
+  void Seek(double beat, double time);
   void SetBPMChange(double bpm);
   void SetSTOP(double stop);
   void SetDelay(double delay);
   void SetWarp(double warp_length_in_beat);
   void SetTick(uint32_t tick);
   void SetScrollSpeedChange(double scrollspeed);
-  void Seek(double bar, double time);
-  double GetTimeFromBarInLastSegment(double  bar) const;       // return msec time
-  double GetBarFromTimeInLastSegment(double time) const;
-  double GetTimeFromBeatInLastSegment(double beat) const;
+  double GetTimeFromBeatInLastSegment(double beat) const;       // return msec time
   double GetBeatFromTimeInLastSegment(double time) const;
-  double GetBarFromBeatInLastSegment(double beat) const;
-  double GetBeatFromBarInLastSegment(double  bar) const;
+  double GetBeatFromMeasureInLastSegment(double measure) const;
+  double GetMeasureFromBeatInLastSegment(double beat) const;
+  double GetTimeFromMeasureInLastSegment(double measure) const;
+  double GetMeasureFromTimeInLastSegment(double time) const;
 
   bool do_recover_measure_length_;        // set measure length to 4.0 implicitly.
   TimingData timingdata_;

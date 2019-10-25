@@ -122,7 +122,7 @@ template <typename T>
 void InvalidateTrackDataTiming(T& td, const TimingSegmentData& tsd)
 {
   std::vector<NotePos*> vNpos;
-  std::vector<double> vBeat, vTime;
+  std::vector<double> vM, vTime;
   size_t i = 0;
   auto iter = td.GetAllTrackIterator();
   while (!iter.is_end())
@@ -132,9 +132,9 @@ void InvalidateTrackDataTiming(T& td, const TimingSegmentData& tsd)
   }
   for (auto *npos : vNpos)
   {
-    vBeat.push_back(npos->beat);
+    vM.push_back(npos->measure);
   }
-  vTime = std::move(tsd.GetTimeFromBeatArr(vBeat));
+  vTime = std::move(tsd.GetTimeFromMeasureArr(vM));
   for (auto *npos : vNpos)
   {
     npos->SetTime(vTime[i++]);
@@ -151,7 +151,7 @@ void Chart::InvalidateAllNotePos()
 
 void Chart::InvalidateNotePos(Note &nobj)
 {
-  nobj.time_msec = GetTimingSegmentData().GetTimeFromBeat(nobj.beat);
+  nobj.time_msec = GetTimingSegmentData().GetTimeFromMeasure(nobj.measure);
 }
 
 void Chart::InvalidateTempoData()

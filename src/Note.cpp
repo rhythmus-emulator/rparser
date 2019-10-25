@@ -83,26 +83,25 @@ const auto noteposcompfunc
 
 NotePos::NotePos()
   : type(NotePosTypes::NullPos), track_(0),
-    time_msec(0), beat(0), measure(0), num(0), deno(0) {}
+    time_msec(0), measure(.0), num(0), deno(0) {}
 
 void NotePos::SetRowPos(int measure, RowPos deno, RowPos num)
 {
   ASSERT(deno > 0);
   type = NotePosTypes::Beat;
-  beat = measure + (double)num / deno;
-  this->measure = measure;
+  this->measure = measure + (double)num / deno;
   this->deno = deno;
   this->num = num;
 }
 
+/* @warn acually it uses measure value */
 void NotePos::SetBeatPos(double beat)
 {
   type = NotePosTypes::Beat;
-  this->beat = beat;
+  this->measure = beat / 4.0;
   // row pos is set in 16th note if no denominator is set.
   if (deno == 0) deno = 16;
-  measure = static_cast<int>(floor(beat));
-  num = static_cast<uint16_t>((beat - measure) * deno);
+  num = static_cast<uint16_t>((beat - measure * 4.0) * deno);
 }
 
 #if 0
@@ -120,8 +119,8 @@ void NotePos::SetTime(double time_msec)
 
 void NotePos::SetDenominator(uint32_t denominator)
 {
-  this->deno = deno;
-  num = static_cast<uint16_t>((beat - measure) * deno);
+  this->deno = denominator;
+  num = static_cast<uint16_t>(fmod(measure, 1.0) * deno);
 }
 
 std::string NotePos::toString() const
@@ -134,7 +133,7 @@ std::string NotePos::toString() const
     ss << "(No note pos set)" << std::endl;
     break;
   case NotePosTypes::Beat:
-    ss << "Beat: " << beat << "(" << num << " / " << deno << ")" << std::endl;
+    ss << "Measure: " << measure << "(" << num << " / " << deno << ")" << std::endl;
     break;
   case NotePosTypes::Time:
     ss << "Time: " << time_msec << "(" << num << " / " << deno << ")" << std::endl;
@@ -150,7 +149,7 @@ NotePosTypes NotePos::postype() const
 
 double NotePos::GetBeatPos() const
 {
-  return beat;
+  return measure * 4.0;
 }
 
 double NotePos::GetTimePos() const
@@ -181,12 +180,12 @@ const NotePos& NotePos::endpos() const
 
 bool NotePos::operator<(const NotePos &other) const noexcept
 {
-  return beat < other.beat;
+  return measure < other.measure;
 }
 
 bool NotePos::operator==(const NotePos &other) const noexcept
 {
-  return beat == other.beat;
+  return measure == other.measure;
 }
 
 NotePos* NotePos::clone() const
@@ -625,16 +624,16 @@ void Track::RemoveObject(NotePos* object)
 NotePos* Track::GetObjectByPos(int measure, int nu, int de)
 {
   ASSERT(de > 0);
-  return GetObjectByBeat(measure + (double)nu / de);
+  return GetObjectByMeasure(measure + (double)nu / de);
 }
 
-NotePos* Track::GetObjectByBeat(double beat)
+NotePos* Track::GetObjectByMeasure(double measure)
 {
   for (auto *obj : objects_)
   {
-    if (obj->beat > beat)
+    if (obj->measure > measure)
       break;
-    else if (obj->beat == beat)
+    else if (obj->measure == measure)
       return obj;
   }
   return nullptr;
@@ -643,54 +642,54 @@ NotePos* Track::GetObjectByBeat(double beat)
 void Track::RemoveObjectByPos(int measure, int nu, int de)
 {
   ASSERT(de > 0);
-  return RemoveObjectByBeat(measure + (double)nu / de);
+  return RemoveObjectByMeasure(measure + (double)nu / de);
 }
 
-void Track::RemoveObjectByBeat(double beat)
+void Track::RemoveObjectByMeasure(double measure)
 {
-  NotePos* o = GetObjectByBeat(beat);
+  NotePos* o = GetObjectByMeasure(measure);
   if (o) RemoveObject(o);
 }
 
-bool Track::IsHoldNoteAt(double beat) const
+bool Track::IsHoldNoteAt(double mesure) const
 {
   if (objects_.empty()) return false;
   NotePos *n = objects_.front();
   NotePos p; /* temporary object to use lower_bound */
-  p.beat = beat;
+  p.measure = mesure;
   auto it = std::upper_bound(objects_.rbegin(), objects_.rend(), &p,
     noteposcompfunc);
   if (it != objects_.rend()) n = *it;
-  return (n->endpos().beat >= beat);
+  return (n->endpos().measure >= mesure);
 }
 
-bool Track::IsRangeEmpty(double beat_start, double beat_end) const
+bool Track::IsRangeEmpty(double m_start, double m_end) const
 {
   if (objects_.empty()) return false;
   NotePos p; /* temporary object to use lower_bound */
-  p.beat = beat_start;
+  p.measure = m_start;
   auto it = std::lower_bound(objects_.begin(), objects_.end(), &p,
     noteposcompfunc);
   if (it != objects_.begin()) it = std::prev(it);
-  if ((*it)->endpos().beat >= beat_start) return false;
+  if ((*it)->endpos().measure >= m_start) return false;
   ++it;
   if (it != objects_.end())
   {
-    if ((*it)->beat <= beat_end) return false;
+    if ((*it)->measure <= m_end) return false;
   }
   return true;
 }
 
-void Track::GetObjectByRange(double beat_start, double beat_end, std::vector<NotePos*> &out)
+void Track::GetObjectByRange(double m_start, double m_end, std::vector<NotePos*> &out)
 {
   for (size_t i = 0; i < objects_.size(); ++i)
   {
-    if (objects_[i]->beat >= beat_start)
+    if (objects_[i]->measure >= m_start)
     {
       while (i < objects_.size())
       {
         out.push_back(objects_[i]);
-        if (objects_[i]->beat > beat_end)
+        if (objects_[i]->measure > m_end)
           return;
         ++i;
       }
@@ -707,18 +706,18 @@ void Track::ClearAll()
   objects_.clear();
 }
 
-void Track::ClearRange(double beat_begin, double beat_end)
+void Track::ClearRange(double m_begin, double m_end)
 {
   for (size_t i = 0; i < objects_.size(); ++i)
   {
-    if (objects_[i]->beat >= beat_begin)
+    if (objects_[i]->measure >= m_begin)
     {
       delete objects_[i];
       size_t si = i;
       size_t ei = i+1;
       while (ei < objects_.size())
       {
-        if (objects_[ei]->beat > beat_end)
+        if (objects_[ei]->measure > m_end)
           break;
         delete objects_[ei];
         ei++;
@@ -737,15 +736,15 @@ void Track::CopyAll(const Track& from)
   }
 }
 
-void Track::CopyRange(const Track& from, double beat_begin, double beat_end)
+void Track::CopyRange(const Track& from, double m_begin, double m_end)
 {
   for (size_t i = 0; i < from.objects_.size(); ++i)
   {
-    if (from.objects_[i]->beat >= beat_begin)
+    if (from.objects_[i]->measure >= m_begin)
     {
       while (i < from.objects_.size())
       {
-        if (from.objects_[i]->beat > beat_end)
+        if (from.objects_[i]->measure > m_end)
           break;
         AddObject(from.objects_[i]->clone());
         ++i;
@@ -755,25 +754,25 @@ void Track::CopyRange(const Track& from, double beat_begin, double beat_end)
   }
 }
 
-void Track::MoveRange(double beat_delta, double beat_begin, double beat_end)
+void Track::MoveRange(double m_delta, double m_begin, double m_end)
 {
-  ClearRange(beat_begin + beat_delta, beat_end + beat_delta);
+  ClearRange(m_begin + m_delta, m_end + m_delta);
   std::vector<NotePos*> objs;
-  GetObjectByRange(beat_begin, beat_end, objs);
+  GetObjectByRange(m_begin, m_end, objs);
   for (auto *obj : objs)
-    obj->SetBeatPos(obj->beat + beat_delta);
+    obj->SetBeatPos(obj->measure + m_delta);
 }
 
-void Track::InsertBlank(double beat_begin, double beat_delta)
+void Track::InsertBlank(double m_begin, double m_delta)
 {
-  MoveRange(beat_delta, beat_begin, std::numeric_limits<double>::max());
+  MoveRange(m_delta, m_begin, std::numeric_limits<double>::max());
 }
 
-void Track::MoveAll(double beat_delta)
+void Track::MoveAll(double m_delta)
 {
   for (auto *obj : objects_)
   {
-    obj->SetBeatPos(obj->beat + beat_delta);
+    obj->SetBeatPos(obj->measure + m_delta);
   }
 }
 
@@ -846,9 +845,9 @@ NotePos* TrackData::GetObjectByPos(size_t track, int measure, int nu, int de)
   return track_[track].GetObjectByPos(measure, nu, de);
 }
 
-NotePos* TrackData::GetObjectByBeat(size_t track, double beat)
+NotePos* TrackData::GetObjectByMeasure(size_t track, double measure)
 {
-  return track_[track].GetObjectByBeat(beat);
+  return track_[track].GetObjectByMeasure(measure);
 }
 
 NotePos** TrackData::GetRowByPos(int measure, int nu, int de)
@@ -858,10 +857,10 @@ NotePos** TrackData::GetRowByPos(int measure, int nu, int de)
   return track_row_;
 }
 
-NotePos** TrackData::GetRowByBeat(double beat)
+NotePos** TrackData::GetRowByMeasure(double measure)
 {
   for (int i = 0; i < track_count_; ++i)
-    track_row_[i] = track_[i].GetObjectByBeat(beat);
+    track_row_[i] = track_[i].GetObjectByMeasure(measure);
   return track_row_;
 }
 
@@ -871,10 +870,10 @@ void TrackData::RemoveObjectByPos(int measure, int nu, int de)
     track_[i].RemoveObjectByPos(measure, nu, de);
 }
 
-void TrackData::RemoveObjectByBeat(double beat)
+void TrackData::RemoveObjectByMeasure(double measure)
 {
   for (size_t i = 0; i < track_count_; ++i)
-    track_[i].RemoveObjectByBeat(beat);
+    track_[i].RemoveObjectByMeasure(measure);
 }
 
 void TrackData::RemoveObjectByPos(size_t track, int measure, int nu, int de)
@@ -882,9 +881,9 @@ void TrackData::RemoveObjectByPos(size_t track, int measure, int nu, int de)
   track_[track].RemoveObjectByPos(measure, nu, de);
 }
 
-void TrackData::RemoveObjectByBeat(size_t track, double beat)
+void TrackData::RemoveObjectByMeasure(size_t track, double measure)
 {
-  track_[track].RemoveObjectByBeat(beat);
+  track_[track].RemoveObjectByMeasure(measure);
 }
 
 bool TrackData::IsHoldNoteAt(double beat) const
@@ -1057,15 +1056,15 @@ TrackData::all_track_iterator TrackData::GetAllTrackIterator() const
   return iter;
 }
 
-TrackData::all_track_iterator TrackData::GetAllTrackIterator(double beat_start, double beat_end) const
+TrackData::all_track_iterator TrackData::GetAllTrackIterator(double m_start, double m_end) const
 {
   all_track_iterator iter;
   for (int i = 0; i < track_count_; ++i)
   {
     for (auto *obj : track_[i])
     {
-      if (obj->beat < beat_start) continue;
-      if (obj->beat > beat_end) break;
+      if (obj->measure < m_start) continue;
+      if (obj->measure > m_end) break;
       iter.notes_.push_back(obj);
     }
   }
@@ -1079,25 +1078,25 @@ TrackData::all_track_iterator TrackData::GetAllTrackIterator(double beat_start, 
 }
 
 TrackData::row_iterator::row_iterator()
-  : beat_start(0), beat_end(std::numeric_limits<double>::max()), beat(0)
+  : m_start(0), m_end(std::numeric_limits<double>::max()), measure(0)
 {
   memset(curr_row_notes, 0, sizeof(curr_row_notes));
 }
 
-TrackData::row_iterator::row_iterator(double beat_start, double beat_end)
-  : beat_start(beat_start), beat_end(beat_end), beat(beat_start)
+TrackData::row_iterator::row_iterator(double m_start, double m_end)
+  : m_start(m_start), m_end(m_end), measure(m_start)
 {
   memset(curr_row_notes, 0, sizeof(curr_row_notes));
 }
 
-double TrackData::row_iterator::get_beat() const { return beat; }
+double TrackData::row_iterator::get_measure() const { return measure; }
 
 void TrackData::row_iterator::next()
 {
   if (all_track_iter_.is_end()) return;
 
   memset(curr_row_notes, 0, sizeof(curr_row_notes));
-  beat = all_track_iter_.p()->beat;
+  measure = all_track_iter_.p()->measure;
   NotePos *cur_note;
   while (1)
   {
@@ -1105,7 +1104,7 @@ void TrackData::row_iterator::next()
     if (all_track_iter_.is_end())
       break;
     cur_note = all_track_iter_.p();
-    if (beat != cur_note->beat)
+    if (measure != cur_note->measure)
       break;
     curr_row_notes[cur_note->get_track()] = cur_note;
   }
@@ -1114,7 +1113,7 @@ void TrackData::row_iterator::next()
 TrackData::row_iterator &TrackData::row_iterator::operator++() { next(); return *this; }
 NotePos& TrackData::row_iterator::operator[](size_t i) { return *curr_row_notes[i]; }
 const NotePos& TrackData::row_iterator::operator[](size_t i) const { return *curr_row_notes[i]; }
-double TrackData::row_iterator::operator*() const { return get_beat(); }
+double TrackData::row_iterator::operator*() const { return get_measure(); }
 
 NotePos* TrackData::row_iterator::col(size_t idx)
 {
