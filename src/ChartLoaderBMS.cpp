@@ -550,7 +550,7 @@ uint8_t GetNoteColFromBmsChannel(unsigned int bms_channel)
   if (channel_mod_16 >= 16) return 0;
   unsigned int channel_remap[16] = 
   {0, 1, 2, 3, 4, 5, 8, 9, 6, 7, 0, 0, 0, 0, 0, 0};
-  return channel_remap[channel_mod_16];
+  return static_cast<uint8_t>(channel_remap[channel_mod_16] - 1);
 }
 
 bool ChartLoaderBMS::ParseMeasureLength()
@@ -707,14 +707,15 @@ bool ChartLoaderBMS::ParseSoundNote()
   n->SetRowPos(curr_note_syntax_.measure, curr_note_syntax_.deno, curr_note_syntax_.num);
   n->set_track(GetNoteColFromBmsChannel(channel));
   n->set_player(GetNotePlayerFromBmsChannel(channel));
+  n->set_channel(valu);
   curlane = (unsigned)n->get_track();
 
   /** Longnote check */
   if (subtype == NoteTypes::kLongNote /* General LN channel */
-      || (valu == chart_context_->GetMetaData().bms_longnote_object) /* LNOBJ check */ )
+      || (valu == longnotetype) /* LNOBJ check */ )
   {
     /** LNTYPE 2 (obsolete) */
-    if (chart_context_->GetMetaData().bms_longnote_type == 2)
+    if (longnotetype == 2)
     {
       if (longnote_idx_per_lane[curlane] == UINT32_MAX)
         longnote_idx_per_lane[curlane] = 1;
@@ -743,11 +744,9 @@ bool ChartLoaderBMS::ParseSoundNote()
       }
     }
   }
-  else
-  {
-    // Add single tapnote object
-    chart_context_->GetNoteData().AddObjectDuplicated(n);
-  }
+
+  // Add single tapnote object
+  chart_context_->GetNoteData().AddObjectDuplicated(n);
 
   return true;
 }
