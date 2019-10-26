@@ -628,6 +628,7 @@ bool ChartLoaderBMS::ParseNote()
 
 bool ChartLoaderBMS::ParseBgaNote()
 {
+  if (curr_note_syntax_.value_u == 0) return true;
   BgaObject *obj = new BgaObject();
   obj->SetRowPos(curr_note_syntax_.measure, curr_note_syntax_.deno, curr_note_syntax_.num);
   obj->set_channel(curr_note_syntax_.value_u);
@@ -641,7 +642,7 @@ bool ChartLoaderBMS::ParseBgaNote()
 
 bool ChartLoaderBMS::ParseBgmNote()
 {
-  // TODO: add track context.
+  if (curr_note_syntax_.value_u == 0) return true;
   auto track = bgm_column_idx_per_measure_[current_line_->measure];
 
   BgmObject *obj = new BgmObject();
@@ -656,6 +657,7 @@ bool ChartLoaderBMS::ParseBgmNote()
 
 bool ChartLoaderBMS::ParseEffectNote()
 {
+  if (curr_note_syntax_.value_u == 0) return true;
   EffectObject *obj = new EffectObject();
 
   unsigned channel = curr_note_syntax_.channel;
@@ -690,29 +692,30 @@ bool ChartLoaderBMS::ParseSoundNote()
   const char* val = curr_note_syntax_.value;
   const unsigned valu = curr_note_syntax_.value_u;
   const int longnotetype = chart_context_->GetMetaData().bms_longnote_type;
+  const unsigned lnobj = (unsigned)chart_context_->GetMetaData().bms_longnote_object;
   const unsigned subtype = GetNoteSubTypeFromBmsChannel(channel);
   unsigned curlane = 0;
   Note *n = nullptr;
+  curlane = GetNoteColFromBmsChannel(channel);
 
   if (valu == 0)
   {
     /** Close longnote in case of LNTYPE 2 (obsolete) */
     if (longnotetype == 2)
-      longnote_idx_per_lane[channel] = UINT32_MAX;
+      longnote_idx_per_lane[curlane] = UINT32_MAX;
     /** Don't do anything with 00 note */
     return true;
   }
 
   n = new Note();
   n->SetRowPos(curr_note_syntax_.measure, curr_note_syntax_.deno, curr_note_syntax_.num);
-  n->set_track(GetNoteColFromBmsChannel(channel));
+  n->set_track(curlane);
   n->set_player(GetNotePlayerFromBmsChannel(channel));
   n->set_channel(valu);
-  curlane = (unsigned)n->get_track();
 
   /** Longnote check */
   if (subtype == NoteTypes::kLongNote /* General LN channel */
-      || (valu == longnotetype) /* LNOBJ check */ )
+      || (valu == lnobj) /* LNOBJ check */ )
   {
     /** LNTYPE 2 (obsolete) */
     if (longnotetype == 2)
@@ -723,6 +726,7 @@ bool ChartLoaderBMS::ParseSoundNote()
       {
         Note& ln = static_cast<Note&>(
           chart_context_->GetNoteData().get_track(curlane).back());
+        ln.RemoveAllChain();
         *ln.NewChain() = *n;
         delete n;
         return true; /* Don't add note */
@@ -753,6 +757,8 @@ bool ChartLoaderBMS::ParseSoundNote()
 
 bool ChartLoaderBMS::ParseTimingNote()
 {
+  if (curr_note_syntax_.value_u == 0) return true;
+
   TimingObject *obj = new TimingObject();
   unsigned channel = curr_note_syntax_.channel;
   unsigned track = GetNoteSubTypeFromBmsChannel(channel);

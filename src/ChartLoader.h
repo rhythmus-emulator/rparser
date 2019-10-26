@@ -65,7 +65,7 @@ public:
   void ProcessConditionalStatement(bool do_process = true);
 private:
   Chart * chart_context_;
-  uint32_t longnote_idx_per_lane[36];
+  uint32_t longnote_idx_per_lane[128];
   std::map<int, uint8_t> bgm_column_idx_per_measure_;
 
   struct CondContext {
