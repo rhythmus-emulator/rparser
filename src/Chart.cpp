@@ -209,6 +209,11 @@ void Chart::SetParent(Song *song)
   parent_song_ = song;
 }
 
+Song* Chart::GetParent() const
+{
+  return parent_song_;
+}
+
 SONGTYPE Chart::GetSongType() const
 {
   if (parent_song_)

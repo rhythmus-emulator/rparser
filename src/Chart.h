@@ -74,6 +74,7 @@ public:
   std::string GetFilename() const;
   void SetFilename(const std::string& filename);
   void SetParent(Song *song);
+  Song* GetParent() const;
   SONGTYPE GetSongType() const;
 
   friend class Song;
