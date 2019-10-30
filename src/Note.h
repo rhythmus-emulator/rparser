@@ -188,6 +188,7 @@ public:
 
   NoteDesc* NewChain();
   void RemoveAllChain();
+  NoteDesc* get_chain(size_t idx) const;
   size_t chainsize() const;
   virtual NotePos& endpos();
   using NoteDesc::endpos;

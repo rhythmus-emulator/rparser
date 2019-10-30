@@ -312,6 +312,11 @@ void Note::RemoveAllChain()
   chains_.push_back(this);
 }
 
+NoteDesc* Note::get_chain(size_t idx) const
+{
+  return chains_[idx];
+}
+
 size_t Note::chainsize() const
 {
   return chains_.size();
