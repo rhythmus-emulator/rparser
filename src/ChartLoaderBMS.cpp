@@ -113,6 +113,7 @@ void ChartLoaderBMS::ProcessCommand(Chart &chart, const char* chr, int len)
   cond_.clear();
   cond_.emplace_back(CondContext{ 0, -1, 0, 0, true });
   random_.SetSeed(seed_);
+  bgm_column_idx_per_measure_.clear();
   // enable by default
   chart.GetTimingSegmentData().SetMeasureLengthRecover(true);
   chart_context_ = &chart;
