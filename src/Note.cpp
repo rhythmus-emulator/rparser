@@ -256,10 +256,10 @@ Note::Note()
 Note::Note(const Note& note)
 {
   type_ = note.type_;
-  for (const auto *chain : note.chains_)
-  {
-    chains_.push_back(chain->clone());
-  }
+  /* copy object without self */
+  chains_.push_back(this);
+  for (size_t i = 1; i < note.chains_.size(); ++i)
+    chains_.push_back(note.chains_[i]->clone());
 }
 
 Note::~Note()
