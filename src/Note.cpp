@@ -254,8 +254,8 @@ Note::Note()
 }
 
 Note::Note(const Note& note)
+  : NoteDesc(note), type_(note.type_), player_(0)
 {
-  type_ = note.type_;
   /* copy object without self */
   chains_.push_back(this);
   for (size_t i = 1; i < note.chains_.size(); ++i)
