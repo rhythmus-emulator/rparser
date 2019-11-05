@@ -142,14 +142,17 @@ public:
   void set_length(uint32_t len_ms);
   void set_volume(float v);
   void set_key(int key);
+  void set_subtype(int subtype);
   Channel channel() const;
   float volume() const;
   uint32_t length() const;
   int key() const;
+  int subtype() const;
   virtual NoteSoundDesc* clone() const;
 
 private:
   Channel channel_;
+  int subtype_;
   uint32_t length_; /* in milisecond */
   float volume_; /* 0 ~ 1 */
   int key_;

@@ -235,10 +235,12 @@ void NoteSoundDesc::set_channel(Channel ch) { channel_ = ch; }
 void NoteSoundDesc::set_length(uint32_t len_ms) { length_ = len_ms; }
 void NoteSoundDesc::set_volume(float v) { volume_ = v; }
 void NoteSoundDesc::set_key(int key) { key_ = key; }
+void NoteSoundDesc::set_subtype(int subtype) { subtype_ = subtype; }
 Channel NoteSoundDesc::channel() const { return channel_; }
 float NoteSoundDesc::volume() const { return volume_; }
 uint32_t NoteSoundDesc::length() const { return length_; }
 int NoteSoundDesc::key() const { return key_; }
+int NoteSoundDesc::subtype() const { return subtype_; }
 
 NoteSoundDesc* NoteSoundDesc::clone() const
 {
