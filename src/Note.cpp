@@ -256,7 +256,7 @@ Note::Note()
 }
 
 Note::Note(const Note& note)
-  : NoteDesc(note), type_(note.type_), player_(0)
+  : NoteDesc(note), NoteSoundDesc(note), type_(note.type_), player_(0)
 {
   /* copy object without self */
   chains_.push_back(this);
