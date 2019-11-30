@@ -501,7 +501,11 @@ int split(const std::string& str, const char sep, std::vector<std::string>& vsOu
 int split(const std::string& str, const char sep, std::string &s1, std::string &s2)
 {
   auto sSep = std::find_if(str.begin(), str.end(), [&](char c) { return c == sep; });
-  if (sSep == str.end()) return 0;
+  if (sSep == str.end())
+  {
+    s1 = str;
+    return 0;
+  }
   s1 = std::string(str.begin(), sSep);
   s2 = std::string(sSep+1, str.end());
   return 1;
