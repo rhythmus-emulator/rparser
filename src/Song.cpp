@@ -52,6 +52,34 @@ const char* GetExtensionBySongType(SONGTYPE iType)
   return type_2_str_.find(iType)->second;
 }
 
+const char* ChartTypeToString(CHARTTYPE type)
+{
+  static const char* type_2_str[] = {
+    0,
+    "4Key",
+    "5Key",
+    "6Key",
+    "7Key",
+    "8Key",
+    "9Key",
+    "10Key",
+    "IIDX5Key",
+    "IIDX10Key",
+    "IIDXSP",
+    "IIDXDP",
+    "Popn",
+    "Drummania",
+    "Guitarfreaks",
+    "jubeat",
+    "DDR",
+    "DDR_DP",
+    "Pump",
+    "Pump_DP",
+    "SDVX",
+  };
+  return type_2_str[(size_t)type];
+}
+
 const char** GetSongExtensions()
 {
 #define BMS(a,b) b
@@ -131,6 +159,12 @@ void Song::DeleteChart(size_t idx)
 void Song::SetSongType(SONGTYPE songtype)
 {
   songtype_ = songtype;
+
+  // Change all chart types if possible.
+  for (auto* c : charts_)
+  {
+    c->InvalidateCharttype();
+  }
 }
 
 SONGTYPE Song::GetSongType() const

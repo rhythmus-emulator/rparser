@@ -8,7 +8,7 @@ using namespace rutil;
 namespace rparser
 {
 
-Chart::Chart() : parent_song_(nullptr)
+Chart::Chart() : parent_song_(nullptr), charttype_(CHARTTYPE::None)
 {
   bgmdata_.set_track_count(128);
   bgadata_.set_track_count(128);
@@ -32,6 +32,7 @@ Chart::Chart(const Chart &nd)
   timingsegmentdata_
     = std::move(TimingSegmentData(nd.timingsegmentdata_));
   memcpy(&common_data_, &nd.common_data_, sizeof(common_data_));
+  charttype_ = nd.charttype_;
 }
 
 Chart::~Chart()
@@ -162,12 +163,38 @@ void Chart::InvalidateTempoData()
   GetTimingSegmentData().Invalidate(GetMetaData());
 }
 
+void Chart::InvalidateCharttype()
+{
+  charttype_ = CHARTTYPE::None;
+  if (!parent_song_)
+    return; /* XXX: manually set SONGTYPE to set proper charttype? */
+  int key = notedata_.get_track_count();
+  switch (parent_song_->GetSongType())
+  {
+  case SONGTYPE::BMS:
+  case SONGTYPE::BMSON:
+    if (key <= 6)
+      charttype_ = CHARTTYPE::IIDX5Key;
+    else if (key <= 8)
+      charttype_ = CHARTTYPE::IIDXSP;
+    else if (key <= 10)
+      charttype_ = CHARTTYPE::IIDX10Key;
+    else
+      charttype_ = CHARTTYPE::IIDXDP;
+    break;
+  case SONGTYPE::PMS:
+    charttype_ = CHARTTYPE::Popn;
+    break;
+  }
+}
+
 void Chart::Invalidate()
 {
   metadata_.SetMetaFromAttribute();
   metadata_.SetUtf8Encoding();
   InvalidateTempoData();
   InvalidateAllNotePos();
+  InvalidateCharttype();
 }
 
 std::string Chart::toString() const
@@ -214,11 +241,42 @@ Song* Chart::GetParent() const
   return parent_song_;
 }
 
-SONGTYPE Chart::GetSongType() const
+CHARTTYPE Chart::GetChartType() const
 {
-  if (parent_song_)
-    return parent_song_->GetSongType();
-  else return SONGTYPE::NONE;
+  return charttype_;
+}
+
+int Chart::GetKeycount() const
+{
+  switch (GetChartType())
+  {
+  case CHARTTYPE::Chart4Key:
+  case CHARTTYPE::DDR:
+    return 4;
+  case CHARTTYPE::Chart5Key:
+  case CHARTTYPE::IIDX5Key:
+  case CHARTTYPE::Pump:
+    return 5;
+  case CHARTTYPE::Chart6Key:
+    return 6;
+  case CHARTTYPE::Chart7Key:
+  case CHARTTYPE::IIDXSP:
+    return 7;
+  case CHARTTYPE::Chart8Key:
+  case CHARTTYPE::DDR_DP:
+    return 8;
+  case CHARTTYPE::Chart9Key:
+    return 9;
+  case CHARTTYPE::Chart10Key:
+  case CHARTTYPE::IIDX10Key:
+  case CHARTTYPE::Pump_DP:
+    return 10;
+  case CHARTTYPE::IIDXDP:
+    return 14;
+  case CHARTTYPE::None:
+  default:
+    return -1;
+  }
 }
 
 } /* namespace rparser */

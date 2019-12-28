@@ -18,6 +18,31 @@ class ConditionalChart;
 class Song;
 enum class SONGTYPE;
 
+enum class CHARTTYPE
+{
+  None,
+  Chart4Key,
+  Chart5Key,
+  Chart6Key,
+  Chart7Key,
+  Chart8Key,
+  Chart9Key,
+  Chart10Key,
+  IIDX5Key,
+  IIDX10Key,
+  IIDXSP,
+  IIDXDP,
+  Popn,
+  Drummania,
+  Guitarfreaks,
+  jubeat,
+  DDR,
+  DDR_DP,
+  Pump,
+  Pump_DP,
+  SDVX,
+};
+
 /*
  * @detail
  * Contains all object consisting chart.
@@ -66,6 +91,7 @@ public:
   void InvalidateAllNotePos();
   void InvalidateNotePos(Note &n);
   void InvalidateTempoData();
+  void InvalidateCharttype();
   void Invalidate();
 
   bool IsEmpty();
@@ -75,7 +101,8 @@ public:
   void SetFilename(const std::string& filename);
   void SetParent(Song *song);
   Song* GetParent() const;
-  SONGTYPE GetSongType() const;
+  CHARTTYPE GetChartType() const;
+  int GetKeycount() const;
 
   friend class Song;
 
@@ -95,6 +122,7 @@ private:
   Song* parent_song_;
   std::string hash_;
   std::string filename_;
+  CHARTTYPE charttype_;
 };
 
 } /* namespace rparser */

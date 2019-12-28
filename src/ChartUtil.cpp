@@ -169,7 +169,7 @@ void ExportToHTML(const Chart &c, std::string& out)
   auto &tnd = td.GetTimingData();
 
   // STEP 0. Container
-  e.line() << "<div id='rhythmus-container' class='playtype-" << GetExtensionBySongType(c.GetSongType()) <<
+  e.line() << "<div id='rhythmus-container' class='playtype-" << ChartTypeToString(c.GetChartType()) <<
     " playlane-" << (int)c.GetPlayLaneCount() << "key'>";
   e.PushIndent();
 
@@ -180,7 +180,7 @@ void ExportToHTML(const Chart &c, std::string& out)
     e.line() << "<span class='title'>Metadata Info</span>";
     // meta related with song
     e.line() << "<span class='desc meta_title'><span class='label'>Filename</span><span class='text'>" << c.GetFilename() << "</span></span>";
-    e.line() << "<span class='desc meta_filetype'><span class='label'>Filetype</span><span class='text'>" << GetExtensionBySongType(c.GetSongType()) << "</span></span>";
+    e.line() << "<span class='desc meta_filetype'><span class='label'>Filetype</span><span class='text'>" << ChartTypeToString(c.GetChartType()) << "</span></span>";
     e.line() << "<span class='desc meta_playmode'><span class='label'>PlayMode</span><span class='text'>" << (int)c.GetPlayLaneCount() << "Key</span></span>";
     // meta related with metadata
     e.line() << "<span class='desc meta_title'><span class='label'>Title</span><span class='text'>" << md.title <<

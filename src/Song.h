@@ -21,11 +21,11 @@
 
 namespace rparser {
 
-// MUST be in same order with Chart::CHARTTYPE
 enum class SONGTYPE {
   NONE = 0,
   BMS,
   BMSON,
+  PMS,
   OSU,
   VOS,
   SM,
@@ -99,6 +99,7 @@ private:
 
 SONGTYPE GetSongTypeByName(const std::string& filename);
 const char* GetExtensionBySongType(SONGTYPE iType);
+const char* ChartTypeToString(CHARTTYPE type);
 
 }
 
