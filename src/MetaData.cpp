@@ -120,9 +120,13 @@ void MetaData::SetMetaFromAttribute()
 #undef META_DBL
 #undef META_INT
     /** BMS related attributes */
+    if (attr.first == "DEFEXRANK") {
+      // convert from 160 to 100.0
+      judgerank = atof(attr.second.c_str()) / 160;
+    }
     else if (attr.first == "RANK") {
       // convert from 4 to 100.0
-      judge_timing = atof(attr.second.c_str()) / 4.0 * 100;
+      judgerank = atof(attr.second.c_str()) / 4.0 * 100;
     }
     else if (attr.first == "PLAYER") {
       int pl = atoi(attr.second.c_str());

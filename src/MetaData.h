@@ -24,9 +24,9 @@ namespace rparser {
   META_INT(player_count, "PLAYERCOUNT"); \
   META_INT(player_side, "PLAYERSIDE"); \
   META_INT(difficulty, "DIFFICULTY"); \
-  META_INT(level, "LEVEL"); \
+  META_INT(level, "PLAYLEVEL"); \
   META_DBL(bpm, "BPM"); \
-  META_DBL(judge_timing, "JUDGETIMING"); \
+  META_DBL(judgerank, "JUDGERANK"); \
   META_DBL(gauge_total, "TOTAL"); \
   META_DBL(time_0beat_offset, "OFFSET"); \
   META_STR(back_image, "BACKIMAGE"); \
