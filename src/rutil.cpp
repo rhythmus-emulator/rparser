@@ -1153,6 +1153,9 @@ bool md5(const void* p, int iLen, unsigned char* out)
   MD5((unsigned char*)p, iLen, reinterpret_cast<unsigned char*>(out));
   return true;
 #else
+  for (size_t i = 0; i < 32; ++i)
+    p[i] = '0';
+  p[32] = 0;
   return false;
 #endif
 }
@@ -1181,6 +1184,36 @@ std::string md5_str(const void* p, int iLen)
   s[0] = s[32] = 0;
   md5_str(p, iLen, s);
   return std::string(s);
+}
+
+char h2c(char x)
+{
+  if (x >= '0' && x <= '9')
+    return x - '0';
+  else if (x >= 'A' && x <= 'F')
+    return x - 'A' + 10;
+  else if (x >= 'a' && x <= 'f')
+    return x - 'a' + 10;
+  else return 0;
+}
+
+char c2h(char x)
+{
+  if (x < 10) return x + '0';
+  else if (x < 16) return x + 'a';
+  else return c2h(x % 16);
+}
+
+std::string md5_sum(const std::string &s1, const std::string &s2)
+{
+  const char *c1 = s1.c_str();
+  const char *c2 = s2.c_str();
+  std::string r;
+  while (*c1 && *c2)
+    r.push_back(c2h((h2c(*c1++) + h2c(*c2++)) % 16));
+  while (r.size() < 32)
+    r.push_back('0');
+  return r;
 }
 
 #ifdef WIN32

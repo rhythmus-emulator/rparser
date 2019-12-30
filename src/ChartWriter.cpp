@@ -27,6 +27,7 @@ bool ChartWriter::WriteMeta(const Song* song)
 
 bool ChartWriter::WriteChart(const Chart* chart)
 {
+  // TODO: update hash value of the chart.
   return false;
 }
 

@@ -95,8 +95,6 @@ public:
   void Invalidate();
 
   bool IsEmpty();
-  std::string GetHash() const;
-  void SetHash(const std::string& hash);
   std::string GetFilename() const;
   void SetFilename(const std::string& filename);
   void SetParent(Song *song);
@@ -104,7 +102,22 @@ public:
   CHARTTYPE GetChartType() const;
   int GetKeycount() const;
 
+  /**
+   * @detail
+   * This hash is generated for identity key of the chart.
+   * OpenSSL MD5 hash is used to generate this key
+   * (otherwise dummy key will created, which is useless for identity code)
+   * The key will be updated when chart is load or saved
+   * by ChartReader / ChartWriter.
+   */
+  const std::string &GetHash() const;
+
+  /* @brief seed value used for this chart. */
+  int GetSeed() const;
+
   friend class Song;
+  friend class ChartWriter;
+  friend class ChartLoader;
 
 private:
   BgmData bgmdata_;
@@ -120,6 +133,7 @@ private:
     TimingSegmentData *timingsegmentdata_;
   } common_data_;
   Song* parent_song_;
+  int seed_;
   std::string hash_;
   std::string filename_;
   CHARTTYPE charttype_;

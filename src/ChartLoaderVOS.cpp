@@ -269,7 +269,7 @@ bool ChartLoaderVOS::LoadFromDirectory()
 }
 
 bool ChartLoaderVOS::Load( Chart &c, const void* p, int len ) {
-  c.Clear();
+  Preload(c, p, len);
   this->chart_ = &c;
   stream.SetSource(p, len);
   timedivision_ = 120;

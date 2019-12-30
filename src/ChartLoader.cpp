@@ -33,4 +33,11 @@ void ChartLoader::SetSeed(int seed)
   else seed_ = seed;
 }
 
+void ChartLoader::Preload(Chart &c, const void* p, int iLen)
+{
+  c.Clear();
+  c.hash_ = rutil::md5_str(p, iLen);
+  c.seed_ = seed_;
+}
+
 }

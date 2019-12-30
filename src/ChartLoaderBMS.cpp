@@ -69,7 +69,6 @@ bool ChartLoaderBMS::LoadFromDirectory()
 
     bool r = Load(*c, f->p, f->len);
     c->SetFilename(filename);
-    c->SetHash(rutil::md5_str(f->p, f->len));
 
     if (!r)
     {
@@ -88,7 +87,7 @@ inline bool IsCharacterTrimmable(char c)
 
 bool ChartLoaderBMS::Load(Chart &c, const void* p, int iLen)
 {
-  c.Clear();
+  Preload(c, p, iLen);
   ProcessCommand(c, static_cast<const char*>(p), iLen);
   return true;
 }

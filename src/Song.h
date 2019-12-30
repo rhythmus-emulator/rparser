@@ -78,6 +78,9 @@ public:
   const char* GetErrorStr() const;
   Directory* GetDirectory();
 
+  /* @brief Create hash value for identity code based on charts. */
+  std::string GetHash() const;
+
   virtual std::string toString(bool detailed=false) const;
 
 private:

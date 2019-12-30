@@ -222,8 +222,7 @@ bool Song::Open(const std::string &path, SONGTYPE songtype)
     rutil::ReadFileData(path, fd);
     ASSERT(fd.len > 0);
     Chart *c = NewChart();
-    //c->SetFilename(filepath_);
-    c->SetHash(rutil::md5_str(fd.GetPtr(), fd.GetFileSize()));
+    c->SetFilename(filepath_);
     r = cl->Load(*c, fd.p, fd.len);
     if (!r)
       DeleteChart(0);
@@ -333,6 +332,19 @@ const char* Song::GetErrorStr() const
 Directory * Song::GetDirectory()
 {
 	return directory_.get();
+}
+
+std::string Song::GetHash() const
+{
+  /* use default hash with bit 1
+     to avoid creating same hash with chart. */
+  std::string hash = "11111111"
+    "11111111"
+    "11111111"
+    "11111111";
+  for (auto *c : charts_)
+    hash = md5_sum(hash, c->GetHash());
+  return hash;
 }
 
 std::string Song::toString(bool detailed) const

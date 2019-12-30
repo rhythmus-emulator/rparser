@@ -15,6 +15,11 @@ Chart::Chart() : parent_song_(nullptr), charttype_(CHARTTYPE::None)
   effectdata_.set_track_count(128 /* ?? */);
   timingsegmentdata_.GetTimingData().set_track_count(128 /* XXX: use kTimingTypeCount */);
   memset(&common_data_, 0, sizeof(common_data_));
+  hash_ = "00000000"
+    "00000000"
+    "00000000"
+    "00000000";
+  seed_ = 0;
 }
 
 /*
@@ -33,6 +38,8 @@ Chart::Chart(const Chart &nd)
     = std::move(TimingSegmentData(nd.timingsegmentdata_));
   memcpy(&common_data_, &nd.common_data_, sizeof(common_data_));
   charttype_ = nd.charttype_;
+  hash_ = nd.hash_;
+  seed_ = nd.seed_;
 }
 
 Chart::~Chart()
@@ -211,14 +218,14 @@ bool Chart::IsEmpty()
   return notedata_.is_empty();
 }
 
-std::string Chart::GetHash() const
+const std::string &Chart::GetHash() const
 {
   return hash_;
 }
 
-void Chart::SetHash(const std::string& hash)
+int Chart::GetSeed() const
 {
-  hash_ = hash;
+  return seed_;
 }
 
 std::string Chart::GetFilename() const

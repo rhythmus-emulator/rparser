@@ -49,6 +49,9 @@ protected:
   Song *song_;
   int error_;
   int seed_;
+
+  /* @brief preprocess when loading chart. */
+  void Preload(Chart &c, const void* p, int iLen);
 };
 
 
