@@ -167,7 +167,7 @@ double TimingSegmentData::GetTimeFromMeasure(double measure) const
 
 double TimingSegmentData::GetMeasureFromTime(double time) const
 {
-  return GetTimeFromBeat(GetBeatFromTime(time));
+  return GetMeasureFromBeat(GetBeatFromTime(time));
 }
 
 double TimingSegmentData::GetTimeFromBeat(double beat) const
