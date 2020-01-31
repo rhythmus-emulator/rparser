@@ -7,8 +7,9 @@
 #define RPARSER_DIRECTORY_H
 
 #include "rutil.h"
-#include <mutex>
 #include "Error.h"
+#include <mutex>
+#include <memory>
 
 #ifdef USE_ZLIB
 struct zip;

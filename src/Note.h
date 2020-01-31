@@ -383,37 +383,6 @@ protected:
   std::vector<NotePos*> objects_;
 };
 
-/* @brief TrackData class with implicit type casting */
-template <typename T>
-class TrackWithType : public Track
-{
-public:
-  void AddObject(T* object)
-  {
-    TrackData::AddObject(object);
-  }
-
-  void AddObjectDuplicated(NotePos* object)
-  {
-    TrackData::AddObjectDuplicated(object);
-  }
-
-  void RemoveObject(T* object)
-  {
-    TrackData::RemoveObject(object);
-  }
-
-  T* GetObjectByPos(int measure, int nu, int de)
-  {
-    TrackData::GetObjectByPos(measure, nu, de);
-  }
-
-  T* GetObjectByMeasure(double measure)
-  {
-    TrackData::GetObjectByBeat(measure);
-  }
-};
-
 constexpr size_t kMaxTrackSize = 128;
 
 /**
@@ -535,6 +504,37 @@ private:
   int track_count_shuffle_;
 };
 
+/* @brief TrackData class with implicit type casting */
+template <typename T>
+class TrackWithType : public Track
+{
+public:
+  void AddObject(T* object)
+  {
+    Track::AddObject(object);
+  }
+
+  void AddObjectDuplicated(T* object)
+  {
+    Track::AddObjectDuplicated(object);
+  }
+
+  void RemoveObject(T* object)
+  {
+    Track::RemoveObject(object);
+  }
+
+  T* GetObjectByPos(int measure, int nu, int de)
+  {
+    Track::GetObjectByPos(measure, nu, de);
+  }
+
+  T* GetObjectByMeasure(double measure)
+  {
+    Track::GetObjectByMeasure(measure);
+  }
+};
+
 /* @brief TrackData with type */
 template <typename T>
 class TrackDataWithType : public TrackData
@@ -560,9 +560,9 @@ public:
     return static_cast<T*>(TrackData::GetObjectByPos(track, measure, nu, de));
   }
 
-  T* GetObjectByBeat(size_t track, double beat)
+  T* GetObjectByMeasure(size_t track, double beat)
   {
-    return static_cast<T*>(TrackData::GetObjectByBeat(track, beat));
+    return static_cast<T*>(TrackData::GetObjectByMeasure(track, beat));
   }
 
   T** GetRowByPos(int measure, int nu, int de)
@@ -570,9 +570,9 @@ public:
     return static_cast<T**>(TrackData::GetRowByPos(measure, nu, de));
   }
 
-  T** GetRowByBeat(double beat)
+  T** GetRowByMeasure(double measure)
   {
-    return static_cast<T**>(TrackData::GetRowByPos(beat));
+    return static_cast<T**>(TrackData::GetRowByMeasure(measure));
   }
 };
 

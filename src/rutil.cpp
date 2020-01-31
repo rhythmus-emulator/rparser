@@ -1154,8 +1154,8 @@ bool md5(const void* p, int iLen, unsigned char* out)
   return true;
 #else
   for (size_t i = 0; i < 32; ++i)
-    p[i] = '0';
-  p[32] = 0;
+    out[i] = '0';
+  out[32] = 0;
   return false;
 #endif
 }
