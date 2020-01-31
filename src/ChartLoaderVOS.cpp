@@ -80,6 +80,18 @@ enum class MIDISIG: int {
   MIDISIG_OTHERS
 };
 
+struct MIDIProgramInfo {
+  uint8_t lastcmd, cmd, a, b;
+  int len;
+  std::string text;
+
+  MIDIProgramInfo()
+  {
+    lastcmd = cmd = a = b = 0;
+    len = 0;
+  }
+};
+
 ChartLoaderVOS::BinaryStream::BinaryStream()
   : p_(0), len_(0), offset_(0) {}
 
@@ -387,13 +399,13 @@ bool ChartLoaderVOS::ParseMetaDataV3()
   {
     stream.GetChar(buf, 0x46);
     ASSERT(memcmp(buf, "VOS1", 4) == 0);
-    const char *metadatas1[] = { "ARTIST", "TITLE", "SUBARTIST", "GENRE", "CHARTMAKER" };
+    static const char *metadatas1[] = { "ARTIST", "TITLE", "SUBARTIST", "GENRE", "CHARTMAKER" };
     metadatas = metadatas1;
     metadata_cnt = 5;
   }
   else
   {
-    const char *metadatas1[] = { "ARTIST", "TITLE", "SUBARTIST", "CHARTMAKER" };
+    static const char *metadatas1[] = { "ARTIST", "TITLE", "SUBARTIST", "CHARTMAKER" };
     metadatas = metadatas1;
     metadata_cnt = 4;
   }
@@ -668,7 +680,6 @@ bool ChartLoaderVOS::ParseMIDI()
 
     MIDISIG midisig = MIDISIG::MIDISIG_DUMMY;
     MIDIProgramInfo mprog;
-    memset(&mprog, 0, sizeof(MIDIProgramInfo));
     int delta = 0;  // delta tick(position) from previous event.
     int ticks = 0;  // current midi event position (tick). 480 tick: 1 measure (4 beat), mostly.
     bool is_midisegment_end = false;

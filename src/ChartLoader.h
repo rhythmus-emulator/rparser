@@ -130,6 +130,7 @@ enum VOS_VERSION {
 };
 
 enum class MIDISIG;
+struct MIDIProgramInfo;
 
 class ChartLoaderVOS : public ChartLoader {
 public:
@@ -147,12 +148,6 @@ private:
   bool ParseNoteDataV2();
   bool ParseNoteDataV3();
   bool ParseMIDI();
-
-  struct MIDIProgramInfo {
-    uint8_t lastcmd, cmd, a, b;
-    int len;
-    std::string text;
-  };
 
   class BinaryStream {
   public:
