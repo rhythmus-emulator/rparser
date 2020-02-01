@@ -1,7 +1,6 @@
 #ifndef RPARSER_TEMPODATA_H
 #define RPARSER_TEMPODATA_H
 
-#include "common.h"
 #include "Note.h"
 
 namespace rparser

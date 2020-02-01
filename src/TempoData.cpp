@@ -1,7 +1,7 @@
 #include "TempoData.h"
 #include "MetaData.h"
 #include "ChartUtil.h"
-#include <math.h>
+#include "common.h"
 
 namespace rparser
 {

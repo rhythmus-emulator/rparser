@@ -1,7 +1,8 @@
 #ifndef RPARSER_NOTE_H
 #define RPARSER_NOTE_H
 
-#include "common.h"
+#include <string>
+#include <vector>
 
 namespace rparser
 {

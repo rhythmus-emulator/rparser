@@ -3,6 +3,7 @@
 #include "MetaData.h"
 #include "ChartLoader.h"
 #include "ChartWriter.h"
+#include "common.h"
 #include <list>
 
 #define BMSTYPES  \

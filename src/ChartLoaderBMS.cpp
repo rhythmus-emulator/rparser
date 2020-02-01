@@ -3,6 +3,7 @@
 #include "ChartLoader.h"
 #include "Chart.h"
 #include "rutil.h"
+#include "common.h"
 
 using namespace rutil;
 

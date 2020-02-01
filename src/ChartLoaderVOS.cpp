@@ -9,7 +9,8 @@
 
 #include "ChartLoader.h"
 #include "Chart.h"
-#include <stdlib.h>
+#include "common.h"
+
 #define MAX_READ_SIZE 512000
 //constexpr double kVOSTimeConstant = 0.6;
 constexpr double kVOSTimeConstant = 0.156;

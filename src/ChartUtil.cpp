@@ -1,6 +1,6 @@
 #include "ChartUtil.h"
 #include "Song.h"
-#include <list>
+#include "common.h"
 
 namespace rparser
 {

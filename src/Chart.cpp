@@ -2,6 +2,7 @@
 #include "ChartUtil.h"
 #include "Song.h"
 #include "rutil.h"
+#include "common.h"
 
 using namespace rutil;
 

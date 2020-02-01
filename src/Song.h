@@ -15,8 +15,6 @@
 #include "Directory.h"
 #include "Chart.h"
 #include "Error.h"
-
-#include "common.h"
 #include "rutil.h"
 
 namespace rparser {

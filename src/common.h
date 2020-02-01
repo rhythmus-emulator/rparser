@@ -1,15 +1,23 @@
 #ifndef RPARSER_HEADER_COMMON
 #define RPARSER_HEADER_COMMON
 
-#include <map>
+/**
+ * @warn this file must included at source file, not header. 
+ */
+
 #include <vector>
+#include <list>
+#include <map>
 #include <algorithm>
 #include <string>
 #include <sstream>
 #include <iostream>
 #include <assert.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
+#include <math.h>
+#include <time.h>
 
 #ifdef _DEBUG
 # define ASSERT(x) assert(x)

@@ -5,7 +5,6 @@
 #ifndef RPARSER_CHARTDATA_H
 #define RPARSER_CHARTDATA_H
 
-#include "common.h"
 #include "Note.h"
 #include "TempoData.h"
 #include "MetaData.h"

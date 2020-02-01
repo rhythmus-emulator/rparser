@@ -1,6 +1,7 @@
 #include "MetaData.h"
 #include "Song.h"   // enum class SONGTYPE
 #include "rutil.h"
+#include "common.h"
 #include <stdlib.h>
 
 using namespace rutil;

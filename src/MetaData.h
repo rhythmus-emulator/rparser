@@ -9,7 +9,7 @@
 #define RPARSER_METADATA_H
 
 #include "Note.h"
-#include "common.h"
+#include <map>
 
 namespace rparser {
 
