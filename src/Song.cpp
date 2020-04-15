@@ -121,9 +121,9 @@ Chart* Song::NewChart()
     break;
   case SONGTYPE::SM:
     c->GetNoteData().set_track_count(4);
-    c->common_data_.bgadata_ = &chart_shared_.bgadata_;
-    c->common_data_.bgmdata_ = &chart_shared_.bgmdata_;
-    c->common_data_.timingsegmentdata_ = &chart_shared_.timingsegmentdata_;
+    c->shared_data_.trackdata[TrackTypes::kTrackCommand] = &chart_shared_.trackdata_[TrackTypes::kTrackCommand];
+    c->shared_data_.trackdata[TrackTypes::kTrackTiming] = &chart_shared_.trackdata_[TrackTypes::kTrackTiming];
+    c->shared_data_.timingsegmentdata = &chart_shared_.timingsegmentdata_;
     break;
   default:
     ASSERT(0);
@@ -164,7 +164,7 @@ void Song::SetSongType(SONGTYPE songtype)
   // Change all chart types if possible.
   for (auto* c : charts_)
   {
-    c->InvalidateCharttype();
+    c->UpdateCharttype();
   }
 }
 

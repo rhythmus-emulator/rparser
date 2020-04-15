@@ -76,628 +76,373 @@ const char **pNoteSubtypeStr[] = {
   kNoteSpecialTypesStr,
 };
 
-const auto noteposcompfunc
-  = [](const NotePos *a, const NotePos *b)->bool { return *a < *b; };
-
 
 // ------------------------------ class NotePos
 
-NotePos::NotePos()
-  : type(NotePosTypes::NullPos), track_(0),
-    time_msec(0), measure(.0), num(0), deno(0) {}
+NoteElement::NoteElement()
+  : time_msec_(0), measure_(.0), num_(0), deno_(0), chain_status_(NoteChainStatus::Tap)
+{
+  memset(&point_, 0, sizeof(point_));
+  memset(&v_, 0, sizeof(v_));
+}
 
-void NotePos::SetRowPos(int measure, RowPos deno, RowPos num)
+void NoteElement::SetRowPos(int measure, RowPos deno, RowPos num)
 {
   ASSERT(deno > 0);
-  type = NotePosTypes::Beat;
-  this->measure = measure + (double)num / deno;
-  this->deno = deno;
-  this->num = num;
+  this->measure_ = measure + (double)num / deno;
+  this->deno_ = deno;
+  this->num_ = num;
 }
 
 /* @warn acually it uses measure value */
-void NotePos::SetBeatPos(double beat)
+void NoteElement::set_measure(double measure)
 {
-  type = NotePosTypes::Beat;
-  this->measure = beat / 4.0;
+  this->measure_ = measure;
   // row pos is set in 16th note if no denominator is set.
-  if (deno == 0) deno = 16;
-  num = static_cast<uint16_t>((beat - measure * 4.0) * deno);
+  if (deno_ == 0) deno_ = 16;
+  num_ = static_cast<uint16_t>((this->measure_ - measure) * deno_);
 }
 
-#if 0
-void NotePos::SetTimePos(double time_msec)
+void NoteElement::set_time(double time_msec)
 {
-  type = NotePosTypes::Time;
-  this->time_msec = time_msec;
+  this->time_msec_ = time_msec;
 }
-#endif
 
-void NotePos::SetTime(double time_msec)
+void NoteElement::set_chain_status(NoteChainStatus cstat)
 {
-  this->time_msec = time_msec;
+  chain_status_ = cstat;
 }
 
-void NotePos::SetDenominator(uint32_t denominator)
+void NoteElement::SetDenominator(uint32_t denominator)
 {
-  this->deno = denominator;
-  num = static_cast<uint16_t>(fmod(measure, 1.0) * deno);
+  this->deno_ = denominator;
+  num_ = static_cast<uint16_t>(fmod(measure_, 1.0) * deno_);
 }
 
-std::string NotePos::toString() const
+std::string NoteElement::toString() const
 {
   std::stringstream ss;
-  int32_t num = 0;
-  switch (type)
-  {
-  case NotePosTypes::NullPos:
-    ss << "(No note pos set)" << std::endl;
-    break;
-  case NotePosTypes::Beat:
-    ss << "Measure: " << measure << "(" << num << " / " << deno << ")" << std::endl;
-    break;
-  case NotePosTypes::Time:
-    ss << "Time: " << time_msec << "(" << num << " / " << deno << ")" << std::endl;
-    break;
-  }
+  ss << "Measure: " << measure_ << " / Time: " << time_msec_ << " (" << num_ << " / " << deno_ << ")" << std::endl;
   return ss.str();
 }
 
-NotePosTypes NotePos::postype() const
+double NoteElement::measure() const
 {
-  return type;
+  return measure_;
 }
 
-double NotePos::GetBeatPos() const
+double NoteElement::time() const
 {
-  return measure * 4.0;
+  return time_msec_;
 }
 
-double NotePos::GetTimePos() const
+NoteChainStatus NoteElement::chain_status() const
 {
-  return time_msec;
+  return chain_status_;
 }
 
-void NotePos::set_track(int track)
+bool NoteElement::operator<(const NoteElement &other) const noexcept
 {
-  track_ = track;
+  return measure_ < other.measure_;
 }
 
-int NotePos::get_track() const
+bool NoteElement::operator==(const NoteElement &other) const noexcept
 {
-  return track_;
+  return measure_ == other.measure_;
 }
 
-// used for chained note
-NotePos& NotePos::endpos()
+void NoteElement::set_value(int v)
 {
-  return *this;
+  v_.i[0] = v;
 }
 
-const NotePos& NotePos::endpos() const
+void NoteElement::set_value(unsigned v)
 {
-  return const_cast<NotePos*>(this)->endpos();
+  v_.u[0] = v;
 }
 
-bool NotePos::operator<(const NotePos &other) const noexcept
+void NoteElement::set_point(int x)
 {
-  return measure < other.measure;
+  point_.x = x;
+  point_.y = 0;
+  point_.z = 0;
 }
 
-bool NotePos::operator==(const NotePos &other) const noexcept
+void NoteElement::set_point(int x, int y)
 {
-  return measure == other.measure;
+  point_.x = x;
+  point_.y = y;
+  point_.z = 0;
 }
 
-NotePos* NotePos::clone() const
+void NoteElement::set_point(int x, int y, int z)
 {
-  return new NotePos(*this);
+  point_.x = x;
+  point_.y = y;
+  point_.z = z;
 }
 
-#if 0
-bool NotePos::operator==(const NotePos &other) const noexcept
+void NoteElement::get_point(int &x)
 {
-  if (type != other.type) return false;
-  switch (type)
-  {
-  case NotePosTypes::Beat:
-    return beat == other.beat;
-  case NotePosTypes::Time:
-    return time_msec == other.time_msec;
-  default:
-    ASSERT(0);
-    return false;
-  }
-}
-#endif
-
-
-// ----------------------------------- NoteDesc
-
-NoteDesc::NoteDesc()
-  : x_(0), y_(0), z_(0) {}
-
-void NoteDesc::set_pos(int x, int y) { x_ = x; y_ = y; }
-void NoteDesc::set_pos(int x, int y, int z) { x_ = x; y_ = y; z_ = z; }
-void NoteDesc::get_pos(int &x, int &y) const { x = x_; y = y_; }
-void NoteDesc::get_pos(int &x, int &y, int &z) const { x = x_; y = y_; z = z_; }
-
-NoteDesc* NoteDesc::clone() const
-{
-  return new NoteDesc(*this);
+  x = point_.x;
 }
 
-// ------------------------------ NoteSoundDesc
-
-NoteSoundDesc::NoteSoundDesc()
-  : channel_(0), length_(0), volume_(0) {}
-
-void NoteSoundDesc::set_channel(Channel ch) { channel_ = ch; }
-void NoteSoundDesc::set_length(uint32_t len_ms) { length_ = len_ms; }
-void NoteSoundDesc::set_volume(float v) { volume_ = v; }
-void NoteSoundDesc::set_key(int key) { key_ = key; }
-void NoteSoundDesc::set_subtype(int subtype) { subtype_ = subtype; }
-Channel NoteSoundDesc::channel() const { return channel_; }
-float NoteSoundDesc::volume() const { return volume_; }
-uint32_t NoteSoundDesc::length() const { return length_; }
-int NoteSoundDesc::key() const { return key_; }
-int NoteSoundDesc::subtype() const { return subtype_; }
-
-NoteSoundDesc* NoteSoundDesc::clone() const
+void NoteElement::get_point(int &x, int &y)
 {
-  return new NoteSoundDesc(*this);
+  x = point_.x;
+  y = point_.y;
+}
+
+void NoteElement::get_point(int &x, int &y, int &z)
+{
+  x = point_.x;
+  y = point_.y;
+  z = point_.z;
+}
+
+void NoteElement::set_value(double v)
+{
+  v_.f = v;
+}
+
+void NoteElement::set_value(NoteSoundProperty &sprop)
+{
+  v_.sprop = sprop;
+}
+
+void NoteElement::get_value(int &v)
+{
+  v = v_.i[0];
+}
+
+int NoteElement::get_value_i() const
+{
+  return v_.i[0];
+}
+
+unsigned int NoteElement::get_value_u() const
+{
+  return v_.u[0];
+}
+
+double NoteElement::get_value_f() const
+{
+  return v_.f;
+}
+
+const NoteSoundProperty& NoteElement::get_value_sprop() const
+{
+  return v_.sprop;
+}
+
+NoteSoundProperty& NoteElement::get_value_sprop()
+{
+  return v_.sprop;
 }
 
 // --------------------------------------- Note
 
-Note::Note()
-  : type_(0), player_(0)
+Note::Note(Track* track) : track_(track), index_(0), size_(track_->size()) {}
+
+size_t Note::size() const
 {
-  chains_.push_back(this);
+  return size_;
 }
 
-Note::Note(const Note& note)
-  : NoteDesc(note), NoteSoundDesc(note), type_(note.type_), player_(0)
+bool Note::next()
 {
-  /* copy object without self */
-  chains_.push_back(this);
-  for (size_t i = 1; i < note.chains_.size(); ++i)
-    chains_.push_back(note.chains_[i]->clone());
+  if (index_ + 1 >= size_) return false;
+  index_++;
+  return true;
 }
 
-Note::~Note()
+bool Note::prev()
 {
-  RemoveAllChain();
+  if (index_ == 0) return false;
+  index_--;
+  return true;
 }
 
-NoteType Note::type() const
+void Note::reset()
 {
-  return type_;
+  index_ = 0;
+  size_ = track_->size();
 }
 
-void Note::set_type(NoteType t)
+void Note::SeekByBeat(double beat)
 {
-  type_ = t;
+  // TODO: fast binary search
+  if (size_ == 0) return;
 }
 
-int Note::player() const
+void Note::SeekByTime(double time)
 {
-  return player_;
+  // TODO: fast binary search
+  if (size_ == 0) return;
 }
 
-void Note::set_player(int player)
+bool Note::is_end() const
 {
-  player_ = player;
+  return index_ + 1 == size_;
 }
 
-int Note::get_player() const
+NoteElement* Note::get()
 {
-  return player_;
+  return track_->get(index_);
 }
 
-std::vector<NoteDesc*>::iterator Note::begin() { return chains_.begin(); }
-std::vector<NoteDesc*>::iterator Note::end() { return chains_.end(); }
-std::vector<NoteDesc*>::const_iterator Note::begin() const { return chains_.begin(); }
-std::vector<NoteDesc*>::const_iterator Note::end() const { return chains_.end(); }
-
-NoteDesc* Note::NewChain()
+const NoteElement* Note::get() const
 {
-  NoteDesc *d = new NoteDesc();
-  chains_.push_back(d);
-  return d;
-}
-
-void Note::RemoveAllChain()
-{
-  for (size_t i = 1; i < chains_.size(); ++i)
-    delete chains_[i];
-  chains_.clear();
-  chains_.push_back(this);
-}
-
-NoteDesc* Note::get_chain(size_t idx) const
-{
-  return chains_[idx];
-}
-
-size_t Note::chainsize() const
-{
-  return chains_.size();
-}
-
-int Note::get_tap_type() const
-{
-  // TODO
-  return 1;
-}
-
-bool Note::is_focusout_allowed() const
-{
-  // TODO
-  return false;
-}
-
-NotePos& Note::endpos() { return *chains_.back(); }
-
-std::string Note::toString() const
-{
-  std::stringstream ss;
-  std::string sType;
-  sType = kNoteTypesStr[type_];
-  ss << "[Object Note]\n";
-  ss << "type: " << sType << std::endl;
-  ss << NotePos::toString();
-  return ss.str();
-}
-
-bool Note::operator==(const Note &other) const noexcept
-{
-  return NotePos::operator==(other) && type() == other.type();
-}
-
-Note* Note::clone() const
-{
-  return new Note(*this);
+  return const_cast<Note*>(this)->get();
 }
 
 
-// ---------------------------------- BgmObject
+// -------------------------------------- Track
 
-BgmObject::BgmObject()
-  : bgm_type_(0), column_(0) {}
+Track::Track() : is_object_duplicable_(true) {}
 
-void BgmObject::set_bgm_type(int bgm_type) { bgm_type_ = bgm_type; }
-void BgmObject::set_column(int col) { column_ = col; }
-int BgmObject::get_bgm_type() const { return bgm_type_; }
-int BgmObject::get_column() const { return column_; }
+Track::~Track() {}
 
-BgmObject* BgmObject::clone() const
+
+void Track::AddNoteElement(const NoteElement& object)
 {
-  return new BgmObject(*this);
-}
-
-// ---------------------------------- BgaObject
-
-BgaObject::BgaObject()
-  : channel_(0), layer_(0) {}
-
-void BgaObject::set_layer(uint32_t layer) { layer_ = layer; }
-void BgaObject::set_channel(Channel ch) { channel_ = ch; }
-uint32_t BgaObject::layer() const { return layer_; }
-Channel BgaObject::channel() const { return channel_; }
-
-BgaObject* BgaObject::clone() const
-{
-  return new BgaObject(*this);
-}
-
-
-// ------------------------------- TimingObject
-
-TimingObject::TimingObject()
-{
-  value.i = 0;
-}
-
-void TimingObject::set_type(int type)
-{
-  set_track(type);
-}
-
-int TimingObject::get_type() const
-{
-  return get_track();
-}
-
-void TimingObject::SetBpm(float bpm)
-{
-  set_type(TimingObjectTypes::kBpm);
-  value.f = bpm;
-}
-
-void TimingObject::SetBmsBpm(Channel bms_channel)
-{
-  set_type(TimingObjectTypes::kBmsBpm);
-  value.i = bms_channel;
-}
-
-void TimingObject::SetStop(float stop)
-{
-  set_type(TimingObjectTypes::kStop);
-  value.f = stop;
-}
-
-void TimingObject::SetBmsStop(Channel bms_channel)
-{
-  set_type(TimingObjectTypes::kBmsStop);
-  value.i = bms_channel;
-}
-
-void TimingObject::SetMeasure(float measure_length)
-{
-  set_type(TimingObjectTypes::kMeasure);
-  value.f = measure_length;
-}
-
-void TimingObject::SetScroll(float scrollspeed)
-{
-  set_type(TimingObjectTypes::kScroll);
-  value.f = scrollspeed;
-}
-
-void TimingObject::SetTick(int32_t tick)
-{
-  set_type(TimingObjectTypes::kTick);
-  value.i = tick;
-}
-
-void TimingObject::SetWarp(float warp_to)
-{
-  set_type(TimingObjectTypes::kWarp);
-  value.f = warp_to;
-}
-
-float TimingObject::GetFloatValue() const
-{
-  return value.f;
-}
-
-int32_t TimingObject::GetIntValue() const
-{
-  return value.i;
-}
-
-std::string TimingObject::getValueAsString() const
-{
-  std::stringstream ss;
-  ss << "Value (float): " << value.f << std::endl;
-  ss << "Value (int): " << value.i << std::endl;
-  return ss.str();
-}
-
-bool TimingObject::operator==(const TimingObject &other) const noexcept
-{
-  return NotePos::operator==(other) &&
-    value.i == other.value.i;
-}
-
-TimingObject* TimingObject::clone() const
-{
-  return new TimingObject(*this);
-}
-
-
-// ------------------------------- EffectObject
-
-std::string EffectObject::getValueAsString() const
-{
-  std::stringstream ss;
-  ss << "Command: " << command_;
-  if (arg1_) ss << ", arg1: " << arg1_;
-  if (arg2_) ss << ", arg2: " << arg2_;
-  ss << std::endl;
-  return ss.str();
-}
-
-EffectObject::EffectObject() : type_(0), command_(0), arg1_(0), arg2_(0)
-{}
-
-/* @depreciated */
-void EffectObject::set_type(int type) { set_track(type); }
-/* @depreciated */
-int EffectObject::get_type() const { return get_track(); }
-
-void EffectObject::SetMidiCommand(uint8_t command, uint8_t arg1, uint8_t arg2)
-{
-  set_type(EffectObjectTypes::kMIDI);
-  command_ = command;
-  arg1_ = arg1;
-  arg2_ = arg2;
-}
-
-void EffectObject::SetBmsARGBCommand(BgaTypes bgatype, Channel channel)
-{
-  set_type(EffectObjectTypes::kBmsARGBLAYER);
-  command_ = bgatype;
-  arg1_ = static_cast<decltype(arg1_)>(channel);
-  arg2_ = 0;
-}
-
-void EffectObject::GetMidiCommand(uint8_t &command, uint8_t &arg1, uint8_t &arg2) const
-{
-  ASSERT(get_type() == EffectObjectTypes::kMIDI);
-  command = (uint8_t)command_;
-  arg1 = (uint8_t)arg1_;
-  arg2 = (uint8_t)arg2_;
-}
-
-void EffectObject::GetBga(int &bga_type, Channel &channel) const
-{
-  bga_type = command_;
-  channel = arg1_;
-}
-
-bool EffectObject::operator==(const EffectObject &other) const noexcept
-{
-  return NotePos::operator==(other) &&
-         command_ == other.command_ &&
-         arg1_ == other.arg1_ &&
-         arg2_ == other.arg2_;
-}
-
-EffectObject* EffectObject::clone() const
-{
-  return new EffectObject(*this);
-}
-
-
-// --------------------------------- ObjectData
-
-Track::Track() {}
-
-Track::~Track()
-{
-  ClearAll();
-}
-
-/* @brief Add object without object duplication. */
-void Track::AddObject(NotePos* object)
-{
-  // if object is added sequentially, add it directly
-  if (objects_.empty() || objects_.back()->endpos() < *object)
+  // for fast-append logic
+  if (!notes_.empty() && notes_.back().measure() >= object.measure())
   {
-    objects_.push_back(object);
-    return;
-  }
-
-  // find smart position to append object
-  bool already_inserted = false;
-  auto it = std::lower_bound(objects_.begin(), objects_.end(), object,
-    noteposcompfunc);
-  if (it != objects_.begin())
-  {
-    // before insert, check previous note is overlapped.
-    // if overlapped, then replace it.
-    auto prev_it = std::prev(it);
-    if (*object < (*prev_it)->endpos())
+    // if object is not duplicatable
+    if (!is_object_duplicable_ && notes_.back().measure() == object.measure())
     {
-      delete *prev_it;
-      *prev_it = object;
-      already_inserted = true;
+      // if end of longnote, pop invalid notes
+      if (object.chain_status() == NoteChainStatus::End)
+      {
+        while (notes_.back().chain_status() == NoteChainStatus::Tap && notes_.size() > 1)
+          notes_.pop_back();
+      }
+      notes_.back() = object;
+      return;
     }
+    notes_.push_back(object);
+    return;
   }
-  if (!already_inserted)
-    objects_.insert(it, object);
-  // check overlapping for next (long)notes.
+  // search position to insert note
+  auto it = std::upper_bound(notes_.begin(), notes_.end(), object);
+  // if end of longnote, pop all invalid tapnotes
+  if (object.chain_status() == NoteChainStatus::End && it != notes_.begin())
   {
-    auto it = std::upper_bound(objects_.begin(), objects_.end(), object,
-      noteposcompfunc);
-    auto it_end = it;
-    while (it_end != objects_.end() && **it_end < object->endpos())
+    auto it_end = std::prev(it);
+    auto it_begin = it_end;
+    while (it_begin != notes_.begin())
     {
-      delete *it_end;
-      ++it_end;
+      if (it_begin->chain_status() != NoteChainStatus::Tap)
+        break;
+      it_begin = std::prev(it_begin);
     }
-    if (it != it_end)
-      objects_.erase(it, it_end);
+    notes_.erase(it_begin, it_end);
   }
+  notes_.insert(it, object);
 }
 
-/* @brief Add object with object duplication (not checking object pos collision) */
-void Track::AddObjectDuplicated(NotePos* object)
+void Track::RemoveNoteElement(const NoteElement& object)
 {
-  // if object is added sequentially, add it directly
-  if (objects_.empty() || *objects_.back() < *object)
+  if (notes_.empty()) return;
+  NoteElement *nf = &notes_.front();
+  NoteElement *ne = &notes_.back();
+
+  // TODO: throw exception when object is not included in track?
+  if (&object < nf || &object > ne) return;
+
+  notes_.erase(std::remove(notes_.begin(), notes_.end(), object), notes_.end());
+}
+
+NoteElement* Track::GetNoteElementByPos(int measure, int nu, int de)
+{
+  return GetNoteElementByMeasure(measure + de / (double)nu);
+}
+
+NoteElement* Track::GetNoteElementByMeasure(double measure)
+{
+  // @brief Find note element that is equal or bigger than given measure.
+  // TODO: use faster binary search without creating NoteElement
+  NoteElement n;
+  n.set_measure(measure);
+  auto it = std::lower_bound(notes_.begin(), notes_.end(), n);
+  if (it == notes_.end())
+    return nullptr;
+  return &*it;
+}
+
+NoteElement* Track::get(size_t index) { return index < notes_.size() ? &notes_[index] : nullptr; }
+
+void Track::RemoveNoteByPos(int measure, int nu, int de)
+{
+  RemoveNoteByMeasure(measure + nu / (double)de);
+}
+
+void Track::RemoveNoteByMeasure(double measure)
+{
+  // @brief Remove note element that is equal or bigger than given measure.
+  if (notes_.empty()) return;
+  NoteElement n;
+  n.set_measure(measure);
+  auto it = std::lower_bound(notes_.begin(), notes_.end(), n);
+  notes_.erase(it);
+}
+
+void Track::SetObjectDupliable(bool duplicable) { is_object_duplicable_ = duplicable; }
+
+bool Track::IsRangeEmpty(double measure) const
+{
+  // TODO: use faster binary search
+  bool is_ln = false;
+  for (unsigned i = 0; i < notes_.size(); ++i)
   {
-    objects_.push_back(object);
-    return;
-  }
-
-  // find smart position to append object
-  auto it = std::lower_bound(objects_.begin(), objects_.end(), object,
-    noteposcompfunc);
-  objects_.insert(it, object);
-}
-
-
-void Track::RemoveObject(NotePos* object)
-{
-  auto it = std::find(objects_.begin(), objects_.end(), object);
-  if (it == objects_.end())
-    return;
-  delete object;
-  objects_.erase(it);
-}
-
-NotePos* Track::GetObjectByPos(int measure, int nu, int de)
-{
-  ASSERT(de > 0);
-  return GetObjectByMeasure(measure + (double)nu / de);
-}
-
-NotePos* Track::GetObjectByMeasure(double measure)
-{
-  for (auto *obj : objects_)
-  {
-    if (obj->measure > measure)
+    if (notes_[i].chain_status() == NoteChainStatus::Start)
+      is_ln = true;
+    else if (notes_[i].chain_status() == NoteChainStatus::End)
+      is_ln = false;
+    if (notes_[i].measure() == measure)
+      return false;
+    if (notes_[i].measure() > measure)
       break;
-    else if (obj->measure == measure)
-      return obj;
   }
-  return nullptr;
-}
-
-void Track::RemoveObjectByPos(int measure, int nu, int de)
-{
-  ASSERT(de > 0);
-  return RemoveObjectByMeasure(measure + (double)nu / de);
-}
-
-void Track::RemoveObjectByMeasure(double measure)
-{
-  NotePos* o = GetObjectByMeasure(measure);
-  if (o) RemoveObject(o);
-}
-
-bool Track::IsHoldNoteAt(double mesure) const
-{
-  if (objects_.empty()) return false;
-  NotePos *n = objects_.front();
-  NotePos p; /* temporary object to use lower_bound */
-  p.measure = mesure;
-  auto it = std::upper_bound(objects_.rbegin(), objects_.rend(), &p,
-    noteposcompfunc);
-  if (it != objects_.rend()) n = *it;
-  return (n->endpos().measure >= mesure);
+  return is_ln;
 }
 
 bool Track::IsRangeEmpty(double m_start, double m_end) const
 {
-  if (objects_.empty()) return false;
-  NotePos p; /* temporary object to use lower_bound */
-  p.measure = m_start;
-  auto it = std::lower_bound(objects_.begin(), objects_.end(), &p,
-    noteposcompfunc);
-  if (it != objects_.begin()) it = std::prev(it);
-  if ((*it)->endpos().measure >= m_start) return false;
-  ++it;
-  if (it != objects_.end())
-  {
-    if ((*it)->measure <= m_end) return false;
-  }
-  return true;
+  // XXX: should use temporary NoteElement?
+  NoteElement n;
+  n.set_measure(m_start);
+  auto it = std::lower_bound(notes_.begin(), notes_.end(), n);
+  return (it == notes_.end() || it->measure() > m_end);
 }
 
-void Track::GetObjectByRange(double m_start, double m_end, std::vector<NotePos*> &out)
+bool Track::IsHoldNoteAt(double measure) const
 {
-  for (size_t i = 0; i < objects_.size(); ++i)
+  NoteElement n;
+  n.set_measure(measure);
+  auto it = std::lower_bound(notes_.begin(), notes_.end(), n);
+  return (n.chain_status() == NoteChainStatus::Body || n.chain_status() == NoteChainStatus::End);
+}
+
+bool Track::HasLongnote() const
+{
+  for (auto &n : notes_)
+    if (n.chain_status() == NoteChainStatus::Start) return true;
+  return false;
+}
+
+void Track::GetNoteElementsByRange(double m_start, double m_end, std::vector<NoteElement*> &out)
+{
+  for (size_t i = 0; i < notes_.size(); ++i)
   {
-    if (objects_[i]->measure >= m_start)
+    if (notes_[i].measure() >= m_start)
     {
-      while (i < objects_.size())
+      while (i < notes_.size())
       {
-        out.push_back(objects_[i]);
-        if (objects_[i]->measure > m_end)
+        // TODO: check for longnote
+        out.push_back(&notes_[i]);
+        if (notes_[i].measure() > m_end)
           return;
         ++i;
       }
@@ -706,31 +451,33 @@ void Track::GetObjectByRange(double m_start, double m_end, std::vector<NotePos*>
   }
 }
 
+void Track::GetAllNoteElements(std::vector<NoteElement*> &out)
+{
+  for (size_t i = 0; i < notes_.size(); ++i)
+    out.push_back(&notes_[i]);
+}
+
 
 void Track::ClearAll()
 {
-  for (auto *object : objects_)
-    delete object;
-  objects_.clear();
+  notes_.clear();
 }
 
 void Track::ClearRange(double m_begin, double m_end)
 {
-  for (size_t i = 0; i < objects_.size(); ++i)
+  for (size_t i = 0; i < notes_.size(); ++i)
   {
-    if (objects_[i]->measure >= m_begin)
+    if (notes_[i].measure() >= m_begin)
     {
-      delete objects_[i];
       size_t si = i;
       size_t ei = i+1;
-      while (ei < objects_.size())
+      while (ei < notes_.size())
       {
-        if (objects_[ei]->measure > m_end)
+        if (notes_[ei].measure() > m_end)
           break;
-        delete objects_[ei];
         ei++;
       }
-      objects_.erase(objects_.begin() + si, objects_.begin() + ei);
+      notes_.erase(notes_.begin() + si, notes_.begin() + ei);
       break;
     }
   }
@@ -738,23 +485,25 @@ void Track::ClearRange(double m_begin, double m_end)
 
 void Track::CopyAll(const Track& from)
 {
-  for (size_t i = 0; i < from.objects_.size(); ++i)
+  // TODO: check track type before copy element from other track
+  for (size_t i = 0; i < from.notes_.size(); ++i)
   {
-    AddObject(from.objects_[i]->clone());
+    AddNoteElement(from.notes_[i]);
   }
 }
 
 void Track::CopyRange(const Track& from, double m_begin, double m_end)
 {
-  for (size_t i = 0; i < from.objects_.size(); ++i)
+  // TODO: check track type before copy element from other track
+  for (size_t i = 0; i < from.notes_.size(); ++i)
   {
-    if (from.objects_[i]->measure >= m_begin)
+    if (from.notes_[i].measure() >= m_begin)
     {
-      while (i < from.objects_.size())
+      while (i < from.notes_.size())
       {
-        if (from.objects_[i]->measure > m_end)
+        if (from.notes_[i].measure() > m_end)
           break;
-        AddObject(from.objects_[i]->clone());
+        AddNoteElement(from.notes_[i]);
         ++i;
       }
       break;
@@ -765,10 +514,18 @@ void Track::CopyRange(const Track& from, double m_begin, double m_end)
 void Track::MoveRange(double m_delta, double m_begin, double m_end)
 {
   ClearRange(m_begin + m_delta, m_end + m_delta);
-  std::vector<NotePos*> objs;
-  GetObjectByRange(m_begin, m_end, objs);
+  std::vector<NoteElement*> objs;
+  GetNoteElementsByRange(m_begin, m_end, objs);
   for (auto *obj : objs)
-    obj->SetBeatPos(obj->measure + m_delta);
+    obj->set_measure(obj->measure() + m_delta);
+}
+
+void Track::MoveAll(double m_delta)
+{
+  for (auto &obj : notes_)
+  {
+    obj.set_measure(obj.measure() + m_delta);
+  }
 }
 
 void Track::InsertBlank(double m_begin, double m_delta)
@@ -776,34 +533,26 @@ void Track::InsertBlank(double m_begin, double m_delta)
   MoveRange(m_delta, m_begin, std::numeric_limits<double>::max());
 }
 
-void Track::MoveAll(double m_delta)
-{
-  for (auto *obj : objects_)
-  {
-    obj->SetBeatPos(obj->measure + m_delta);
-  }
-}
-
-Track::iterator Track::begin() { return objects_.begin(); }
-Track::iterator Track::end() { return objects_.end(); }
-Track::const_iterator Track::begin() const { return objects_.begin(); }
-Track::const_iterator Track::end() const { return objects_.end(); }
-NotePos& Track::front() { return *objects_.front(); };
-NotePos& Track::back() { return *objects_.back(); };
+Track::iterator Track::begin() { return notes_.begin(); }
+Track::iterator Track::end() { return notes_.end(); }
+Track::const_iterator Track::begin() const { return notes_.begin(); }
+Track::const_iterator Track::end() const { return notes_.end(); }
+NoteElement& Track::front() { return notes_.front(); };
+NoteElement& Track::back() { return notes_.back(); };
 
 void Track::swap(Track &track)
 {
-  objects_.swap(track.objects_);
+  notes_.swap(track.notes_);
 }
 
 size_t Track::size() const
 {
-  return objects_.size();
+  return notes_.size();
 }
 
 bool Track::is_empty() const
 {
-  return objects_.empty();
+  return notes_.empty();
 }
 
 void Track::clear()
@@ -814,372 +563,357 @@ void Track::clear()
 
 // ----------------------------------- NoteData
 
-TrackData::TrackData() : track_count_(1) {}
+TrackData::TrackData() {}
 
-void TrackData::set_track_count(int track_count)
+void TrackData::set_track_count(size_t track_count)
 {
-  track_count_ = track_count;
+  tracks_.resize(track_count);
 }
 
-int TrackData::get_track_count() const
+size_t TrackData::get_track_count() const
 {
-  return track_count_;
+  return tracks_.size();
 }
 
-void TrackData::auto_set_track_count()
+Track& TrackData::get_track(size_t track) { return tracks_[track]; }
+const Track& TrackData::get_track(size_t track) const { return tracks_[track]; }
+Track& TrackData::operator[](size_t track) { return tracks_[track]; }
+const Track& TrackData::operator[](size_t track) const { return tracks_[track]; }
+
+NoteElement* TrackData::GetObjectByPos(int measure, int nu, int de)
 {
-  for (size_t i = 0; i < kMaxTrackSize; ++i)
-    if (!track_[i].is_empty()) track_count_ = (int)i;
+  NoteElement *n = nullptr;
+  for (auto &track : tracks_)
+  {
+    if (n = track.GetNoteElementByPos(measure, nu, de))
+      break;
+  }
+  return n;
 }
 
-void TrackData::AddObject(NotePos* object)
+NoteElement* TrackData::GetObjectByMeasure(double measure)
 {
-  // add object to proper track
-  track_[object->get_track()].AddObject(object);
-}
-
-void TrackData::AddObjectDuplicated(NotePos* object)
-{
-  track_[object->get_track()].AddObjectDuplicated(object);
-}
-
-void TrackData::RemoveObject(NotePos* object)
-{
-  track_[object->get_track()].RemoveObject(object);
-}
-
-NotePos* TrackData::GetObjectByPos(size_t track, int measure, int nu, int de)
-{
-  return track_[track].GetObjectByPos(measure, nu, de);
-}
-
-NotePos* TrackData::GetObjectByMeasure(size_t track, double measure)
-{
-  return track_[track].GetObjectByMeasure(measure);
-}
-
-NotePos** TrackData::GetRowByPos(int measure, int nu, int de)
-{
-  for (int i = 0; i < track_count_; ++i)
-    track_row_[i] = track_[i].GetObjectByPos(measure, nu, de);
-  return track_row_;
-}
-
-NotePos** TrackData::GetRowByMeasure(double measure)
-{
-  for (int i = 0; i < track_count_; ++i)
-    track_row_[i] = track_[i].GetObjectByMeasure(measure);
-  return track_row_;
+  NoteElement *n = nullptr;
+  for (auto &track : tracks_)
+  {
+    if (n = track.GetNoteElementByMeasure(measure))
+      break;
+  }
+  return n;
 }
 
 void TrackData::RemoveObjectByPos(int measure, int nu, int de)
 {
-  for (size_t i = 0; i < track_count_; ++i)
-    track_[i].RemoveObjectByPos(measure, nu, de);
+  for (auto &track : tracks_)
+  {
+    track.RemoveNoteByPos(measure, nu, de);
+  }
 }
 
 void TrackData::RemoveObjectByMeasure(double measure)
 {
-  for (size_t i = 0; i < track_count_; ++i)
-    track_[i].RemoveObjectByMeasure(measure);
+  for (auto &track : tracks_)
+  {
+    track.RemoveNoteByMeasure(measure);
+  }
 }
 
-void TrackData::RemoveObjectByPos(size_t track, int measure, int nu, int de)
+bool TrackData::IsHoldNoteAt(double measure) const
 {
-  track_[track].RemoveObjectByPos(measure, nu, de);
-}
-
-void TrackData::RemoveObjectByMeasure(size_t track, double measure)
-{
-  track_[track].RemoveObjectByMeasure(measure);
-}
-
-bool TrackData::IsHoldNoteAt(double beat) const
-{
-  for (size_t i = 0; i < track_count_; ++i)
-    if (track_[i].IsHoldNoteAt(beat)) return true;
+  for (auto &track : tracks_)
+    if (!track.IsHoldNoteAt(measure)) return false;
   return false;
 }
 
-bool TrackData::IsRangeEmpty(double beat_start, double beat_end) const
+bool TrackData::IsRangeEmpty(double m_start, double m_end) const
 {
-  for (size_t i = 0; i < track_count_; ++i)
-    if (!track_[i].IsRangeEmpty(beat_start, beat_end)) return false;
+  for (auto &track : tracks_)
+    if (!track.IsRangeEmpty(m_start, m_end)) return false;
   return true;
 }
 
-void TrackData::GetNoteByRange(double beat_start, double beat_end, std::vector<NotePos*> &out)
+bool TrackData::HasLongnote() const
 {
-
+  for (auto &track : tracks_)
+    if (track.HasLongnote()) return true;
+  return false;
 }
 
-void TrackData::GetAllTrackNote(std::vector<NotePos*> &out)
+void TrackData::clear()
 {
-
+  for (auto &track : tracks_)
+    track.clear();
 }
 
-void TrackData::ClearAll()
+void TrackData::ClearAll() { clear(); /* alias to clear() */ }
+
+void TrackData::ClearRange(double m_begin, double m_end)
 {
-  for (size_t i = 0; i < track_count_; ++i)
-    track_[i].ClearAll();
+  for (auto &track : tracks_)
+    track.ClearRange(m_begin, m_end);
 }
 
-void TrackData::ClearTrack(size_t track)
-{
-  track_[track].ClearAll();
-}
-
-void TrackData::ClearRange(double beat_begin, double beat_end)
-{
-  for (size_t i = 0; i < track_count_; ++i)
-    track_[i].ClearRange(beat_begin, beat_end);
-}
-
-void TrackData::CopyRange(const TrackData& from, double beat_begin, double beat_end)
+void TrackData::CopyRange(const TrackData& from, double m_begin, double m_end)
 {
   ClearAll();
-  for (size_t i = 0; i < track_count_; ++i)
-    track_[i].CopyRange(from.track_[i], beat_begin, beat_end);
+  for (size_t i = 0; i < tracks_.size(); ++i)
+    tracks_[i].CopyRange(from.tracks_[i], m_begin, m_end);
 }
 
 void TrackData::CopyAll(const TrackData& from)
 {
   ClearAll();
-  track_count_ = from.track_count_;
-  track_count_shuffle_ = from.track_count_shuffle_;
-  for (size_t i = 0; i < track_count_; ++i)
-    track_[i].CopyAll(from.track_[i]);
+  set_track_count(from.get_track_count());
+  for (size_t i = 0; i < tracks_.size(); ++i)
+    tracks_[i].CopyAll(from.tracks_[i]);
 }
 
-void TrackData::MoveRange(double beat_delta, double beat_begin, double beat_end)
+void TrackData::MoveRange(double m_delta, double m_begin, double m_end)
 {
-  for (size_t i = 0; i < track_count_; ++i)
-    track_[i].MoveRange(beat_delta, beat_begin, beat_end);
+  for (auto &track : tracks_)
+    track.MoveRange(m_delta, m_begin, m_end);
 }
 
-void TrackData::MoveAll(double beat_delta)
+void TrackData::MoveAll(double m_delta)
 {
-  for (size_t i = 0; i < track_count_; ++i)
-    track_[i].MoveAll(beat_delta);
+  for (auto &track : tracks_)
+    track.MoveAll(m_delta);
 }
 
-void TrackData::InsertBlank(double beat_begin, double beat_delta)
+void TrackData::InsertBlank(double m_begin, double m_delta)
 {
-  for (size_t i = 0; i < track_count_; ++i)
-    track_[i].InsertBlank(beat_begin, beat_delta);
+  for (auto &track : tracks_)
+    track.InsertBlank(m_begin, m_delta);
 }
 
 void TrackData::RemapTracks(size_t *track_map)
 {
   Track track_backup_[kMaxTrackSize];
-  for (size_t i = 0; i < track_count_; ++i)
+  for (size_t i = 0; i < tracks_.size(); ++i)
   {
-    track_backup_[i].swap(track_[i]);
+    track_backup_[i].swap(get_track(i));
   }
-  for (size_t i = 0; i < track_count_; ++i)
+  for (size_t i = 0; i < tracks_.size(); ++i)
   {
-    track_backup_[i].swap(track_[track_map[i]]);
-  }
-}
-
-void TrackData::UpdateTracks()
-{
-  auto alliter = GetAllTrackIterator();
-  for (size_t i = 0; i < track_count_; ++i)
-    track_[i].clear();
-  while (!alliter.is_end())
-  {
-    AddObjectDuplicated(&*alliter);
-    ++alliter;
+    track_backup_[i].swap(get_track(track_map[i]));
   }
 }
 
-TrackData::iterator TrackData::begin(size_t track)
+NoteElement* TrackData::front()
 {
-  return track_[track].begin();
+  NoteElement *n = nullptr;
+  for (auto &track : tracks_) if (!track.is_empty())
+    if (!n || n->measure() > track.front().measure())
+      n = &track.front();
+  return n;
 }
 
-TrackData::iterator TrackData::end(size_t track)
+NoteElement* TrackData::back()
 {
-  return track_[track].end();
+  NoteElement *n = nullptr;
+  for (auto &track : tracks_) if (!track.is_empty())
+    if (!n || n->measure() < track.back().measure())
+      n = &track.back();
+  return n;
 }
 
-TrackData::const_iterator TrackData::begin(size_t track) const
+const NoteElement* TrackData::front() const { return const_cast<TrackData*>(this)->front(); }
+const NoteElement* TrackData::back() const { return const_cast<TrackData*>(this)->back(); }
+
+
+// @brief temporary struct to store note elements with track number
+struct NoteElementsWithTrackNumber
 {
-  return track_[track].begin();
+  NoteElement *nelem;
+  size_t track_idx;
+};
+
+const auto noteposcompfunc
+= [](const NoteElement *a, const NoteElement *b)
+  -> bool { return *a < *b; };
+
+const auto noteposcompfuncwithtn
+= [](const NoteElementsWithTrackNumber &a, const NoteElementsWithTrackNumber &b)
+  -> bool { return a.nelem->measure() < b.nelem->measure(); };
+
+TrackData::all_track_iterator::all_track_iterator(TrackData *td) : idx_(0)
+{
+  std::vector<NoteElement*> nv;
+  std::vector<NoteElementsWithTrackNumber> ntv;
+  for (size_t i = 0; i < td->get_track_count(); ++i)
+  {
+    td->get_track(i).GetAllNoteElements(nv);
+    for (auto *ne : nv)
+      ntv.emplace_back(NoteElementsWithTrackNumber{ ne, i });
+    nv.clear();
+  }
+
+  /* Use stable_sort to keep track order.
+   * This result sorting in first position, then track. */
+  std::stable_sort(ntv.begin(), ntv.end(), noteposcompfuncwithtn);
+
+  for (auto &nt : ntv)
+  {
+    all_notes_.push_back(nt.nelem);
+    track_numbers_.push_back(nt.track_idx);
+  }
 }
 
-TrackData::const_iterator TrackData::end(size_t track) const
+TrackData::all_track_iterator::all_track_iterator(TrackData *td, double m_start, double m_end) : idx_(0)
 {
-  return track_[track].end();
+  std::vector<NoteElement*> nv;
+  std::vector<NoteElementsWithTrackNumber> ntv;
+  for (size_t i = 0; i < td->get_track_count(); ++i)
+  {
+    td->get_track(i).GetNoteElementsByRange(m_start, m_end, nv);
+    for (auto *ne : nv)
+      ntv.emplace_back(NoteElementsWithTrackNumber{ ne, i });
+    nv.clear();
+  }
+
+  /* Use stable_sort to keep track order.
+   * This result sorting in first position, then track. */
+  std::stable_sort(ntv.begin(), ntv.end(), noteposcompfuncwithtn);
+
+  for (auto &nt : ntv)
+  {
+    all_notes_.push_back(nt.nelem);
+    track_numbers_.push_back(nt.track_idx);
+  }
+
+#if 0
+  for (size_t i = 0; i < td->get_track_count(); ++i)
+    td->get_track(i).GetNoteElementsByRange(m_start, m_end, all_notes_);
+  /* Use stable_sort to keep track order.
+   * This result sorting in first position, then track. */
+  std::stable_sort(all_notes_.begin(), all_notes_.end(), noteposcompfunc);
+#endif
 }
 
-Track& TrackData::get_track(size_t track) { return track_[track]; }
-const Track& TrackData::get_track(size_t track) const { return track_[track]; }
-
-NotePos* TrackData::all_track_iterator::p() { return *iter_; }
-void TrackData::all_track_iterator::next() { iter_++; }
-bool TrackData::all_track_iterator::is_end() const { return notes_.end() == iter_; }
+bool TrackData::all_track_iterator::is_end() const { return all_notes_.size() == idx_; }
 TrackData::all_track_iterator &TrackData::all_track_iterator::operator++() { next(); return *this; }
-NotePos& TrackData::all_track_iterator::operator*() { return **iter_; }
-const NotePos& TrackData::all_track_iterator::operator*() const { return **iter_; }
+NoteElement& TrackData::all_track_iterator::operator*() { ASSERT(idx_ < all_notes_.size()); return *all_notes_[idx_]; }
+const NoteElement& TrackData::all_track_iterator::operator*() const { ASSERT(idx_ < all_notes_.size()); return *all_notes_[idx_]; }
+double TrackData::all_track_iterator::get_measure() const { return (**this).measure(); }
+size_t TrackData::all_track_iterator::get_track() const { return track_numbers_[idx_]; }
+NoteElement* TrackData::all_track_iterator::get() { return &**this; }
 
-NotePos* TrackData::front()
+void TrackData::all_track_iterator::next()
 {
-  NotePos* n = nullptr;
-  for (size_t i = 0; i < track_count_; ++i)
-  {
-    if (!track_[i].is_empty() && (!n || track_[i].front() < *n))
-      n = &track_[i].front();
-  }
-  return n;
+  if (idx_ < all_notes_.size()) idx_++;
 }
 
-NotePos* TrackData::back()
+TrackData::all_track_iterator TrackData::GetAllTrackIterator()
 {
-  NotePos* n = nullptr;
-  for (size_t i = 0; i < track_count_; ++i)
-  {
-    if (!track_[i].is_empty() && (!n || *n < track_[i].back()))
-      n = &track_[i].back();
-  }
-  return n;
+  return all_track_iterator(this);
 }
 
-const NotePos* TrackData::front() const { return const_cast<TrackData*>(this)->front(); }
-const NotePos* TrackData::back() const { return const_cast<TrackData*>(this)->back(); }
-
-TrackData::all_track_iterator TrackData::GetAllTrackIterator() const
+TrackData::all_track_iterator TrackData::GetAllTrackIterator(double m_start, double m_end)
 {
-  all_track_iterator iter;
-  for (int i = 0; i < track_count_; ++i)
-    for (auto *obj : track_[i])
-      iter.notes_.push_back(obj);
-
-  /* Use stable_sort to keep track order.
-   * This result sorting in first position, then track. */
-  std::stable_sort(iter.notes_.begin(), iter.notes_.end(), noteposcompfunc);
-
-  iter.iter_ = iter.notes_.begin();
-  return iter;
+  return all_track_iterator(this, m_start, m_end);
 }
 
-TrackData::all_track_iterator TrackData::GetAllTrackIterator(double m_start, double m_end) const
+TrackData::row_iterator::row_iterator(TrackData *td)
+  : all_track_iterator(td), is_row_iter_end(false), measure(0)
 {
-  all_track_iterator iter;
-  for (int i = 0; i < track_count_; ++i)
-  {
-    for (auto *obj : track_[i])
-    {
-      if (obj->measure < m_start) continue;
-      if (obj->measure > m_end) break;
-      iter.notes_.push_back(obj);
-    }
-  }
-
-  /* Use stable_sort to keep track order.
-   * This result sorting in first position, then track. */
-  std::stable_sort(iter.notes_.begin(), iter.notes_.end(), noteposcompfunc);
-
-  iter.iter_ = iter.notes_.begin();
-  return iter;
+  track_count = td->get_track_count();
+  memset(curr_row_note_elem, 0, sizeof(curr_row_note_elem));
+  memset(curr_row_longnote, 0, sizeof(curr_row_longnote));
+  // set first track info by calling next() method
+  next();
 }
 
-TrackData::row_iterator::row_iterator()
-  : m_start(0), m_end(std::numeric_limits<double>::max()), measure(0)
+TrackData::row_iterator::row_iterator(TrackData *td, double m_start, double m_end)
+  : all_track_iterator(td, m_start, m_end), is_row_iter_end(false), measure(0)
 {
-  memset(curr_row_notes, 0, sizeof(curr_row_notes));
-}
-
-TrackData::row_iterator::row_iterator(double m_start, double m_end)
-  : m_start(m_start), m_end(m_end), measure(m_start)
-{
-  memset(curr_row_notes, 0, sizeof(curr_row_notes));
+  track_count = td->get_track_count();
+  memset(curr_row_note_elem, 0, sizeof(curr_row_note_elem));
+  memset(curr_row_longnote, 0, sizeof(curr_row_longnote));
+  // set first track info by calling next() method
+  next();
 }
 
 double TrackData::row_iterator::get_measure() const { return measure; }
 
 void TrackData::row_iterator::next()
 {
-  if (all_track_iter_.is_end()) return;
-
-  memset(curr_row_notes, 0, sizeof(curr_row_notes));
-  measure = all_track_iter_.p()->measure;
-  NotePos *cur_note;
-  while (1)
+  NoteElement *curr_nelem;
+  memset(curr_row_note_elem, 0, sizeof(curr_row_note_elem));
+  if (all_track_iterator::is_end())
   {
-    all_track_iter_.next();
-    if (all_track_iter_.is_end())
-      break;
-    cur_note = all_track_iter_.p();
-    if (measure != cur_note->measure)
-      break;
-    curr_row_notes[cur_note->get_track()] = cur_note;
+    is_row_iter_end = true;
+    return;
   }
+
+  // update current measure to new one
+  measure = all_track_iterator::get_measure();
+
+  while (!all_track_iterator::is_end() && measure == all_track_iterator::get_measure())
+  {
+    curr_nelem = all_track_iterator::get();
+    curr_row_note_elem[get_track()] = curr_nelem;
+    if (curr_nelem->chain_status() == NoteChainStatus::Start)
+      curr_row_longnote[get_track()] = true;
+    else if (curr_nelem->chain_status() == NoteChainStatus::End)
+      curr_row_longnote[get_track()] = false;
+    all_track_iterator::next();
+  }
+}
+
+bool TrackData::row_iterator::is_end() const { return is_row_iter_end; }
+
+bool TrackData::row_iterator::is_longnote() const
+{
+  for (size_t i = 0; i < track_count; ++i)
+    if (curr_row_longnote[i]) return true;
+  return false;
 }
 
 TrackData::row_iterator &TrackData::row_iterator::operator++() { next(); return *this; }
-NotePos& TrackData::row_iterator::operator[](size_t i) { return *curr_row_notes[i]; }
-const NotePos& TrackData::row_iterator::operator[](size_t i) const { return *curr_row_notes[i]; }
+NoteElement& TrackData::row_iterator::operator[](size_t i) { return *curr_row_note_elem[i]; }
+const NoteElement& TrackData::row_iterator::operator[](size_t i) const { return *curr_row_note_elem[i]; }
 double TrackData::row_iterator::operator*() const { return get_measure(); }
 
-NotePos* TrackData::row_iterator::col(size_t idx)
+NoteElement* TrackData::row_iterator::get(size_t idx)
 {
-  return curr_row_notes[idx];
+  return curr_row_note_elem[idx];
 }
 
-bool TrackData::row_iterator::is_end() const {
-  /*return beat <= beat_end;*/
-  return all_track_iter_.is_end();
+TrackData::row_iterator TrackData::GetRowIterator()
+{
+  return row_iterator(this);
 }
 
-TrackData::row_iterator TrackData::GetRowIterator() const
+TrackData::row_iterator TrackData::GetRowIterator(double beat_start, double beat_end)
 {
-  row_iterator iter;
-  iter.all_track_iter_ = GetAllTrackIterator();
-  return iter;
+  return row_iterator(this, beat_start, beat_end);
 }
 
-TrackData::row_iterator TrackData::GetRowIterator(double beat_start, double beat_end) const
-{
-  row_iterator iter(beat_start, beat_end);
-  iter.all_track_iter_ = GetAllTrackIterator(beat_start, beat_end);
-  return iter;
-}
 
 void TrackData::swap(TrackData &data)
 {
-  for (size_t i = 0; i < kMaxTrackSize; ++i)
-  {
-    track_[i].swap(data.track_[i]);
-    std::swap(track_row_[i], data.track_row_[i]); // XXX: need to swap, or clear?
-  }
-  std::swap(track_count_, data.track_count_);
-  std::swap(track_count_shuffle_, data.track_count_shuffle_);
+  tracks_.swap(data.tracks_);
+  std::swap(name_, data.name_);
+  std::swap(track_datatype_default_, data.track_datatype_default_);
 }
 
 size_t TrackData::size() const {
   size_t cnt = 0;
-  for (int i = 0; i < track_count_; ++i)
-    cnt += track_[i].size();
+  for (auto &track : tracks_)
+    cnt += track.size();
   return cnt;
 }
 
 bool TrackData::is_empty() const {
-  for (int i = 0; i < track_count_; ++i)
-    if (!track_[i].is_empty()) return false;
+  for (auto &track : tracks_)
+    if (!track.is_empty()) return false;
   return true;
-}
-
-void TrackData::clear()
-{
-  ClearAll();
 }
 
 std::string TrackData::toString() const
 {
   std::stringstream ss;
-  ss << "Total track count: " << track_count_ << std::endl;
+  ss << "Total track count: " << tracks_.size() << std::endl;
   ss << "Total note count: " << size() << std::endl;
   return ss.str();
 }

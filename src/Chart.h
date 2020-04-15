@@ -61,20 +61,18 @@ public:
   Chart(const Chart &nd);
   ~Chart();
 
-  BgmData& GetBgmData();
-  BgaData& GetBgaData();
-  NoteData& GetNoteData();
-  EffectData& GetEffectData();
-  TimingData& GetTimingData();
   TimingSegmentData& GetTimingSegmentData();
   MetaData& GetMetaData();
-  const BgmData& GetBgmData() const;
-  const BgaData& GetBgaData() const;
-  const NoteData& GetNoteData() const;
-  const EffectData& GetEffectData() const;
-  const TimingData& GetTimingData() const;
   const TimingSegmentData& GetTimingSegmentData() const;
   const MetaData& GetMetaData() const;
+  TrackData& GetBgmData();
+  TrackData& GetNoteData();
+  TrackData& GetCommandData();
+  TrackData& GetTimingData();
+  const TrackData& GetBgmData() const;
+  const TrackData& GetNoteData() const;
+  const TrackData& GetCommandData() const;
+  const TrackData& GetTimingData() const;
 
   uint32_t GetScoreableNoteCount() const;
   double GetSongLastObjectTime() const;
@@ -87,11 +85,11 @@ public:
 
   virtual std::string toString() const;
 
-  void InvalidateAllNotePos();
-  void InvalidateNotePos(Note &n);
-  void InvalidateTempoData();
-  void InvalidateCharttype();
-  void Invalidate();
+  void UpdateAllNotePos();
+  void UpdateNotePos(NoteElement &n);
+  void UpdateTempoData();
+  void UpdateCharttype();
+  void Update();
 
   bool IsEmpty();
   std::string GetFilename() const;
@@ -119,18 +117,13 @@ public:
   friend class ChartLoader;
 
 private:
-  BgmData bgmdata_;
-  BgaData bgadata_;
-  NoteData notedata_;
-  EffectData effectdata_;
+  TrackData trackdata_[TrackTypes::kTrackMax];
   MetaData metadata_;
   TimingSegmentData timingsegmentdata_;
   struct {
-    BgmData *bgmdata_;
-    BgaData *bgadata_;
-    EffectData *effectdata_;
-    TimingSegmentData *timingsegmentdata_;
-  } common_data_;
+    TrackData *trackdata[TrackTypes::kTrackMax];
+    TimingSegmentData *timingsegmentdata;
+  } shared_data_;
   Song* parent_song_;
   int seed_;
   std::string hash_;

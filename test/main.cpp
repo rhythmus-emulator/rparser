@@ -136,47 +136,34 @@ TEST(RPARSER, TIMINGDATA)
   /* add timing data manually */
   md.bpm = 120.0;
   {
-    TimingObject *t;
-    /*
-    t = new TimingObject();
-    t->SetBeatPos(0.0);
-    t->SetBpm(120.0);
-    td.AddObject(t);
-    */
+    NoteElement ne;
 
-    t = new TimingObject();
-    t->SetBeatPos(40.0);
-    t->SetBpm(90.0);
-    td.AddObject(t);
+    ne.set_measure(10.0);
+    ne.set_value(90.0);
+    td[TimingTrackTypes::kBpm].AddNoteElement(ne);
 
-    t = new TimingObject();
-    t->SetBeatPos(48.0);
-    t->SetStop(2000.0);
-    td.AddObject(t);
+    ne.set_measure(12.0);
+    ne.set_value(2000.0);
+    td[TimingTrackTypes::kStop].AddNoteElement(ne);
 
-    t = new TimingObject();
-    t->SetBeatPos(48.0);
-    t->SetBpm(180.0);
-    td.AddObject(t);
+    ne.set_measure(12.0);
+    ne.set_value(180.0);
+    td[TimingTrackTypes::kBpm].AddNoteElement(ne);
 
-    t = new TimingObject();
-    t->SetBeatPos(48.0);
-    t->SetMeasure(0.5);
-    td.AddObject(t);
+    ne.set_measure(12.0); /* beat 48 */
+    ne.set_value(0.5);
+    td[TimingTrackTypes::kMeasure].AddNoteElement(ne);
 
-    t = new TimingObject();
-    t->SetBeatPos(54.0);
-    t->SetStop(2000.0);
-    td.AddObject(t);
+    ne.set_measure(15.0); /* beat 54 */
+    ne.set_value(2000.0);
+    td[TimingTrackTypes::kStop].AddNoteElement(ne);
 
-    t = new TimingObject();
-    t->SetBeatPos(1000.0);
-    t->SetWarp(2.0);
-    td.AddObject(t);
+    ne.set_measure(488.0); /* beat 1000 */
+    ne.set_value(2.0);
+    td[TimingTrackTypes::kWarp].AddNoteElement(ne);
   }
 
-  /* invalidation */
-  c.Invalidate();
+  c.Update();
 
   // test time
 #if 0
@@ -213,7 +200,7 @@ TEST(RPARSER, TIMINGDATA)
   EXPECT_NEAR(2'000.0, tsd.GetTimeFromBeat(48.0) - tsd.GetTimeFromBeat(47.99), 10.0);
 
   /* warp check (warp change to 4 due to measure length change) */
-  const double warp_time = tsd.GetTimeFromMeasure(250.0);
+  const double warp_time = tsd.GetTimeFromMeasure(488.0);
   EXPECT_NEAR(2.0, tsd.GetBeatFromTime(warp_time + 0.01) - tsd.GetBeatFromTime(warp_time - 0.01), 0.01);
 }
 
@@ -228,47 +215,35 @@ TEST(RPARSER, TIMINGDATA_RECOVER)
   /* add timing data manually */
   md.bpm = 120.0;
   {
-    TimingObject *t;
-    /*
-    t = new TimingObject();
-    t->SetBeatPos(0.0);
-    t->SetBpm(120.0);
-    td.AddObject(t);
-    */
+    NoteElement ne;
 
-    t = new TimingObject();
-    t->SetBeatPos(40.0);
-    t->SetBpm(90.0);
-    td.AddObject(t);
+    ne.set_measure(10.0);
+    ne.set_value(90.0);
+    td[TimingTrackTypes::kBpm].AddNoteElement(ne);
 
-    t = new TimingObject();
-    t->SetBeatPos(48.0);
-    t->SetStop(2000.0);
-    td.AddObject(t);
+    ne.set_measure(12.0);
+    ne.set_value(2000.0);
+    td[TimingTrackTypes::kStop].AddNoteElement(ne);
 
-    t = new TimingObject();
-    t->SetBeatPos(48.0);
-    t->SetBpm(180.0);
-    td.AddObject(t);
+    ne.set_measure(12.0);
+    ne.set_value(180.0);
+    td[TimingTrackTypes::kBpm].AddNoteElement(ne);
 
-    t = new TimingObject();
-    t->SetBeatPos(48.0);
-    t->SetMeasure(0.5);
-    td.AddObject(t);
+    ne.set_measure(12.0); /* beat 48 */
+    ne.set_value(0.5);
+    td[TimingTrackTypes::kMeasure].AddNoteElement(ne);
 
-    t = new TimingObject();
-    t->SetBeatPos(54.0);
-    t->SetStop(2000.0);
-    td.AddObject(t);
+    ne.set_measure(15.0); /* beat 54 */
+    ne.set_value(2000.0);
+    td[TimingTrackTypes::kStop].AddNoteElement(ne);
 
-    t = new TimingObject();
-    t->SetBeatPos(1000.0);
-    t->SetWarp(2.0);
-    td.AddObject(t);
+    ne.set_measure(488.0); /* beat 1000 */
+    ne.set_value(2.0);
+    td[TimingTrackTypes::kWarp].AddNoteElement(ne);
   }
 
   /* invalidation */
-  c.Invalidate();
+  c.Update();
 
   // test time
 #if 0
@@ -321,31 +296,21 @@ TEST(RPARSER, CHART)
   nd.set_track_count(7);
 
   {
-    Note *n;
-    n = new Note();
-    n->SetBeatPos(0.0);
-    n->set_track(0);
-    nd.AddObject(n);
+    NoteElement n;
+    n.set_measure(0.0);
+    nd[0].AddNoteElement(n);
 
-    n = new Note();
-    n->SetBeatPos(0.5);
-    n->set_track(1);
-    nd.AddObject(n);
+    n.set_measure(0.125);
+    nd[1].AddNoteElement(n);
 
-    n = new Note();
-    n->SetBeatPos(1.0);
-    n->set_track(2);
-    nd.AddObject(n);
+    n.set_measure(0.25);
+    nd[2].AddNoteElement(n);
 
-    n = new Note();
-    n->SetBeatPos(1.5);
-    n->set_track(3);
-    nd.AddObject(n);
+    n.set_measure(0.375);
+    nd[3].AddNoteElement(n);
 
-    n = new Note();
-    n->SetBeatPos(2.0);
-    n->set_track(4);
-    nd.AddObject(n);
+    n.set_measure(0.5);
+    nd[4].AddNoteElement(n);
   }
 
   md.bpm = 90.0;
@@ -353,37 +318,37 @@ TEST(RPARSER, CHART)
   md.subtitle = "EFG";
   md.artist = "TEST";
 
-  c.Invalidate();
+  c.Update();
 
   EXPECT_EQ(5, nd.size());
-  EXPECT_EQ(2, nd.back()->GetBeatPos());
-  EXPECT_NEAR(1333.33, nd.back()->GetTimePos(), 0.01);
+  EXPECT_EQ(0.5, nd.back()->measure());
+  EXPECT_NEAR(1333.33, nd.back()->time(), 0.01);
 }
 
 TEST(RPARSER, LONGNOTE)
 {
   Chart c;
-  Note *n;
+  NoteElement n;
   auto &nd = c.GetNoteData();
   nd.set_track_count(7);
   EXPECT_FALSE(c.HasLongnote());
 
   // long note object count
-  n = new Note();
-  n->SetBeatPos(.0);
-  n->set_track(2);
-  n->NewChain()->SetBeatPos(1.0);
-  nd.AddObject(n);
+  n.set_measure(.0);
+  n.set_chain_status(NoteChainStatus::Start);
+  nd[2].AddNoteElement(n);
+  n.set_measure(1.0);
+  n.set_chain_status(NoteChainStatus::End);
+  nd[2].AddNoteElement(n);
   EXPECT_TRUE(c.HasLongnote());
 
   // TODO: long note song length test
   //c.GetSongLength();
 
   // long note duplication test
-  n = new Note();
-  n->SetBeatPos(.5);
-  n->set_track(2);
-  nd.AddObject(n);
+  n.set_measure(.5);
+  n.set_chain_status(NoteChainStatus::Tap);
+  nd[2].AddNoteElement(n);
   EXPECT_TRUE(nd.size() == 1);
   EXPECT_FALSE(c.HasLongnote());
 }
@@ -393,31 +358,25 @@ TEST(RPARSER, CHARTLIST)
   Song s;
   s.SetSongType(SONGTYPE::BMS);
   Chart *c = nullptr;
-  Note *n = nullptr;
+  NoteElement n;
 
   c = s.NewChart();
   c->GetMetaData().bpm = 120;
-  n = new Note();
-  n->set_track(0);
-  c->GetNoteData().AddObject(n);
-  c->Invalidate();
+  c->GetNoteData()[0].AddNoteElement(n);
+  c->Update();
 
   c = s.NewChart();
   c->GetMetaData().bpm = 121;
-  n = new Note();
-  n->set_track(1);
-  c->GetNoteData().AddObject(n);
-  c->Invalidate();
+  c->GetNoteData()[1].AddNoteElement(n);
+  c->Update();
 
   c = s.NewChart();
   c->GetMetaData().bpm = 122;
-  n = new Note();
-  n->set_track(2);
-  c->GetNoteData().AddObject(n);
-  c->Invalidate();
+  c->GetNoteData()[2].AddNoteElement(n);
+  c->Update();
 
   c = s.GetChart(1);
-  EXPECT_EQ(c->GetNoteData().back()->get_track(), 1);
+  EXPECT_EQ(c->GetNoteData().size(), 1);
   EXPECT_EQ(c->GetTimingSegmentData().GetMinBpm(), 121);
 }
 
@@ -433,7 +392,7 @@ TEST(RPARSER, VOSFILE_V2)
     ASSERT_TRUE(song.Open(BASE_DIR + songpath));
     Chart *c = song.GetChart(0);
     auto &md = c->GetMetaData();
-    c->Invalidate();
+    c->Update();
     std::cout << "Total time of song " << md.title << " : " << c->GetSongLastObjectTime() << std::endl;
     song.Close();
   }
@@ -452,7 +411,7 @@ TEST(RPARSER, VOSFILE_V3)
     ASSERT_TRUE(song.Open(BASE_DIR + songpath));
     Chart *c = song.GetChart(0);
     auto &md = c->GetMetaData();
-    c->Invalidate();
+    c->Update();
     std::cout << "Total time of song " << md.title << " : " << c->GetSongLastObjectTime() << std::endl;
     song.Close();
   }
@@ -466,7 +425,7 @@ TEST(RPARSER, BMSARCHIVE)
   Chart *c = song.GetChart(0);
   ASSERT_TRUE(c);
   auto &md = c->GetMetaData();
-  c->Invalidate();
+  c->Update();
 
   // metadata, note count (including longnote) check
   ASSERT_STREQ("Angelico [Max]", md.title.c_str());
@@ -493,7 +452,7 @@ TEST(RPARSER, BMS_SINGLE)
   Chart *c = song.GetChart();
   ASSERT_TRUE(c);
 
-  c->Invalidate();
+  c->Update();
   std::cout << c->GetMetaData().title << std::endl;
 
   song.Close();
@@ -513,7 +472,7 @@ TEST(RPARSER, BMS_STRESS)
   Chart *c_test_l_nanasi = nullptr;
   Chart *c_test_l99 = nullptr;
 
-  for (int i=0; i<song.GetChartCount(); i++)
+  for (unsigned i=0; i<song.GetChartCount(); i++)
   {
     c = song.GetChart(i);
     auto &md = c->GetMetaData();
@@ -530,7 +489,7 @@ TEST(RPARSER, BMS_STRESS)
   {
     auto &md = c->GetMetaData();
     auto &nd = c->GetNoteData();
-    c->Invalidate();
+    c->Update();
     std::cout << "Total time of song " << md.title.c_str() << " is: " << c->GetSongLastObjectTime() << std::endl;
     EXPECT_STREQ("Mokugyo AllnightMIX", md.title.c_str());
     // 30566 sec = 510m = 8h 30m
@@ -544,7 +503,7 @@ TEST(RPARSER, BMS_STRESS)
   {
     auto &md = c->GetMetaData();
     auto &nd = c->GetNoteData();
-    c->Invalidate();
+    c->Update();
   }
 
 
@@ -554,21 +513,15 @@ TEST(RPARSER, BMS_STRESS)
   {
     auto &md = c->GetMetaData();
     auto &nd = c->GetNoteData();
-    c->Invalidate();
+    c->Update();
 
     // is timingobj is in order
     double m = -1;
-    size_t idx = 0;
-    auto iter = c->GetTimingData().GetAllTrackIterator();
+    auto iter = c->GetTimingData().GetRowIterator();
     while (!iter.is_end())
     {
-      ++idx;
-      auto &n = *iter;
-      if (m > n.measure)
-      {
-        std::cout << "error occured on idx " << idx << std::endl;
-      }
-      else m = n.measure;
+      EXPECT_TRUE(m > iter.get_measure());
+      m = iter.get_measure();
       ++iter;
     }
 
@@ -589,7 +542,7 @@ TEST(RPARSER, VOS_HTML_EXPORT)
   ASSERT_TRUE(song.Open(BASE_DIR + songpath));
   Chart *c = song.GetChart(0);
   ASSERT_TRUE(c);
-  c->Invalidate();
+  c->Update();
 
   std::string html;
   ExportToHTML(*c, html);
@@ -622,7 +575,7 @@ TEST(RPARSER, BMS_HTML_EXPORT)
   ASSERT_TRUE(song.Open(BASE_DIR + songpath));
   Chart *c = song.GetChart(0);
   ASSERT_TRUE(c);
-  c->Invalidate();
+  c->Update();
 
   std::string html;
   ExportToHTML(*c, html);

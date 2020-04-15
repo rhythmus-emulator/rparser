@@ -7,7 +7,6 @@ namespace rparser
 {
 
 class MetaData;
-using TimingData = TrackDataWithType<TimingObject>;
 
 /* @detail  Segment object affecting chart tempo.
  *          Must be scanned sequentially by beat/time. */
@@ -54,21 +53,29 @@ struct BarObject
 
 /*
  * @detail  Calculates beat/time by chart data.
- * @warn    MUST add object sequentially.
+ *
+ * GetTimeFromMeasure(double m, size_t &p) method gets second parameter
+ * for search hint (search start position), for which increasing performance
+ * in case of sequential time marking.
  */
 class TimingSegmentData
 {
 public:
   TimingSegmentData();
+  void Update(const MetaData *md, TrackData& timingtrack);
   double GetTimeFromMeasure(double measure) const;
+  double GetTimeFromMeasure(double measure, size_t &p) const;
   double GetMeasureFromTime(double time) const;
   double GetTimeFromBeat(double beat) const;
   double GetBeatFromTime(double time) const;
   double GetBeatFromMeasure(double measure) const;
   double GetMeasureFromBeat(double beat) const;
+
+  /* @depreciated */
   std::vector<double> GetTimeFromMeasureArr(const std::vector<double>& sorted_measure) const;
   std::vector<double> GetMeasureFromTimeArr(const std::vector<double>& sorted_time) const;
   std::vector<double> GetBeatFromMeasureArr(const std::vector<double>& sorted_measure) const;
+
   double GetMaxBpm() const;
   double GetMinBpm() const;
   bool HasBpmChange() const;
@@ -78,11 +85,8 @@ public:
   std::string toString() const;
   void clear();
   void swap(TimingSegmentData& timingdata);
-  TimingData &GetTimingData();
-  const TimingData &GetTimingData() const;
   const std::vector<BarObject>& GetBarObjects() const;
   double GetBarLength(uint32_t measure) const;
-  void Invalidate(const MetaData& m);
 
 private:
   void SetFirstObjectFromMetaData(const MetaData &md);
@@ -104,7 +108,6 @@ private:
   double GetMeasureFromTimeInLastSegment(double time) const;
 
   bool do_recover_measure_length_;        // set measure length to 4.0 implicitly.
-  TimingData timingdata_;
   std::vector<TimingSegment> timingsegments_;
   std::vector<BarObject> barobjs_;        // always in sorted state.
 };

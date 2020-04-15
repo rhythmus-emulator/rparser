@@ -87,14 +87,13 @@ private:
   std::string filepath_;
   std::shared_ptr<Directory> directory_;
   SONGTYPE songtype_;
-  ERROR error_;
 
   std::vector<Chart*> charts_;
 
   // used for song sharing bga / bgm / timing as common data.
   Chart chart_shared_;
 
-  // in case of need ...
+  ERROR error_;
   std::string errormsg_detailed_;
 };
 

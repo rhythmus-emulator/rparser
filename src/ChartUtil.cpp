@@ -9,153 +9,209 @@ class HTMLExporter
 {
 public:
   HTMLExporter();
-  void PushIndent();
-  void PopIndent();
-  std::stringstream& line();
+  void AddNode(const char *name, const char *id_ = 0, const char *class_ = 0);
+  void AddNodeWithNoChildren(const char *name, const char *id_ = 0, const char *class_ = 0, const char *text_ = 0);
+  void AddNodeWithNoChildren(const char *name, const char *id_, const char *class_, const std::string &s);
+  void AddRawText(const char *text);
+  void PopNode();
+  std::stringstream &ss();
+  std::string str() const;
 private:
-  unsigned indentlevel_;
   std::stringstream ss_;
+  std::list<std::string> tag_stack_;
 };
 
-HTMLExporter::HTMLExporter()
-  : indentlevel_(0) {}
+HTMLExporter::HTMLExporter() {}
 
-void HTMLExporter::PushIndent() { indentlevel_++; }
-void HTMLExporter::PopIndent() { if (indentlevel_ > 0) indentlevel_--; }
-std::stringstream& HTMLExporter::line()
+void HTMLExporter::AddNode(const char *name, const char *id_, const char *class_)
 {
-  ss_ << std::endl;
-  for (unsigned i = 0; i < indentlevel_; ++i)
+  for (unsigned i = 0; i < tag_stack_.size(); ++i)
+    ss_ << "\t";
+  ss_ << "<" << name;
+  if (id_)
+    ss_ << " id='" << id_ << "'";
+  if (class_)
+    ss_ << " class='" << class_ << "'";
+  ss_ << ">" << std::endl;
+  tag_stack_.push_back(name);
+}
+
+void HTMLExporter::AddNodeWithNoChildren(const char *name, const char *id_, const char *class_, const char *text_)
+{
+  for (unsigned i = 0; i < tag_stack_.size(); ++i)
+    ss_ << "\t";
+  ss_ << "<" << name;
+  if (id_)
+    ss_ << " id='" << id_ << "'";
+  if (class_)
+    ss_ << " class='" << class_ << "'";
+  if (text_)
+  {
+    ss_ << ">" << text_ << "<" << name;
+  }
+  ss_ << "/>" << std::endl;
+}
+
+void HTMLExporter::AddNodeWithNoChildren(const char *name, const char *id_, const char *class_, const std::string &s)
+{
+  AddNodeWithNoChildren(name, id_, class_, s.c_str());
+}
+
+void HTMLExporter::AddRawText(const char *text)
+{
+  ss() << text << std::endl;
+}
+
+std::stringstream &HTMLExporter::ss()
+{
+  for (unsigned i = 0; i < tag_stack_.size(); ++i)
     ss_ << "\t";
   return ss_;
+}
+
+void HTMLExporter::PopNode()
+{
+  ASSERT(tag_stack_.size() == 0);
+  for (unsigned i = 0; i < tag_stack_.size(); ++i)
+    ss_ << "\t";
+  ss_ << "<" << tag_stack_.back() << "/>" << std::endl;
+  tag_stack_.pop_back();
+}
+
+std::string HTMLExporter::str() const
+{
+  return ss_.str();
+}
+
+static inline void DrawLongnote(std::stringstream &ss, size_t &nd_idx, int track,
+  const std::string &cls, const NoteElement &ne, double start, double end)
+{
+  ss << "<div id='nd" << nd_idx << "' class='" << cls << " longnote longnote_begin lane" << track <<
+    "' style='top:" << (int)(start * 100) << "%'" << /* style end */
+    " data-x=" << track << " data-y=" << (int)(start * 100) << " data-beat=" << ne.measure() << " data-time=" << ne.time() <<
+    " data-id=" << nd_idx << " data-value=" << ne.get_value_i() << /* data end */
+    "></div>";
+  ss << "<div class='" << cls << " longnote longnote_body lane" << track <<
+    "' style='top:" << (int)(start * 100) << "%; height:" << (int)((start - end) * 100) << "%'" << /* style end */
+    " data-x=" << track << " data-beat=" << ne.measure() << " data-time=" << ne.time() <<
+    " data-id=" << nd_idx << " data-value=" << ne.get_value_i() << /* data end */
+    "></div>";
+  ss << "<div class='" << cls << " longnote longnote_end lane" << track <<
+    "' style='top:" << (int)(end * 100 + 1 /* round-up */) << "%'" << /* style end */
+    " data-x=" << track << " data-beat=" << ne.measure() << " data-time=" << 0 <<
+    " data-id=" << nd_idx << " data-value=" << ne.get_value_i() << /* data end */
+    "></div>";
+  nd_idx++;
+}
+
+static inline void DrawTapnote(std::stringstream &ss, size_t &nd_idx, int track,
+  const std::string &cls, const NoteElement &ne, double p)
+{
+  ss << "<div id='nd" << nd_idx << "' class='" << cls << " tapnote lane" << track <<
+    "' style='top:" << (int)(p * 100) << "%'" << /* style end */
+    " data-x=" << track << " data-y=" << (int)(p * 100) << " data-beat=" << ne.measure() << " data-time=" << ne.time() <<
+    " data-id=" << nd_idx << " data-value=" << ne.get_value_i() << /* data end */
+    "></div>";
 }
 
 void ExportNoteToHTML(const Chart &c, HTMLExporter &e)
 {
   auto &nd = c.GetNoteData();
-  auto &td = c.GetTimingSegmentData();
-  auto &tnd = td.GetTimingData();
-  auto &bars = td.GetBarObjects();
-  std::list<const Note*> longnotes;
+  auto &tsd = c.GetTimingSegmentData();
+  auto &cd = c.GetCommandData();
+  auto &td = c.GetTimingData();
+  auto &bars = tsd.GetBarObjects();
 
-  e.line() << "<div class='content notedata flip' id='notedata'>";
-  e.PushIndent();
+  e.AddNode("div", "content notedata flip", "notedata");
 
   // each measure has each div box
+  // TODO: Display CommandData object
   uint32_t measure_idx = 0, bar_idx = 0;
-  auto iter_note = nd.GetAllTrackIterator();
-  auto iter_tobj = tnd.GetAllTrackIterator();
+  auto iter_note = const_cast<TrackData&>(nd).GetRowIterator();
+  auto iter_tobj = const_cast<TrackData&>(td).GetRowIterator();
   size_t nd_idx = 0, td_idx = 0;
+  bool is_longnote[256];
+  uint32_t longnote_start_measure[256];
+  double longnote_startpos[256];
+  NoteElement *last_note[256];
+  memset(is_longnote, 0, sizeof(is_longnote));
+  memset(longnote_start_measure, 0, sizeof(longnote_start_measure));
+  memset(longnote_startpos, 0, sizeof(longnote_startpos));
+  memset(last_note, 0, sizeof(last_note));
   while (!iter_note.is_end() || !iter_tobj.is_end())
   {
-    double barlength = td.GetBarLength(measure_idx);
+    double barlength = tsd.GetBarLength(measure_idx);
 
     // measure start.
-    e.line() << "<div id='measure" << measure_idx << "' class='measurebox'" <<
-      " data-measure=" << measure_idx << " data-length=" << barlength << " data-beat=" << measure_idx << "><div class='inner'>";
-    e.PushIndent();
-    e.line() << "<div class='measureno'>" << measure_idx << "</div>";
-
-    // STEP 2-1-0. NoteData (Continuing Longnote)
-    auto lii = longnotes.begin();
-    while (lii != longnotes.end())
-    {
-      const auto &n = **lii;
-      double endrow = n.endpos().measure;
-      bool is_longnote_end_here = true;
-      if (endrow > measure_idx)
-      {
-        endrow = measure_idx;
-        is_longnote_end_here = false;
-      }
-      double endpos = (measure_idx - endrow) * 100 + 1 /* round-up */;
-      e.line() << "<div class='chartobject noteobject longnote longnote_body lane" << (int)n.get_track() <<
-        "' style='top:0%; height:" << (int)endpos << "%'" << /* style end */
-        " data-x=" << (int)n.get_track() << " data-beat=" << n.measure << " data-time=" << n.time_msec <<
-        " data-id=" << nd_idx - 1 << " data-value=" << n.channel() << /* data end */
-        "></div>";
-      if (is_longnote_end_here)
-      {
-        e.line() << "<div class='chartobject noteobject longnote longnote_end lane" << (int)n.get_track() <<
-          "' style='top:" << (int)endpos << "%'" << /* style end */
-          " data-x=" << (int)n.get_track() << " data-beat=" << n.measure << " data-time=" << n.time_msec <<
-          " data-id=" << nd_idx - 1 << " data-value=" << n.channel() << /* data end */
-          "></div>";
-      }
-
-      auto preii = lii++;
-      if (is_longnote_end_here)
-        longnotes.erase(preii);
-    }
+    e.ss() << "<div id='measure" << measure_idx << "' class='measurebox'" <<
+      " data-measure=" << measure_idx << " data-length=" << barlength << " data-beat=" << measure_idx << ">";
+    e.AddNode("div", 0, "inner");
+    e.ss() << "<div class='measureno'>" << measure_idx << "</div>";
 
     // STEP 2-1-1. NoteData (General)
-    while (!iter_note.is_end() && (*iter_note).measure < measure_idx + 1)
+    std::string note_cls = "chartobject noteobject";
+    while (!iter_note.is_end() && iter_note.get_measure() < measure_idx + 1)
     {
-      /* XXX: don't use continue here; MUST go through full loop. */
-      auto &n = static_cast<Note&>(*iter_note);
-      double ypos = (n.measure - (double)measure_idx) * 100;
-      bool is_longnote = n.chainsize() > 1;
-      std::string cls = "chartobject noteobject";
-      if (is_longnote) /* check is longnote */
-        cls += " longnote longnote_begin";
-      else
-        cls += " tapnote";
-      e.line() << "<div id='nd" << nd_idx << "' class='" << cls << " lane" << n.get_track() <<
-        "' style='top:" << (int)ypos << "%'" << /* style end */
-        " data-x=" << n.get_track() << " data-y=" << (int)ypos << " data-beat=" << n.measure << " data-time=" << n.time_msec <<
-        " data-id=" << nd_idx << " data-value=" << n.channel() << /* data end */
-        "></div>";
-      if (is_longnote)
+      for (size_t i = 0; i < nd.get_track_count(); ++i) if (iter_note.get(i))
       {
-        // draw longnote body & end
-        double endrow = n.endpos().measure;
-        bool is_longnote_end_here = true;
-        if (endrow > measure_idx)
+        /* XXX: don't use continue here; MUST go through full loop. */
+        auto &n = iter_note[i];
+        double ypos = n.measure() - (double)measure_idx;
+        last_note[i] = &iter_note[i];
+
+        /* if longnote_start, then remember starting position, then don't draw anything. */
+        if (n.chain_status() == NoteChainStatus::Start)
         {
-          endrow = measure_idx;
-          is_longnote_end_here = false;
-          longnotes.push_back(&n);
+          longnote_startpos[i] = ypos;
+          longnote_start_measure[i] = measure_idx;
+          is_longnote[i] = true;
+          continue;
         }
-        double endpos = (endrow - (double)measure_idx) * 100 + 1 /* round-up */;
-        e.line() << "<div class='chartobject noteobject longnote longnote_body lane" << n.get_track() <<
-          "' style='top:" << (int)ypos << "%; height:" << (int)endpos << "%'" << /* style end */
-          " data-x=" << n.get_track() << " data-beat=" << n.measure << " data-time=" << n.time_msec <<
-          " data-id=" << nd_idx << " data-value=" << n.channel() << /* data end */
-          "></div>";
-        if (is_longnote_end_here)
+
+        bool is_longnote_end = is_longnote[i] && n.chain_status() == NoteChainStatus::End;
+        if (is_longnote_end) /* check is longnote */
         {
-          e.line() << "<div class='chartobject noteobject longnote longnote_end lane" << n.get_track() <<
-            "' style='top:" << (int)(ypos + endpos) << "%'" << /* style end */
-            " data-x=" << n.get_track() << " data-beat=" << n.measure << " data-time=" << n.time_msec <<
-            " data-id=" << nd_idx << " data-value=" << n.channel() << /* data end */
-            "></div>";
+          DrawLongnote(e.ss(), nd_idx, i, note_cls, n, longnote_startpos[i], ypos);
+          is_longnote[i] = false;
+        }
+        else
+        {
+          DrawTapnote(e.ss(), nd_idx, i, note_cls, n, ypos);
         }
       }
-      ++nd_idx;
+
+      /* check for continuing longnote */
+      for (size_t i = 0; i < nd.get_track_count(); ++i)
+      {
+        if (is_longnote[i])
+          DrawLongnote(e.ss(), nd_idx, i, "chartobject noteobject", *last_note[i], longnote_startpos[i], 1.0);
+        longnote_startpos[0] = 0;
+      }
+
       ++iter_note;
     }
 
     // STEP 2-2. TempoData
-    while (!iter_tobj.is_end() && (*iter_tobj).measure < measure_idx + 1)
+    while (!iter_tobj.is_end() && iter_tobj.get_measure() < measure_idx + 1)
     {
-      auto &n = static_cast<TimingObject&>(*iter_tobj);
-      double ypos = (n.measure - (double)measure_idx) * 100;
-      e.line() << "<div id='td" << td_idx << "' class='chartobject tempoobject tempotype" << n.get_track() <<
-        "' style='top:" << (int)ypos << "%'" << /* style end */
-        " data-y=" << (int)ypos << " data-beat=" << n.measure << " data-time=" << n.time_msec << /* data end */
-        "></div>";
-      ++td_idx;
-      ++iter_tobj;
+      for (size_t i = 0; i < td.get_track_count(); ++i) if (iter_tobj.get(i))
+      {
+        note_cls = "chartobject tempoobject tempotype0";
+        note_cls.back() += i;
+        auto &n = iter_tobj[i];
+        double ypos = n.measure() - (double)measure_idx;
+        DrawTapnote(e.ss(), td_idx, i, note_cls, n, ypos);
+        ++iter_tobj;
+      }
     }
 
     // measure end.
-    e.PopIndent();
-    e.line() << "</div></div>";
+    e.PopNode();
+    e.ss() << "</div>";
     measure_idx++;
   }
 
-  e.PopIndent();
-  e.line() << "</div>";
+  e.PopNode();
 }
 
 void ExportToHTML(const Chart &c, std::string& out)
@@ -164,120 +220,116 @@ void ExportToHTML(const Chart &c, std::string& out)
 
   auto &md = c.GetMetaData();
   auto &nd = c.GetNoteData();
-  auto &ed = c.GetEffectData();
-  auto &td = c.GetTimingSegmentData();
-  auto &tnd = td.GetTimingData();
+  auto &cd = c.GetCommandData();
+  auto &tsd = c.GetTimingSegmentData();
+  auto &td = c.GetTimingData();
 
   // STEP 0. Container
-  e.line() << "<div id='rhythmus-container' class='playtype-" << ChartTypeToString(c.GetChartType()) <<
-    " playlane-" << (int)c.GetPlayLaneCount() << "key'>";
-  e.PushIndent();
+  {
+    std::stringstream ss;
+    ss << "playtype - " << ChartTypeToString(c.GetChartType()) << " playlane-" << (int)c.GetPlayLaneCount() << "key";
+    e.AddNode("div", "rhythmus-container", ss.str().c_str());
+  }
 
   // STEP 1-1. Metadata
+  e.AddNode("div", "metadata", "content metadata");
   {
-    e.line() << "<div id='metadata' class='content metadata'>";
-    e.PushIndent();
-    e.line() << "<span class='title'>Metadata Info</span>";
+    e.AddNodeWithNoChildren("span", 0, "title", "Metadata Info");
     // meta related with song
-    e.line() << "<span class='desc meta_title'><span class='label'>Filename</span><span class='text'>" << c.GetFilename() << "</span></span>";
-    e.line() << "<span class='desc meta_filetype'><span class='label'>Filetype</span><span class='text'>" << ChartTypeToString(c.GetChartType()) << "</span></span>";
-    e.line() << "<span class='desc meta_playmode'><span class='label'>PlayMode</span><span class='text'>" << (int)c.GetPlayLaneCount() << "Key</span></span>";
+    e.AddNode("span", 0, "desc meta_title");
+    e.AddNodeWithNoChildren("span", 0, "label", "Filename");
+    e.AddNodeWithNoChildren("span", 0, "text", c.GetFilename());
+    e.PopNode();
+    e.AddNode("span", 0, "desc meta_filetype");
+    e.AddNodeWithNoChildren("span", 0, "label", "Filetype");
+    e.AddNodeWithNoChildren("span", 0, "text", ChartTypeToString(c.GetChartType()));
+    e.PopNode();
+    e.AddNode("span", 0, "desc meta_playmode");
+    e.AddNodeWithNoChildren("span", 0, "label", "PlayMode");
+    e.AddNodeWithNoChildren("span", 0, "text", std::to_string((int)c.GetPlayLaneCount()));
+    e.PopNode();
     // meta related with metadata
-    e.line() << "<span class='desc meta_title'><span class='label'>Title</span><span class='text'>" << md.title <<
+    e.ss() << "<span class='desc meta_title'><span class='label'>Title</span><span class='text'>" << md.title <<
       "<span class='meta_subtitle'>" << md.subtitle << "</span>" << "</span></span>";
-    e.line() << "<span class='desc meta_artist'><span class='label'>Artist</span><span class='text'>" << md.artist <<
+    e.ss() << "<span class='desc meta_artist'><span class='label'>Artist</span><span class='text'>" << md.artist <<
       "<span class='meta_subartist'>" << md.subartist << "</span>" << "</span></span>";
-    e.line() << "<span class='desc meta_level'><span class='label'>Level</span><span class='text'>" << md.level << "</span></span>";
-    e.line() << "<span class='desc meta_bpm'><span class='label'>BPM</span><span class='text'>" << md.bpm << "</span></span>";
-    e.line() << "<span class='desc meta_total'><span class='label'>Gauge Total</span><span class='text'>" << md.gauge_total << "</span></span>";
-    e.line() << "<span class='desc meta_diff'><span class='label'>Difficulty</span><span class='text'>" << md.difficulty << "</span></span>";
+    e.ss() << "<span class='desc meta_level'><span class='label'>Level</span><span class='text'>" << md.level << "</span></span>";
+    e.ss() << "<span class='desc meta_bpm'><span class='label'>BPM</span><span class='text'>" << md.bpm << "</span></span>";
+    e.ss() << "<span class='desc meta_total'><span class='label'>Gauge Total</span><span class='text'>" << md.gauge_total << "</span></span>";
+    e.ss() << "<span class='desc meta_diff'><span class='label'>Difficulty</span><span class='text'>" << md.difficulty << "</span></span>";
     // meta related with notedata
-    e.line() << "<span class='desc meta_notecount'><span class='label'>Note Count</span><span class='text'>" << c.GetScoreableNoteCount() << "</span></span>";
+    e.ss() << "<span class='desc meta_notecount'><span class='label'>Note Count</span><span class='text'>" << c.GetScoreableNoteCount() << "</span></span>";
     // meta related with eventdata
-    e.line() << "<span class='desc meta_eventcount'><span class='label'>Event Count</span><span class='text'>" << ed.size() << "</span></span>";
+    e.ss() << "<span class='desc meta_eventcount'><span class='label'>Event Count</span><span class='text'>" << cd.size() << "</span></span>";
     // meta related with tempodata
-    e.line() << "<span class='desc meta_maxbpm'><span class='label'>Max BPM</span><span class='text'>" << td.GetMaxBpm() << "</span></span>";
-    e.line() << "<span class='desc meta_minbpm'><span class='label'>Min BPM</span><span class='text'>" << td.GetMinBpm() << "</span></span>";
-    e.line() << "<span class='desc meta_isbpmchange'><span class='label'>BPM Change?</span><span class='text'>" << (td.HasBpmChange() ? "Yes" : "No") << "</span></span>";
-    e.line() << "<span class='desc meta_hasstop'><span class='label'>BPM Change?</span><span class='text'>" << (td.HasStop() ? "Yes" : "No") << "</span></span>";
-    e.line() << "<span class='desc meta_haswarp'><span class='label'>STOP?</span><span class='text'>" << (td.HasWarp() ? "Yes" : "No") << "</span></span>";
-    e.line() << "<span class='desc meta_haswarp'><span class='label'>WARP?</span><span class='text'>" << (td.HasWarp() ? "Yes" : "No") << "</span></span>";
+    e.ss() << "<span class='desc meta_maxbpm'><span class='label'>Max BPM</span><span class='text'>" << tsd.GetMaxBpm() << "</span></span>";
+    e.ss() << "<span class='desc meta_minbpm'><span class='label'>Min BPM</span><span class='text'>" << tsd.GetMinBpm() << "</span></span>";
+    e.ss() << "<span class='desc meta_isbpmchange'><span class='label'>BPM Change?</span><span class='text'>" << (tsd.HasBpmChange() ? "Yes" : "No") << "</span></span>";
+    e.ss() << "<span class='desc meta_hasstop'><span class='label'>BPM Change?</span><span class='text'>" << (tsd.HasStop() ? "Yes" : "No") << "</span></span>";
+    e.ss() << "<span class='desc meta_haswarp'><span class='label'>STOP?</span><span class='text'>" << (tsd.HasWarp() ? "Yes" : "No") << "</span></span>";
+    e.ss() << "<span class='desc meta_haswarp'><span class='label'>WARP?</span><span class='text'>" << (tsd.HasWarp() ? "Yes" : "No") << "</span></span>";
     uint32_t lasttime = static_cast<uint32_t>(c.GetSongLastObjectTime());
     char lasttime_str[3][3];
     sprintf(lasttime_str[0], "%02d", lasttime / 3600000);
     sprintf(lasttime_str[1], "%02d", lasttime / 60000 % 60);
     sprintf(lasttime_str[2], "%02d", lasttime / 1000 % 60);
-    e.line() << "<span class='desc meta_songlength'><span class='label'>Song Length</span><span class='text'>" <<
+    e.ss() << "<span class='desc meta_songlength'><span class='label'>Song Length</span><span class='text'>" <<
       lasttime_str[0] << ":" << lasttime_str[1] << ":" << lasttime_str[2] << "</span></span>";
     // meta - BMS conditional statements
     if (!md.script.empty())
     {
-      e.line() << "<span class='desc meta_script'><span class='label'>Script</span><span class='text'>...</span><span class='text hide'>" <<
+      e.ss() << "<span class='desc meta_script'><span class='label'>Script</span><span class='text'>...</span><span class='text hide'>" <<
         md.script << "</span></span>";
     }
-    e.PopIndent();
-    e.line() << "</div>";
   }
+  e.PopNode();
 
   // STEP 1-2. Metadata (Resource)
+  e.AddNode("div", "resourcedata", "content resourcedata");
   {
-    e.line() << "<div id='resourcedata' class='content resourcedata'>";
-    e.PushIndent();
+    e.AddNodeWithNoChildren("span", 0, "title", "Resource Info");
 
-    e.line() << "<span class='title'>Resource Info</span>";
-
-    e.line() << "<ul id='soundresource'>";
-    e.PushIndent();
+    e.AddNode("ul", "soundresource");
     for (auto ii : md.GetSoundChannel()->fn)
     {
-      e.line() << "<li data-channel='" << ii.first << "' data-value='" << ii.second <<
+      e.ss() << "<li data-channel='" << ii.first << "' data-value='" << ii.second <<
         "' >Channel " << ii.first << ", " << ii.second << "</li>";
     }
-    e.PopIndent();
-    e.line() << "</ul>";
+    e.PopNode();
 
-    e.line() << "<ul id='bgaresource'>";
-    e.PushIndent();
+    e.AddNode("ul", "bgaresource");
     for (auto ii : md.GetBGAChannel()->bga)
     {
-      e.line() << "<li data-channel='" << ii.first << "' data-value='" << ii.second.fn <<
+      e.ss() << "<li data-channel='" << ii.first << "' data-value='" << ii.second.fn <<
         "' >Channel " << ii.first << ", " << ii.second.fn << "</li>";
     }
-    e.PopIndent();
-    e.line() << "</ul>";
+    e.PopNode();
 
-    e.line() << "<ul id='bpmresource'>";
-    e.PushIndent();
+    e.AddNode("ul", "bpmresource");
     for (auto ii : md.GetBPMChannel()->bpm)
     {
-      e.line() << "<li data-channel='" << ii.first << "' data-value='" << ii.second <<
+      e.ss() << "<li data-channel='" << ii.first << "' data-value='" << ii.second <<
         "' >Channel " << ii.first << ", " << ii.second << "</li>";
     }
-    e.PopIndent();
-    e.line() << "</ul>";
+    e.PopNode();
 
-    e.line() << "<ul id='stopresource'>";
-    e.PushIndent();
+    e.AddNode("ul", "stopresource");
     for (auto ii : md.GetSTOPChannel()->stop)
     {
-      e.line() << "<li data-channel='" << ii.first << "' data-value='" << ii.second <<
+      e.ss() << "<li data-channel='" << ii.first << "' data-value='" << ii.second <<
         "' >Channel " << ii.first << ", " << ii.second << "</li>";
     }
-    e.PopIndent();
-    e.line() << "</ul>";
-
-    e.PopIndent();
-    e.line() << "</div>";
+    e.PopNode();
   }
+  e.PopNode(); /* div.resourcedata */
 
   // STEP 2. Render objects (base object)
   ExportNoteToHTML(c, e);
 
   // -- end --
-  e.PopIndent();
-  e.line() << "</div>";
+  e.PopNode();
 
-  out = e.line().str();
+  out = e.str();
 }
 
 void ClipRange(Chart &c, double beat_start, double beat_end)
@@ -410,16 +462,6 @@ void GenerateRandomColumn(int *new_col, const EffectorParam& param)
   ASSERT(lanes_to_randomize == 0);
 }
 
-inline bool CheckNoteValidity(Note& note, const EffectorParam& param)
-{
-  int current_col = note.get_track();
-  int current_player = note.get_player();
-  if (current_player != param.player)
-    return false;
-  ASSERT(note.get_track() < kMaxSizeLane);
-  return true;
-}
-
 void Random(Chart &c, const EffectorParam& param)
 {
   int new_col[kMaxSizeLane];
@@ -450,23 +492,31 @@ void HRandom(Chart &c, const EffectorParam& param)
   int new_col[kMaxSizeLane];
   int current_measure = -1;
   double current_beat = -1.0;
+  size_t track_count = c.GetNoteData().get_track_count();
+  TrackData track_new;
 
-  auto iter = c.GetNoteData().GetAllTrackIterator();
+  track_new.set_track_count(track_count);
+  auto iter = c.GetNoteData().GetRowIterator();
   int measure_idx = -1;
   while (!iter.is_end())
   {
-    auto &note = static_cast<Note&>(*iter);
-    int curr_measure_idx = static_cast<int>(note.measure);
-    if (measure_idx != curr_measure_idx)
+    // TODO: Longnote processing?
+    for (size_t i = 0; i < track_count; ++i) if (iter.get(i))
     {
-      measure_idx = curr_measure_idx;
-      if (!c.GetNoteData().IsHoldNoteAt(note.measure))
-        GenerateRandomColumn(new_col, param);
+      auto &note = iter[i];
+      int curr_measure_idx = static_cast<int>(note.measure());
+      if (measure_idx != curr_measure_idx)
+      {
+        measure_idx = curr_measure_idx;
+        if (!c.GetNoteData().IsHoldNoteAt(note.measure()))
+          GenerateRandomColumn(new_col, param);
+      }
+      track_new[new_col[i]].AddNoteElement(note);
     }
-    note.set_track(new_col[note.get_track()]);
+    ++iter;
   }
 
-  c.GetNoteData().UpdateTracks();
+  c.GetNoteData().swap(track_new);
 }
 
 /**
@@ -483,6 +533,7 @@ void RRandom(Chart &c, const EffectorParam& param, bool mapping_by_measure)
   int idx_to_lane[kMaxSizeLane];
   random.SetSeed(param.seed);
   const int delta_lane = random.Next();
+  TrackData track_new;
   ASSERT(param.lanesize < kMaxSizeLane);
 
   int shufflelanecnt = 0;
@@ -501,42 +552,45 @@ void RRandom(Chart &c, const EffectorParam& param, bool mapping_by_measure)
   constexpr double time_rotation_delta = 0.072;
 
   auto rowiter = c.GetNoteData().GetRowIterator();
+  const size_t track_count = c.GetNoteData().get_track_count();
   bool change_mapping = true;
   size_t shift_idx = 0;
+  track_new.set_track_count(track_count);
   while (!rowiter.is_end())
   {
     /* Only shift if no longnote in current row. */
-    change_mapping = !c.GetNoteData().IsHoldNoteAt(rowiter.get_measure());
-
-    for (int i = 0; i < param.lanesize; ++i)
+    change_mapping = !rowiter.is_longnote();
+    for (size_t i = 0; i < track_count; ++i) if (rowiter.get(i))
     {
       /**
-       * Shift by timing option make note shifting by note's timing
-       * which is used for SRANDOM option.
-       */
-      if (param.lockedlane[i] || rowiter.col(i) == nullptr)
+        * Shift by timing option make note shifting by note's timing
+        * which is used for SRANDOM option.
+        */
+      if (param.lockedlane[i])
         continue;
-      Note &n = static_cast<Note&>(*rowiter.col(i));
+      NoteElement &n = rowiter[i];
       size_t new_idx;
 
       if (change_mapping)
       {
         shift_idx = (size_t)floorl(mapping_by_measure
-            ? n.time_msec / time_rotation_delta
-            : delta_lane + n.measure);
+          ? n.time() / time_rotation_delta
+          : delta_lane + n.measure());
       }
 
-      new_idx = lane_to_idx[n.get_track()] + shift_idx;
+      new_idx = lane_to_idx[i] + shift_idx;
       new_idx = (new_idx + 1) % param.lanesize;
-      n.set_track(idx_to_lane[new_idx]);
+      track_new[idx_to_lane[new_idx]].AddNoteElement(n);
     }
+    ++rowiter;
   }
 
-  c.GetNoteData().UpdateTracks();
+  c.GetNoteData().swap(track_new);
 }
 
 void Mirror(Chart &c, const EffectorParam& param)
 {
+  TrackData track_new;
   int new_col[kMaxSizeLane];
 
   for (int i=0; i<kMaxSizeLane; i++) new_col[i] = i;
@@ -551,15 +605,10 @@ void Mirror(Chart &c, const EffectorParam& param)
     s++; e--;
   }
 
-  auto iter = c.GetNoteData().GetAllTrackIterator();
-  while (!iter.is_end())
-  {
-    auto &note = static_cast<Note&>(*iter);
-    if (!CheckNoteValidity(note, param)) continue;
-    note.set_track(new_col[note.get_track()]);
-  }
-
-  c.GetNoteData().UpdateTracks();
+  track_new.set_track_count(c.GetNoteData().get_track_count());
+  for (auto i = 0; i < track_new.get_track_count(); ++i)
+    track_new[new_col[i]].swap(c.GetNoteData()[i]);
+  c.GetNoteData().swap(track_new);
 }
 
 void AllSC(Chart &c, const EffectorParam& param)
@@ -567,6 +616,7 @@ void AllSC(Chart &c, const EffectorParam& param)
   double current_beat = -1.0;
   int sc_idx = -1;
   size_t scan_col_start = 0;
+  TrackData track_new;
 
   // set scratch index.
   for (int i=0; i<param.lanesize; i++)
@@ -580,29 +630,40 @@ void AllSC(Chart &c, const EffectorParam& param)
   //ASSERT(sc_idx != -1);
   if (sc_idx == -1) return;
 
+  track_new.set_track_count(c.GetNoteData().get_track_count());
   auto rowiter = c.GetNoteData().GetRowIterator();
   while (!rowiter.is_end())
   {
     /* scratch column should be empty. */
-    if (rowiter.col(sc_idx) != nullptr)
+    if (rowiter.get(sc_idx) != nullptr)
       continue;
-    for (int i = 0; i < param.lanesize; ++i)
+    for (size_t i = 0; i < param.lanesize; ++i)
     {
+      bool is_sc_filled = false;
       int colidx = (i + scan_col_start) % param.lanesize;
-      Note *n = static_cast<Note*>(rowiter.col(colidx));
-      if (n != nullptr && n->chainsize() == 1) /* if not longnote */
+
+      NoteElement *n = rowiter.get(colidx);
+      if (!n) continue;
+      if (!is_sc_filled && n->chain_status() == NoteChainStatus::Tap) /* if not longnote */
       {
-        n->set_track(sc_idx);
+        // then copy note to scratch lane.
+        track_new[sc_idx].AddNoteElement(*n);
+      }
+      else
+      {
+        // if not, then copy as it is
+        track_new[colidx].AddNoteElement(*n);
       }
     }
     scan_col_start++;
+    ++rowiter;
   }
-
-  c.GetNoteData().UpdateTracks();
+  c.GetNoteData().swap(track_new);
 }
 
 void Flip(Chart &c, const EffectorParam& param)
 {
+  TrackData track_new;
   int new_col[kMaxSizeLane];
 
   // half of the lane is switched.
@@ -612,15 +673,10 @@ void Flip(Chart &c, const EffectorParam& param)
     new_col[i] = param.lanesize - i - 1;
   }
 
-  auto iter = c.GetNoteData().GetAllTrackIterator();
-  while (!iter.is_end())
-  {
-    auto &note = static_cast<Note&>(*iter);
-    if (!CheckNoteValidity(note, param)) continue;
-    note.set_track(new_col[note.get_track()]);
-  }
-
-  c.GetNoteData().UpdateTracks();
+  track_new.set_track_count(c.GetNoteData().get_track_count());
+  for (auto i = 0; i < track_new.get_track_count(); ++i)
+    track_new[new_col[i]].swap(c.GetNoteData()[i]);
+  c.GetNoteData().swap(track_new);
 }
 
 } /* namespace effector */

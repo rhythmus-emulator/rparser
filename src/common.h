@@ -25,6 +25,17 @@
 # define ASSERT(x)
 #endif
 
+#include <exception>
+
+namespace rparser
+{
+  class RparserException : public std::exception
+  {
+    using std::exception::exception;
+  };
+}
+
 #define RPARSER_LOG(x) std::cerr << x << std::endl;
+#define RPARSER_ASSERT(x, m) throw rparser::RparserException(m)
 
 #endif

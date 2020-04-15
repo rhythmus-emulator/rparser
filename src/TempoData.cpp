@@ -94,12 +94,14 @@ int GetSmallestIndex(double arr[], int size)
   return r;
 }
 
-void TimingSegmentData::Invalidate(const MetaData& m)
+// @warn  All objects in track is expected to be valid.
+void TimingSegmentData::Update(const MetaData *md, TrackData& timingtrack)
 {
   float v;
 
-  // Set first bpm from metadata
-  SetBPMChange(m.bpm);
+  // Set first bpm from metadata (if exists)
+  if (md)
+    SetBPMChange(md->bpm);
 
   /**
    * COMMENT
@@ -110,59 +112,89 @@ void TimingSegmentData::Invalidate(const MetaData& m)
    * -- all_track_iterator automatically do this, so no need to care about it here.
    */
 
-  auto timingobjiter = timingdata_.GetAllTrackIterator();
+  auto titer = timingtrack.GetRowIterator();
+  double curr_time = 0;
+  NoteElement *nelem;
 
   // Make tempo segments
-  while (!timingobjiter.is_end())
+  while (!titer.is_end())
   {
-    auto &tobj = static_cast<TimingObject&>(*timingobjiter);
-    ++timingobjiter;
-
     // seek for next tempo segment object and update note object beat value.
-    SeekByMeasure(tobj.measure);
-    tobj.SetTime(timingsegments_.back().time_);
+    SeekByMeasure(titer.get_measure());
+    curr_time = timingsegments_.back().time_;
 
-    // set tempo segment object attribute.
-    switch (tobj.get_track())
+    if (nelem = titer.get(TimingTrackTypes::kMeasure))
     {
-    case TimingObjectTypes::kMeasure:
-      SetMeasureLengthChange(static_cast<uint32_t>(tobj.measure), tobj.GetFloatValue());
-      break;
-    case TimingObjectTypes::kScroll:
-      SetScrollSpeedChange(tobj.GetFloatValue());
-      break;
-    case TimingObjectTypes::kBpm:
-      SetBPMChange(tobj.GetFloatValue());
-      break;
-    case TimingObjectTypes::kBmsBpm:
-      if (m.GetBPMChannel()->GetBpm(tobj.GetIntValue(), v))
-        SetBPMChange(v);
+      SetMeasureLengthChange(static_cast<uint32_t>(nelem->measure()), nelem->get_value_f());
+    }
+
+    if (nelem = titer.get(TimingTrackTypes::kScroll))
+    {
+      SetScrollSpeedChange(nelem->get_value_f());
+    }
+
+    if (nelem = titer.get(TimingTrackTypes::kBpm))
+    {
+      SetBPMChange(nelem->get_value_f());
+    }
+
+    if (nelem = titer.get(TimingTrackTypes::kBmsBpm))
+    {
+      float v;
+      RPARSER_ASSERT(md, "Metadata is nullptr while BmsBpm exists...");
+      if (md->GetBPMChannel()->GetBpm(nelem->get_value_i(), v))
+        SetBPMChange(nelem->get_value_f());
       else
-        RPARSER_LOG("Failed to fetch BPM information.");
-      break;
-    case TimingObjectTypes::kStop:
-      SetSTOP(tobj.GetFloatValue());
-      break;
-    case TimingObjectTypes::kBmsStop:
-      // STOP value of 192 means 1 measure stop (4 beat).
-      if (m.GetSTOPChannel()->GetStop(tobj.GetIntValue(), v))
+        RPARSER_LOG("Failed to fetch BPM information from Metadata while TimingSegmentData::Update.");
+    }
+
+    if (nelem = titer.get(TimingTrackTypes::kStop))
+    {
+      SetSTOP(nelem->get_value_f());
+    }
+
+    if (nelem = titer.get(TimingTrackTypes::kBmsStop))
+    {
+      RPARSER_ASSERT(md, "Metadata is nullptr while BmsStop exists...");
+      if (md->GetSTOPChannel()->GetStop(nelem->get_value_i(), v))
         SetSTOP(v / 192.0 * 4.0);
       else
-        RPARSER_LOG("Failed to fetch STOP information.");
-      break;
-    case TimingObjectTypes::kTick:
-      SetTick(tobj.GetIntValue());
-      break;
-    case TimingObjectTypes::kWarp:
-      SetWarp(tobj.GetFloatValue());
-      break;
+        RPARSER_LOG("Failed to fetch STOP information from Metadata while TimingSegmentData::Update.");
     }
+
+    if (nelem = titer.get(TimingTrackTypes::kTick))
+    {
+      SetTick(nelem->get_value_i());
+    }
+
+    if (nelem = titer.get(TimingTrackTypes::kWarp))
+    {
+      SetWarp(nelem->get_value_f());
+    }
+
+    ++titer;
   }
 }
 
 double TimingSegmentData::GetTimeFromMeasure(double measure) const
 {
   return GetTimeFromBeat(GetBeatFromMeasure(measure));
+}
+
+double TimingSegmentData::GetTimeFromMeasure(double measure, size_t &p) const
+{
+  const size_t maxsize = timingsegments_.size();
+  for (size_t idx = p; idx < maxsize && measure > timingsegments_[idx].measure_; ++idx)
+  {
+    if (timingsegments_[idx].measure_ <= measure)
+    {
+      if (idx + 1 == maxsize || measure < timingsegments_[idx + 1].measure_)
+        return GetTimeFromBeatInTempoSegment(timingsegments_[idx], measure);
+    }
+  }
+  // if not found proper segment from given index, then start from first segment.
+  p = 0;
+  return GetTimeFromMeasure(measure, p);
 }
 
 double TimingSegmentData::GetMeasureFromTime(double time) const
@@ -579,19 +611,8 @@ void TimingSegmentData::clear()
 
 void TimingSegmentData::swap(TimingSegmentData& timingdata)
 {
-  timingdata_.swap(timingdata.timingdata_);
   timingsegments_.swap(timingdata.timingsegments_);
   barobjs_.swap(timingdata.barobjs_);
-}
-
-TimingData& TimingSegmentData::GetTimingData()
-{
-  return timingdata_;
-}
-
-const TimingData& TimingSegmentData::GetTimingData() const
-{
-  return const_cast<TimingSegmentData*>(this)->GetTimingData();
 }
 
 const std::vector<BarObject>& TimingSegmentData::GetBarObjects() const

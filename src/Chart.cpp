@@ -11,11 +11,12 @@ namespace rparser
 
 Chart::Chart() : parent_song_(nullptr), charttype_(CHARTTYPE::None)
 {
-  bgmdata_.set_track_count(128);
-  bgadata_.set_track_count(128);
-  effectdata_.set_track_count(128 /* ?? */);
-  timingsegmentdata_.GetTimingData().set_track_count(128 /* XXX: use kTimingTypeCount */);
-  memset(&common_data_, 0, sizeof(common_data_));
+  trackdata_[TrackTypes::kTrackTiming].set_track_count(TimingTrackTypes::kTimingTrackMax);
+  trackdata_[TrackTypes::kTrackTap].set_track_count(128);
+  trackdata_[TrackTypes::kTrackCommand].set_track_count(128);
+  trackdata_[TrackTypes::kTrackBGM].set_track_count(128);
+
+  memset(&shared_data_, 0, sizeof(shared_data_));
   hash_ = "00000000"
     "00000000"
     "00000000"
@@ -27,20 +28,18 @@ Chart::Chart() : parent_song_(nullptr), charttype_(CHARTTYPE::None)
  * This copy constructor should be used when making duplicated chart
  * So, set same parent as original one.
  */
-Chart::Chart(const Chart &nd)
-  : parent_song_(nd.parent_song_)
+Chart::Chart(const Chart &c)
+  : parent_song_(c.parent_song_)
 {
-  bgmdata_.CopyAll(nd.bgmdata_);
-  bgadata_.CopyAll(nd.bgadata_);
-  notedata_.CopyAll(nd.notedata_);
-  effectdata_.CopyAll(nd.effectdata_);
-  metadata_ = nd.metadata_;
+  for (size_t i = 0; i < TrackTypes::kTrackMax; ++i)
+    trackdata_[i] = c.trackdata_[i];
+  metadata_ = c.metadata_;
   timingsegmentdata_
-    = std::move(TimingSegmentData(nd.timingsegmentdata_));
-  memcpy(&common_data_, &nd.common_data_, sizeof(common_data_));
-  charttype_ = nd.charttype_;
-  hash_ = nd.hash_;
-  seed_ = nd.seed_;
+    = std::move(TimingSegmentData(c.timingsegmentdata_));
+  memcpy(&shared_data_, &c.shared_data_, sizeof(shared_data_));
+  charttype_ = c.charttype_;
+  hash_ = c.hash_;
+  seed_ = c.seed_;
 }
 
 Chart::~Chart()
@@ -49,46 +48,60 @@ Chart::~Chart()
 
 void Chart::swap(Chart& c)
 {
-  bgmdata_.swap(c.bgmdata_);
-  bgadata_.swap(c.bgadata_);
-  notedata_.swap(c.notedata_);
-  effectdata_.swap(c.effectdata_);
+  for (size_t i = 0; i < TrackTypes::kTrackMax; ++i)
+    trackdata_[i].swap(c.trackdata_[i]);
   metadata_.swap(c.metadata_);
   timingsegmentdata_.swap(c.timingsegmentdata_);
   hash_.swap(c.hash_);
   filename_.swap(c.filename_);
-  std::swap(common_data_, c.common_data_);
+  std::swap(shared_data_, c.shared_data_);
 }
 
 
 void Chart::Clear()
 {
-  bgmdata_.clear();
-  bgadata_.clear();
-  notedata_.clear();
-  effectdata_.clear();
+  for (size_t i = 0; i < TrackTypes::kTrackMax; ++i)
+    trackdata_[i].clear();
   metadata_.clear();
   timingsegmentdata_.clear();
 }
 
-BgmData& Chart::GetBgmData() { return common_data_.bgmdata_ ? *common_data_.bgmdata_ : bgmdata_; }
-BgaData& Chart::GetBgaData() { return common_data_.bgadata_ ? *common_data_.bgadata_ : bgadata_; }
-NoteData& Chart::GetNoteData() { return notedata_; }
-EffectData& Chart::GetEffectData() { return common_data_.effectdata_ ? *common_data_.effectdata_ : effectdata_; }
-TimingData& Chart::GetTimingData()
-{ return common_data_.timingsegmentdata_ ? common_data_.timingsegmentdata_->GetTimingData() : timingsegmentdata_.GetTimingData(); }
-TimingSegmentData& Chart::GetTimingSegmentData()
-{ return common_data_.timingsegmentdata_ ? *common_data_.timingsegmentdata_ : timingsegmentdata_; }
+TrackData& Chart::GetBgmData() { return trackdata_[TrackTypes::kTrackBGM]; }
+TrackData& Chart::GetNoteData() { return trackdata_[TrackTypes::kTrackTap]; }
+TrackData& Chart::GetCommandData() {
+  return shared_data_.trackdata[TrackTypes::kTrackCommand]
+    ? *shared_data_.trackdata[TrackTypes::kTrackCommand]
+    : trackdata_[TrackTypes::kTrackCommand];
+}
+TrackData& Chart::GetTimingData() {
+  return shared_data_.trackdata[TrackTypes::kTrackTiming]
+    ? *shared_data_.trackdata[TrackTypes::kTrackTiming]
+    : trackdata_[TrackTypes::kTrackTiming];
+}
+TimingSegmentData& Chart::GetTimingSegmentData() {
+  return shared_data_.timingsegmentdata
+    ? *shared_data_.timingsegmentdata
+    : timingsegmentdata_;
+}
 MetaData& Chart::GetMetaData() { return metadata_; }
 
-const BgmData& Chart::GetBgmData() const { return common_data_.bgmdata_ ? *common_data_.bgmdata_ : bgmdata_; }
-const BgaData& Chart::GetBgaData() const { return common_data_.bgadata_ ? *common_data_.bgadata_ : bgadata_; }
-const NoteData& Chart::GetNoteData() const { return notedata_; }
-const EffectData& Chart::GetEffectData() const { return common_data_.effectdata_ ? *common_data_.effectdata_ : effectdata_; }
-const TimingData& Chart::GetTimingData() const
-{ return common_data_.timingsegmentdata_ ? common_data_.timingsegmentdata_->GetTimingData() : timingsegmentdata_.GetTimingData(); }
-const TimingSegmentData& Chart::GetTimingSegmentData() const
-{ return common_data_.timingsegmentdata_ ? *common_data_.timingsegmentdata_ : timingsegmentdata_ ; }
+const TrackData& Chart::GetBgmData() const { return trackdata_[TrackTypes::kTrackBGM]; }
+const TrackData& Chart::GetNoteData() const { return trackdata_[TrackTypes::kTrackTap]; }
+const TrackData& Chart::GetCommandData() const  {
+  return shared_data_.trackdata[TrackTypes::kTrackCommand]
+    ? *shared_data_.trackdata[TrackTypes::kTrackCommand]
+    : trackdata_[TrackTypes::kTrackCommand];
+}
+const TrackData& Chart::GetTimingData() const {
+  return shared_data_.trackdata[TrackTypes::kTrackTiming]
+    ? *shared_data_.trackdata[TrackTypes::kTrackTiming]
+    : trackdata_[TrackTypes::kTrackTiming];
+}
+const TimingSegmentData& Chart::GetTimingSegmentData() const {
+  return shared_data_.timingsegmentdata
+    ? *shared_data_.timingsegmentdata
+    : timingsegmentdata_;
+}
 const MetaData& Chart::GetMetaData() const { return metadata_; }
 
 uint32_t Chart::GetScoreableNoteCount() const
@@ -104,79 +117,64 @@ uint32_t Chart::GetScoreableNoteCount() const
   }
   return cnt;
 #endif
-  return notedata_.size();
+  return GetNoteData().size();
 }
 
 double Chart::GetSongLastObjectTime() const
 {
-  return notedata_.back()->time_msec;
+  return GetNoteData().back()->time();
 }
 
 bool Chart::HasLongnote() const
 {
-  auto all_track_iter = notedata_.GetAllTrackIterator();
-  while (!all_track_iter.is_end())
-  {
-    Note &n = static_cast<Note&>(*all_track_iter);
-    if (n.chainsize() > 1)
-      return true;
-    ++all_track_iter;
-  }
-  return false;
+  return GetNoteData().HasLongnote();
 }
 
 uint8_t Chart::GetPlayLaneCount() const
 {
-  return notedata_.get_track_count();
+  return GetNoteData().get_track_count();
 }
 
-template <typename T>
-void InvalidateTrackDataTiming(T& td, const TimingSegmentData& tsd)
+void InvalidateTrackDataTiming(TrackData& td, const TimingSegmentData& tsd)
 {
-  std::vector<NotePos*> vNpos;
-  std::vector<double> vM, vTime;
-  size_t i = 0;
-  auto iter = td.GetAllTrackIterator();
+  size_t i = 0, p = 0;
+  double t = 0;
+  auto iter = td.GetRowIterator();
   while (!iter.is_end())
   {
-    vNpos.push_back(&(*iter));
+    t = tsd.GetTimeFromMeasure(iter.get_measure(), p);
+    for (size_t n = 0; n < td.get_track_count(); ++n)
+    {
+      auto *ne = iter.get(n);
+      if (ne) ne->set_time(t);
+    }
     ++iter;
   }
-  for (auto *npos : vNpos)
-  {
-    vM.push_back(npos->measure);
-  }
-  vTime = std::move(tsd.GetTimeFromMeasureArr(vM));
-  for (auto *npos : vNpos)
-  {
-    npos->SetTime(vTime[i++]);
-  }
 }
 
-void Chart::InvalidateAllNotePos()
+void Chart::UpdateAllNotePos()
 {
   InvalidateTrackDataTiming(GetBgmData(), GetTimingSegmentData());
-  InvalidateTrackDataTiming(GetBgaData(), GetTimingSegmentData());
   InvalidateTrackDataTiming(GetNoteData(), GetTimingSegmentData());
-  InvalidateTrackDataTiming(GetEffectData(), GetTimingSegmentData());
+  InvalidateTrackDataTiming(GetCommandData(), GetTimingSegmentData());
 }
 
-void Chart::InvalidateNotePos(Note &nobj)
+void Chart::UpdateNotePos(NoteElement &nobj)
 {
-  nobj.time_msec = GetTimingSegmentData().GetTimeFromMeasure(nobj.measure);
+  nobj.set_time( GetTimingSegmentData().GetTimeFromMeasure(nobj.measure()) );
 }
 
-void Chart::InvalidateTempoData()
+void Chart::UpdateTempoData()
 {
-  GetTimingSegmentData().Invalidate(GetMetaData());
+  GetTimingSegmentData().Update(&GetMetaData(), GetTimingData());
 }
 
-void Chart::InvalidateCharttype()
+void Chart::UpdateCharttype()
 {
   charttype_ = CHARTTYPE::None;
   if (!parent_song_)
     return; /* XXX: manually set SONGTYPE to set proper charttype? */
-  int key = notedata_.get_track_count();
+  int key = GetNoteData().get_track_count();
   switch (parent_song_->GetSongType())
   {
   case SONGTYPE::BMS:
@@ -196,27 +194,30 @@ void Chart::InvalidateCharttype()
   }
 }
 
-void Chart::Invalidate()
+void Chart::Update()
 {
   metadata_.SetMetaFromAttribute();
   metadata_.SetUtf8Encoding();
-  InvalidateTempoData();
-  InvalidateAllNotePos();
-  InvalidateCharttype();
+  UpdateTempoData();
+  UpdateAllNotePos();
+  UpdateCharttype();
 }
 
 std::string Chart::toString() const
 {
   std::stringstream ss;
-  ss << "[NoteData]\n" << notedata_.toString() << std::endl;
-  ss << "[TempoData]\n" << GetTimingSegmentData().toString() << std::endl;
+  ss << "[TimingData]\n" << trackdata_[TrackTypes::kTrackTiming].toString() << std::endl;
+  ss << "[NoteData]\n" << trackdata_[TrackTypes::kTrackTap].toString() << std::endl;
+  ss << "[CommandData]\n" << trackdata_[TrackTypes::kTrackCommand].toString() << std::endl;
+  ss << "[BgmData]\n" << trackdata_[TrackTypes::kTrackBGM].toString() << std::endl;
+  ss << "[TimingSegment]\n" << GetTimingSegmentData().toString() << std::endl;
   ss << "[MetaData]\n" << metadata_.toString() << std::endl;
   return ss.str();
 }
 
 bool Chart::IsEmpty()
 {
-  return notedata_.is_empty();
+  return GetNoteData().is_empty();
 }
 
 const std::string &Chart::GetHash() const
