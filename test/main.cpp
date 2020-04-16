@@ -280,7 +280,7 @@ TEST(RPARSER, TIMINGDATA_RECOVER)
   EXPECT_NEAR(2'000.0, tsd.GetTimeFromBeat(48.0) - tsd.GetTimeFromBeat(47.99), 10.0);
 
   /* warp check */
-  const double warp_time = tsd.GetTimeFromMeasure(250.0);
+  const double warp_time = tsd.GetTimeFromMeasure(488.0);
   EXPECT_NEAR(2.0, tsd.GetBeatFromTime(warp_time + 0.01) - tsd.GetBeatFromTime(warp_time), 0.01);
 }
 

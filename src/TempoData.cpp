@@ -181,20 +181,24 @@ double TimingSegmentData::GetTimeFromMeasure(double measure) const
   return GetTimeFromBeat(GetBeatFromMeasure(measure));
 }
 
-double TimingSegmentData::GetTimeFromMeasure(double measure, size_t &p) const
+double TimingSegmentData::GetTimeFromMeasure(double measure, size_t &idx) const
 {
   const size_t maxsize = timingsegments_.size();
-  for (size_t idx = p; idx < maxsize && measure > timingsegments_[idx].measure_; ++idx)
+  for (; idx < maxsize - 1; ++idx)
   {
     if (timingsegments_[idx].measure_ <= measure)
     {
-      if (idx + 1 == maxsize || measure < timingsegments_[idx + 1].measure_)
-        return GetTimeFromBeatInTempoSegment(timingsegments_[idx], measure);
+      if (measure < timingsegments_[idx + 1].measure_)
+        return GetTimeFromBeatInTempoSegment(timingsegments_[idx], measure * 4.0);
     }
+    else break;
   }
+  // if idx is last segment then use it.
+  if (idx == maxsize - 1)
+    return GetTimeFromBeatInTempoSegment(timingsegments_[idx], measure * 4.0);
   // if not found proper segment from given index, then start from first segment.
-  p = 0;
-  return GetTimeFromMeasure(measure, p);
+  idx = 0;
+  return GetTimeFromMeasure(measure, idx);
 }
 
 double TimingSegmentData::GetMeasureFromTime(double time) const
