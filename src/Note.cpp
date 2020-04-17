@@ -326,20 +326,18 @@ void Track::AddNoteElement(const NoteElement& object)
   }
   // search position to insert note
   auto it = std::upper_bound(notes_.begin(), notes_.end(), object);
+  auto end = notes_.insert(it, object);
   // if end of longnote, pop all invalid tapnotes
-  if (object.chain_status() == NoteChainStatus::End && it != notes_.begin())
+  if (object.chain_status() == NoteChainStatus::End)
   {
-    auto it_end = std::prev(it);
-    auto it_begin = it_end;
-    while (it_begin != notes_.begin())
+    int remove_count = 0;
+    while (end - remove_count != notes_.begin()
+           && (end - remove_count - 1)->chain_status() == NoteChainStatus::Tap)
     {
-      if (it_begin->chain_status() != NoteChainStatus::Tap)
-        break;
-      it_begin = std::prev(it_begin);
+      remove_count++;
     }
-    notes_.erase(it_begin, it_end);
+    notes_.erase(end - remove_count, end);
   }
-  notes_.insert(it, object);
 }
 
 void Track::RemoveNoteElement(const NoteElement& object)

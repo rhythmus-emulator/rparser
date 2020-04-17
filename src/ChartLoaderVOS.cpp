@@ -525,14 +525,19 @@ bool ChartLoaderVOS::ParseNoteDataV2()
       sprop.key = p->pitch;
       sprop.length = p->duration;
       sprop.channel = p->inst;
-      nd[track].AddNoteElement(ne);
       if (p->islongnote)
       {
+        ne.set_chain_status(NoteChainStatus::Start);
+        nd[track].AddNoteElement(ne);
         // XXX: length is not correct ...
         ne.set_measure(ne.measure() + p->duration / (double)timedivision_ / 4.0);
         ne.set_chain_status(NoteChainStatus::End);
         nd[track].AddNoteElement(ne);
-        ne.set_chain_status(NoteChainStatus::Start);
+      }
+      else
+      {
+        ne.set_chain_status(NoteChainStatus::Tap);
+        nd[track].AddNoteElement(ne);
       }
     }
     else
@@ -590,14 +595,19 @@ bool ChartLoaderVOS::ParseNoteDataV3()
 
       if (is_tap)
       {
-        nd[keybits].AddNoteElement(ne);
         if (islongnote)
         {
+          ne.set_chain_status(NoteChainStatus::Start);
+          nd[keybits].AddNoteElement(ne);
           // XXX: need to be fixed
           ne.set_chain_status(NoteChainStatus::End);
           ne.set_measure(ne.measure() + note.duration / (double)timedivision_ / 4.0);
           nd[keybits].AddNoteElement(ne);
-          ne.set_chain_status(NoteChainStatus::Start);
+        }
+        else
+        {
+          ne.set_chain_status(NoteChainStatus::Tap);
+          nd[keybits].AddNoteElement(ne);
         }
       }
       else

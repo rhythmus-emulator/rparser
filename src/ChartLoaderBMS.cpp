@@ -732,6 +732,7 @@ bool ChartLoaderBMS::ParseSoundNote()
       if (longnote_idx_per_lane[curlane] == UINT32_MAX)
       {
         longnote_idx_per_lane[curlane] = 1;
+        ne.set_chain_status(NoteChainStatus::Start);
         track.AddNoteElement(ne); /* begin */
         ne.set_chain_status(NoteChainStatus::End);
         track.AddNoteElement(ne); /* end */
@@ -748,6 +749,7 @@ bool ChartLoaderBMS::ParseSoundNote()
       if (longnote_idx_per_lane[curlane] == UINT32_MAX)
       {
         longnote_idx_per_lane[curlane] = 1;
+        ne.set_chain_status(NoteChainStatus::Start);
         track.AddNoteElement(ne); /* begin */
       }
       else
@@ -757,6 +759,11 @@ bool ChartLoaderBMS::ParseSoundNote()
         return true; /* Don't add note */
       }
     }
+  }
+  else
+  {
+    ne.set_chain_status(NoteChainStatus::Tap);
+    track.AddNoteElement(ne);
   }
 
   return true;
