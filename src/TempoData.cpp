@@ -185,25 +185,25 @@ double TimingSegmentData::GetTimeFromMeasure(double measure) const
   return GetTimeFromBeat(GetBeatFromMeasure(measure));
 }
 
-double TimingSegmentData::GetTimeFromMeasure(double measure, size_t &idx) const
+double TimingSegmentData::GetTimeFromMeasure(double measure, size_t &tidx, size_t &bidx) const
 {
-  // TODO: save index of BeatFromMeasure()
+  // @brief Cache timingsegmentindex + barindex for fast linear search.
   const size_t maxsize = timingsegments_.size();
-  for (; idx < maxsize - 1; ++idx)
+  for (; tidx < maxsize - 1; ++tidx)
   {
-    if (timingsegments_[idx].measure_ <= measure)
+    if (timingsegments_[tidx].measure_ <= measure)
     {
-      if (measure < timingsegments_[idx + 1].measure_)
-        return GetTimeFromBeatInTempoSegment(timingsegments_[idx], GetBeatFromMeasure(measure));
+      if (measure < timingsegments_[tidx + 1].measure_)
+        return GetTimeFromBeatInTempoSegment(timingsegments_[tidx], GetBeatFromMeasure(measure, bidx));
     }
     else break;
   }
   // if idx is last segment then use it.
-  if (idx == maxsize - 1)
-    return GetTimeFromBeatInTempoSegment(timingsegments_[idx], GetBeatFromMeasure(measure));
+  if (tidx == maxsize - 1)
+    return GetTimeFromBeatInTempoSegment(timingsegments_[tidx], GetBeatFromMeasure(measure, bidx));
   // if not found proper segment from given index, then start from first segment.
-  idx = 0;
-  return GetTimeFromMeasure(measure, idx);
+  tidx = 0;
+  return GetTimeFromMeasure(measure, tidx, bidx);
 }
 
 double TimingSegmentData::GetMeasureFromTime(double time) const
@@ -295,6 +295,31 @@ double TimingSegmentData::GetBeatFromMeasure(double m) const
   }
 
   return GetBeatFromMeasureInBarSegment(barobjs_[idx], m, do_recover_measure_length_);
+}
+
+double TimingSegmentData::GetBeatFromMeasure(double m, size_t &idx) const
+{
+  // @brief for linear search.
+  // (exception case) if negative?
+  if (m < 0)
+  {
+    return -GetBeatFromMeasureInBarSegment(barobjs_[0], -m, do_recover_measure_length_);
+  }
+
+  uint32_t measure = static_cast<uint32_t>(floorl(m));
+  while (idx < barobjs_.size() && measure >= barobjs_[idx].measure_)
+  {
+    if (idx + 1 == barobjs_.size() ||
+       (idx + 1 < barobjs_.size() && measure < barobjs_[idx + 1].measure_))
+    {
+      return GetBeatFromMeasureInBarSegment(barobjs_[idx], m, do_recover_measure_length_);
+    }
+    ++idx;
+  }
+
+  // restart from beginning if not found
+  idx = 0;
+  return GetBeatFromMeasure(m, idx);
 }
 
 double TimingSegmentData::GetMeasureFromBeat(double beat) const
@@ -421,17 +446,18 @@ void TimingSegmentData::SetMeasureLengthChange(uint32_t measure_idx, double barl
 void TimingSegmentData::SeekByTime(double time)
 {
   double beat = GetBeatFromTimeInLastSegment(time);
-  Seek(beat, time);
+  double measure = GetMeasureFromBeatInLastSegment(beat);
+  Seek(measure, beat, time);
 }
 
 void TimingSegmentData::SeekByMeasure(double measure)
 {
   double beat = GetBeatFromMeasureInLastSegment(measure);
   double time = GetTimeFromBeatInLastSegment(beat);
-  Seek(beat, time);
+  Seek(measure, beat, time);
 }
 
-void TimingSegmentData::Seek(double beat, double time)
+void TimingSegmentData::Seek(double measure, double beat, double time)
 {
   ASSERT(beat >= timingsegments_.back().beat_);
   ASSERT(time >= timingsegments_.back().time_);
@@ -442,9 +468,7 @@ void TimingSegmentData::Seek(double beat, double time)
   new_tobj.clearForCopiedSegment();
   new_tobj.time_ = time;
   new_tobj.beat_ = beat;
-#if _DEBUG
-  new_tobj.measure_ = GetMeasureFromBeatInLastSegment(beat);
-#endif
+  new_tobj.measure_ = measure;
 
   // if previous tempoobj did not manipulated, then overwrite to it.
   if (timingsegments_.back().is_manipulated_)

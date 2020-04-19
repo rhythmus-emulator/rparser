@@ -64,11 +64,12 @@ public:
   TimingSegmentData();
   void Update(const MetaData *md, TrackData& timingtrack);
   double GetTimeFromMeasure(double measure) const;
-  double GetTimeFromMeasure(double measure, size_t &p) const;
+  double GetTimeFromMeasure(double measure, size_t &tidx, size_t &bidx) const;
   double GetMeasureFromTime(double time) const;
   double GetTimeFromBeat(double beat) const;
   double GetBeatFromTime(double time) const;
   double GetBeatFromMeasure(double measure) const;
+  double GetBeatFromMeasure(double measure, size_t &p) const;
   double GetMeasureFromBeat(double beat) const;
 
   /* @depreciated */
@@ -95,7 +96,7 @@ private:
   void SetMeasureLengthChange(uint32_t measure_idx /* beat */, double measure_length);
   void SeekByMeasure(double measure);
   void SeekByTime(double time);
-  void Seek(double beat, double time);
+  void Seek(double measure, double beat, double time);
   void SetBPMChange(double bpm);
   void SetSTOP(double stop);
   void SetDelay(double delay);

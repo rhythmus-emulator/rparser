@@ -545,9 +545,17 @@ TEST(RPARSER, BMS_STRESS)
 
     std::cout << "Total time of song " << md.title.c_str() << " is: " << c->GetSongLastObjectTime() << std::endl;
     EXPECT_EQ(32678, c->GetScoreableNoteCount());
-    /** Comment: Temponote idx 801 is bpm 1 obj */
-    /** Comment: Beat of last note is nearly 179.5 ~= 180 */
-    EXPECT_NEAR(78'000, c->GetSongLastObjectTime(), 1'000);    // about 1m'18s
+    /**
+     * Comment
+     * - Temponote idx 801 is bpm 1 obj
+     * - Beat of last note is nearly 179.5 ~= 180
+     * - Total time is about 1m'18s
+     */
+    EXPECT_NEAR(78'000, c->GetSongLastObjectTime(), 1'000);
+
+    // Tip: If test failed, uncomment this line and check out
+    // whether time, measure, or beat is properly aligned in order.
+    //std::cout << c->GetTimingSegmentData().toString() << std::endl;
   }
 
   song.Close();

@@ -137,12 +137,12 @@ unsigned Chart::GetPlayLaneCount() const
 
 void InvalidateTrackDataTiming(TrackData& td, const TimingSegmentData& tsd)
 {
-  size_t i = 0, p = 0;
+  size_t i = 0, p1 = 0, p2 = 0;
   double t = 0;
   auto iter = td.GetRowIterator();
   while (!iter.is_end())
   {
-    t = tsd.GetTimeFromMeasure(iter.get_measure(), p);
+    t = tsd.GetTimeFromMeasure(iter.get_measure(), p1, p2);
     for (size_t n = 0; n < td.get_track_count(); ++n)
     {
       auto *ne = iter.get(n);
