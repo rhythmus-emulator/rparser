@@ -330,8 +330,14 @@ TEST(RPARSER, LONGNOTE)
   Chart c;
   NoteElement n;
   auto &nd = c.GetNoteData();
+  nd.SetObjectDupliable(false);
   nd.set_track_count(7);
   EXPECT_FALSE(c.HasLongnote());
+
+  // tapnote (which will be popped later by longnote)
+  n.set_measure(0.5);
+  n.set_chain_status(NoteChainStatus::Tap);
+  nd[2].AddNoteElement(n);
 
   // long note object count
   n.set_measure(.0);
@@ -349,7 +355,7 @@ TEST(RPARSER, LONGNOTE)
   n.set_measure(.5);
   n.set_chain_status(NoteChainStatus::Tap);
   nd[2].AddNoteElement(n);
-  EXPECT_TRUE(nd.size() == 1);
+  EXPECT_EQ(1, nd.GetNoteCount());
   EXPECT_FALSE(c.HasLongnote());
 }
 
@@ -438,6 +444,18 @@ TEST(RPARSER, BMSARCHIVE)
   EXPECT_EQ(70, c->GetTimingSegmentData().GetMinBpm());
   EXPECT_NEAR(95'000, c->GetSongLastObjectTime(), 1'500);  // nearly 1m'35s
 
+  TimingSegmentData::UseDetailedInfo(true);
+  std::string str = c->GetTimingSegmentData().toString();
+  EXPECT_TRUE(str.find(R"(TSEGMENTS
+B0.00/M0.00/T0.00 - BPM: 140.00, STOP: 0.00
+B73.00/M19.00/T31285.71 - BPM: 70.00, STOP: 0.00
+B97.00/M35.00/T51857.14 - BPM: 140.00, STOP: 0.00)") != std::string::npos);
+  EXPECT_TRUE(str.find(R"(BARS recovery ON
+B0,M0 - length1
+B72,M18 - length0.25
+B73,M19 - length0.375)") != std::string::npos);
+  EXPECT_TRUE(str.find("M34 - length0.375") != std::string::npos);
+
   song.Close();
 }
 
@@ -520,7 +538,7 @@ TEST(RPARSER, BMS_STRESS)
     auto iter = c->GetTimingData().GetRowIterator();
     while (!iter.is_end())
     {
-      EXPECT_TRUE(m > iter.get_measure());
+      EXPECT_TRUE(m <= iter.get_measure());
       m = iter.get_measure();
       ++iter;
     }

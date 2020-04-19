@@ -9,6 +9,7 @@ class HTMLExporter
 {
 public:
   HTMLExporter();
+  ~HTMLExporter();
   void AddNode(const char *name, const char *id_ = 0, const char *class_ = 0);
   void AddNodeWithNoChildren(const char *name, const char *id_ = 0, const char *class_ = 0, const char *text_ = 0);
   void AddNodeWithNoChildren(const char *name, const char *id_, const char *class_, const std::string &s);
@@ -22,6 +23,12 @@ private:
 };
 
 HTMLExporter::HTMLExporter() {}
+
+HTMLExporter::~HTMLExporter()
+{
+  // check all tags are finished for safety.
+  RPARSER_ASSERT(tag_stack_.empty(), "Tag stack is not emptied.");
+}
 
 void HTMLExporter::AddNode(const char *name, const char *id_, const char *class_)
 {
@@ -71,7 +78,7 @@ std::stringstream &HTMLExporter::ss()
 
 void HTMLExporter::PopNode()
 {
-  ASSERT(tag_stack_.size() == 0);
+  ASSERT(!tag_stack_.empty());
   for (unsigned i = 0; i < tag_stack_.size(); ++i)
     ss_ << "\t";
   ss_ << "<" << tag_stack_.back() << "/>" << std::endl;
@@ -214,6 +221,12 @@ void ExportNoteToHTML(const Chart &c, HTMLExporter &e)
   e.PopNode();
 }
 
+const char *ChartTypeToStringSafe(CHARTTYPE charttype)
+{
+  const char* chart_type = ChartTypeToString(charttype);
+  return chart_type ? chart_type : "(Unknown)";
+}
+
 void ExportToHTML(const Chart &c, std::string& out)
 {
   HTMLExporter e;
@@ -227,7 +240,7 @@ void ExportToHTML(const Chart &c, std::string& out)
   // STEP 0. Container
   {
     std::stringstream ss;
-    ss << "playtype - " << ChartTypeToString(c.GetChartType()) << " playlane-" << (int)c.GetPlayLaneCount() << "key";
+    ss << "playtype - " << ChartTypeToStringSafe(c.GetChartType()) << " playlane-" << (int)c.GetPlayLaneCount() << "key";
     e.AddNode("div", "rhythmus-container", ss.str().c_str());
   }
 
@@ -242,7 +255,7 @@ void ExportToHTML(const Chart &c, std::string& out)
     e.PopNode();
     e.AddNode("span", 0, "desc meta_filetype");
     e.AddNodeWithNoChildren("span", 0, "label", "Filetype");
-    e.AddNodeWithNoChildren("span", 0, "text", ChartTypeToString(c.GetChartType()));
+    e.AddNodeWithNoChildren("span", 0, "text", ChartTypeToStringSafe(c.GetChartType()));
     e.PopNode();
     e.AddNode("span", 0, "desc meta_playmode");
     e.AddNodeWithNoChildren("span", 0, "label", "PlayMode");

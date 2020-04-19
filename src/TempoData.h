@@ -27,7 +27,7 @@ struct TimingSegment
   bool is_manipulated_;
 
   void clearForCopiedSegment();
-  std::string toString();
+  std::string toString() const;
 };
 
 /**
@@ -87,6 +87,8 @@ public:
   void swap(TimingSegmentData& timingdata);
   const std::vector<BarObject>& GetBarObjects() const;
   double GetBarLength(uint32_t measure) const;
+
+  static void UseDetailedInfo(bool use_detailed_info);
 
 private:
   void SetFirstObjectFromMetaData(const MetaData &md);

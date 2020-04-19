@@ -276,6 +276,7 @@ public:
   void RemoveObjectByMeasure(double measure);
   void ClearAll();
   void ClearRange(double m_begin, double m_end);
+  void SetObjectDupliable(bool duplicable);
   bool IsHoldNoteAt(double measure) const;
   bool IsRangeEmpty(double m_start, double m_end) const;
   bool HasLongnote() const;
@@ -287,6 +288,8 @@ public:
   void InsertBlank(double m_begin, double m_delta);
   void RemapTracks(size_t *track_map);
 
+  unsigned GetNoteElementCount() const;
+  unsigned GetNoteCount() const;
   NoteElement* front();
   NoteElement* back();
   const NoteElement* front() const;
@@ -352,6 +355,7 @@ private:
   std::string name_;
   std::vector<Track> tracks_;
   std::string track_datatype_default_;
+  bool is_object_duplicable_;
 };
 
 }

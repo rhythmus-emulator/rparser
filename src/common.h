@@ -36,6 +36,6 @@ namespace rparser
 }
 
 #define RPARSER_LOG(x) std::cerr << x << std::endl;
-#define RPARSER_ASSERT(x, m) throw rparser::RparserException(m)
+#define RPARSER_ASSERT(x, m) if (!m) { throw rparser::RparserException(m); }
 
 #endif

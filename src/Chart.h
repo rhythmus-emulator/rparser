@@ -77,7 +77,7 @@ public:
   uint32_t GetScoreableNoteCount() const;
   double GetSongLastObjectTime() const;
   bool HasLongnote() const;
-  uint8_t GetPlayLaneCount() const;
+  unsigned GetPlayLaneCount() const;
   
   void Clear();
 

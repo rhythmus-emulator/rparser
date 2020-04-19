@@ -164,7 +164,7 @@ void ChartLoaderVOS::BinaryStream::GetChar(char *out, size_t cnt)
   ASSERT(offset_ <= len_);
 }
 
-int ChartLoaderVOS::BinaryStream::GetOffset()
+size_t ChartLoaderVOS::BinaryStream::GetOffset()
 {
   return offset_;
 }
@@ -281,7 +281,7 @@ bool ChartLoaderVOS::LoadFromDirectory()
   return false;
 }
 
-bool ChartLoaderVOS::Load( Chart &c, const void* p, int len ) {
+bool ChartLoaderVOS::Load( Chart &c, const void* p, unsigned len ) {
   Preload(c, p, len);
   this->chart_ = &c;
   stream.SetSource(p, len);
@@ -572,7 +572,7 @@ bool ChartLoaderVOS::ParseNoteDataV3()
     cnt = stream.GetUInt32();
     stream.SeekCur(14);
 
-    for (int i=0; i<cnt; i++) {
+    for (unsigned i=0; i<cnt; i++) {
       note.time = static_cast<uint32_t>(stream.GetUInt32() * kVOSTimeConstant);
       note.duration = static_cast<uint32_t>(stream.GetUInt32() * kVOSTimeConstant);
       note.midicmd = stream.GetUInt8();

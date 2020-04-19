@@ -2,9 +2,12 @@
 #include "MetaData.h"
 #include "ChartUtil.h"
 #include "common.h"
+#include <iomanip>
 
 namespace rparser
 {
+
+static bool use_detailed_info = false;
 
 inline double GetTimeFromBeatInTempoSegment(const TimingSegment& tobj, double beat)
 {
@@ -62,10 +65,12 @@ void TimingSegment::clearForCopiedSegment()
   is_manipulated_ = false;
 }
 
-std::string TimingSegment::toString()
+std::string TimingSegment::toString() const
 {
   std::stringstream ss;
-  ss << "BPM: " << bpm_ << std::endl;
+  ss << std::fixed << std::setprecision(2)
+     << "B" << beat_ << "/M" << measure_ << "/T" << time_
+     << " - BPM: " << bpm_ << ", STOP: " << stoptime_ << std::endl;
   return ss.str();
 }
 
@@ -140,10 +145,9 @@ void TimingSegmentData::Update(const MetaData *md, TrackData& timingtrack)
 
     if (nelem = titer.get(TimingTrackTypes::kBmsBpm))
     {
-      float v;
       RPARSER_ASSERT(md, "Metadata is nullptr while BmsBpm exists...");
-      if (md->GetBPMChannel()->GetBpm(nelem->get_value_i(), v))
-        SetBPMChange(nelem->get_value_f());
+      if (md->GetBPMChannel()->GetBpm(nelem->get_value_u(), v))
+        SetBPMChange(v);
       else
         RPARSER_LOG("Failed to fetch BPM information from Metadata while TimingSegmentData::Update.");
     }
@@ -156,7 +160,7 @@ void TimingSegmentData::Update(const MetaData *md, TrackData& timingtrack)
     if (nelem = titer.get(TimingTrackTypes::kBmsStop))
     {
       RPARSER_ASSERT(md, "Metadata is nullptr while BmsStop exists...");
-      if (md->GetSTOPChannel()->GetStop(nelem->get_value_i(), v))
+      if (md->GetSTOPChannel()->GetStop(nelem->get_value_u(), v))
         SetSTOP(v / 192.0 * 4.0);
       else
         RPARSER_LOG("Failed to fetch STOP information from Metadata while TimingSegmentData::Update.");
@@ -183,19 +187,20 @@ double TimingSegmentData::GetTimeFromMeasure(double measure) const
 
 double TimingSegmentData::GetTimeFromMeasure(double measure, size_t &idx) const
 {
+  // TODO: save index of BeatFromMeasure()
   const size_t maxsize = timingsegments_.size();
   for (; idx < maxsize - 1; ++idx)
   {
     if (timingsegments_[idx].measure_ <= measure)
     {
       if (measure < timingsegments_[idx + 1].measure_)
-        return GetTimeFromBeatInTempoSegment(timingsegments_[idx], measure * 4.0);
+        return GetTimeFromBeatInTempoSegment(timingsegments_[idx], GetBeatFromMeasure(measure));
     }
     else break;
   }
   // if idx is last segment then use it.
   if (idx == maxsize - 1)
-    return GetTimeFromBeatInTempoSegment(timingsegments_[idx], measure * 4.0);
+    return GetTimeFromBeatInTempoSegment(timingsegments_[idx], GetBeatFromMeasure(measure));
   // if not found proper segment from given index, then start from first segment.
   idx = 0;
   return GetTimeFromMeasure(measure, idx);
@@ -599,6 +604,15 @@ std::string TimingSegmentData::toString() const
   ss << "BPMChange? : " << HasBpmChange() << std::endl;
   ss << "Warp? : " << HasWarp() << std::endl;
   ss << "Stop? : " << HasStop() << std::endl;
+  if (use_detailed_info)
+  {
+    ss << "TSEGMENTS" << std::endl;
+    for (auto &s : timingsegments_)
+      ss << s.toString();
+    ss << "BARS recovery " << (do_recover_measure_length_ ? "ON" : "OFF") << std::endl;
+    for (auto &bar : barobjs_)
+      ss << "B" << bar.beat_ << ",M" << bar.measure_ << " - length" << bar.barlength_ << std::endl;
+  }
   return ss.str();
 }
 
@@ -632,6 +646,11 @@ double TimingSegmentData::GetBarLength(uint32_t measure) const
   return (do_recover_measure_length_ && it->measure_ != measure)
     ? 1.0
     : it->barlength_;
+}
+
+void TimingSegmentData::UseDetailedInfo(bool v)
+{
+  use_detailed_info = v;
 }
 
 }

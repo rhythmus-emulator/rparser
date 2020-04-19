@@ -5,7 +5,7 @@ namespace rparser {
 
 bool ChartLoader::bOpenBmsFileWithoutProcessing = false;
 
-bool ChartLoader::Test(const void* p, int iLen) { return false; }
+bool ChartLoader::Test(const void* p, unsigned iLen) { return false; }
 
 ChartLoader* ChartLoader::Create(Song *song)
 {

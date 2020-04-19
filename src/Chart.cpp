@@ -117,7 +117,7 @@ uint32_t Chart::GetScoreableNoteCount() const
   }
   return cnt;
 #endif
-  return GetNoteData().size();
+  return GetNoteData().GetNoteCount();
 }
 
 double Chart::GetSongLastObjectTime() const
@@ -130,9 +130,9 @@ bool Chart::HasLongnote() const
   return GetNoteData().HasLongnote();
 }
 
-uint8_t Chart::GetPlayLaneCount() const
+unsigned Chart::GetPlayLaneCount() const
 {
-  return GetNoteData().get_track_count();
+  return (unsigned)GetNoteData().get_track_count();
 }
 
 void InvalidateTrackDataTiming(TrackData& td, const TimingSegmentData& tsd)

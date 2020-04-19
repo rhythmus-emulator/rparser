@@ -78,7 +78,7 @@ const char* ChartTypeToString(CHARTTYPE type)
     "Pump_DP",
     "SDVX",
   };
-  return type_2_str[(size_t)type];
+  return type_2_str[(unsigned)type];
 }
 
 const char** GetSongExtensions()

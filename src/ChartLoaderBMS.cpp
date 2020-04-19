@@ -86,7 +86,7 @@ inline bool IsCharacterTrimmable(char c)
   return (c == ' ' || c == '\t' || c == '\r' || c == '\n');
 }
 
-bool ChartLoaderBMS::Load(Chart &c, const void* p, int iLen)
+bool ChartLoaderBMS::Load(Chart &c, const void* p, unsigned iLen)
 {
   Preload(c, p, iLen);
   ProcessCommand(c, static_cast<const char*>(p), iLen);
@@ -94,19 +94,19 @@ bool ChartLoaderBMS::Load(Chart &c, const void* p, int iLen)
 }
 
 // main file
-bool ChartLoaderBMS::Test(const void* p, int iLen)
+bool ChartLoaderBMS::Test(const void* p, unsigned iLen)
 {
   // As bms file has no file signature,
   // just search for "*--" string for first 100 string.
   // TODO: is there any exception?
-  for (int i = 0; i<iLen - 4 && i<100; i++) {
+  for (unsigned i = 0; i<iLen - 4 && i<100; i++) {
     if (strncmp((const char*)p, "*-----", 6) == 0)
       return true;
   }
   return false;
 }
 
-void ChartLoaderBMS::ProcessCommand(Chart &chart, const char* chr, int len)
+void ChartLoaderBMS::ProcessCommand(Chart &chart, const char* chr, unsigned len)
 {
   /** Initialize global context */
   memset(longnote_idx_per_lane, 0xffffffff, sizeof(longnote_idx_per_lane));
@@ -119,9 +119,9 @@ void ChartLoaderBMS::ProcessCommand(Chart &chart, const char* chr, int len)
   chart_context_ = &chart;
 
 
-  size_t pos = 0;
-  size_t stmtlen = 0;
-  size_t nextpos = 0;
+  unsigned pos = 0;
+  unsigned stmtlen = 0;
+  unsigned nextpos = 0;
 
   while (pos < len)
   {
@@ -243,7 +243,7 @@ int atoi_bms16(const char* p, int length)
 bool ChartLoaderBMS::ParseCurrentLine()
 {
   const char *c, *p;
-  size_t len = current_line_->stmt_len;
+  unsigned len = current_line_->stmt_len;
   char *cw = current_line_->command;
   char terminator_type;
   c = p = current_line_->stmt;
@@ -272,7 +272,7 @@ bool ChartLoaderBMS::ParseCurrentLine()
   // if not header field: ignored
   if (*c != '#') return false;
   c++;
-  while (*c != ' ' && *c != ':' && c-p < len)
+  while (*c != ' ' && *c != ':' && c < p+len)
   {
     *cw = upperchr(*c);
     c++; cw++;
@@ -754,9 +754,9 @@ bool ChartLoaderBMS::ParseSoundNote()
       }
       else
       {
+        longnote_idx_per_lane[curlane] = UINT32_MAX;
         ne.set_chain_status(NoteChainStatus::End);
         track.AddNoteElement(ne); /* end */
-        return true; /* Don't add note */
       }
     }
   }
@@ -783,7 +783,7 @@ bool ChartLoaderBMS::ParseTimingNote()
   case 3:   // BPM change
     track = TimingTrackTypes::kBpm;
     /** 16 radix here */
-    ne.set_value((unsigned)atoi_16(curr_note_syntax_.value, 2));
+    ne.set_value((float)atoi_16(curr_note_syntax_.value, 2));
     break;
   case 8:   // BPM (exbpm)
     track = TimingTrackTypes::kBmsBpm;

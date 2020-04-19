@@ -26,12 +26,12 @@ class Song;
 class ChartLoader {
 public:
   ChartLoader(Song* song) : song_(song), error_(0), seed_(0) {};
-  virtual bool Test(const void* p, int iLen);
+  virtual bool Test(const void* p, unsigned iLen);
   virtual void SetSeed(int seed = -1);
 
   /* @brief used for chart which song exists in a single binary
    * (e.g. VOS) */
-  virtual bool Load(Chart &c, const void* p, int iLen) = 0;
+  virtual bool Load(Chart &c, const void* p, unsigned iLen) = 0;
 
   /* @brief used for files which song existing in directory
    * (e.g. most types of song) 
@@ -58,12 +58,12 @@ protected:
 class ChartLoaderBMS : public ChartLoader {
 public:
   ChartLoaderBMS(Song* song);
-  virtual bool Test(const void* p, int iLen);
-  virtual bool Load(Chart &c, const void* p, int iLen);
+  virtual bool Test(const void* p, unsigned iLen);
+  virtual bool Load(Chart &c, const void* p, unsigned iLen);
   virtual bool LoadFromDirectory();
 
   // Process command to chart data without clearing.
-  void ProcessCommand(Chart &c, const char* p, int len);
+  void ProcessCommand(Chart &c, const char* p, unsigned len);
 
   void ProcessConditionalStatement(bool do_process = true);
 private:
@@ -82,7 +82,7 @@ private:
 
   struct LineContext {
     const char* stmt;
-    size_t stmt_len;
+    unsigned stmt_len;
     char command[256];
     const char* value;
     unsigned int value_len;
@@ -135,7 +135,7 @@ struct MIDIProgramInfo;
 class ChartLoaderVOS : public ChartLoader {
 public:
   ChartLoaderVOS(Song* song);
-  virtual bool Load(Chart &c, const void* p, int iLen);
+  virtual bool Load(Chart &c, const void* p, unsigned iLen);
   virtual bool LoadFromDirectory();
 private:
   Chart *chart_;
@@ -162,14 +162,14 @@ private:
     uint16_t GetUInt16();
     uint8_t GetUInt8();
     void GetChar(char *out, size_t cnt);
-    int GetOffset();
+    size_t GetOffset();
     int GetMSInt();
     int GetMSFixedInt(uint8_t bytesize=4);
     bool IsEnd();
     MIDISIG GetMidiSignature(MIDIProgramInfo& mprog);
   private:
     const void* p_;
-    int len_;
+    unsigned len_;
     size_t offset_;
   } stream;
 };

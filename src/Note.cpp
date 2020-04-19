@@ -307,17 +307,20 @@ Track::~Track() {}
 void Track::AddNoteElement(const NoteElement& object)
 {
   // for fast-append logic
-  if (!notes_.empty() && notes_.back().measure() >= object.measure())
+  bool is_last_note_duplicated = !notes_.empty() && notes_.back().measure() == object.measure();
+  if (notes_.empty() || is_last_note_duplicated)
   {
     // if object is not duplicatable
-    if (!is_object_duplicable_ && notes_.back().measure() == object.measure())
+    if (!is_object_duplicable_ && is_last_note_duplicated)
     {
-      // if end of longnote, pop invalid notes
       if (object.chain_status() == NoteChainStatus::End)
       {
+        // if end of longnote, pop other tapnotes till beginning of the longnote.
         while (notes_.back().chain_status() == NoteChainStatus::Tap && notes_.size() > 1)
           notes_.pop_back();
       }
+      // don't check tapnote in case of fast-append logic,
+      // as there'll be no longnote at last position.
       notes_.back() = object;
       return;
     }
@@ -327,16 +330,30 @@ void Track::AddNoteElement(const NoteElement& object)
   // search position to insert note
   auto it = std::upper_bound(notes_.begin(), notes_.end(), object);
   auto end = notes_.insert(it, object);
-  // if end of longnote, pop all invalid tapnotes
-  if (object.chain_status() == NoteChainStatus::End)
+  if (!is_object_duplicable_)
   {
-    int remove_count = 0;
-    while (end - remove_count != notes_.begin()
-           && (end - remove_count - 1)->chain_status() == NoteChainStatus::Tap)
+    if (object.chain_status() == NoteChainStatus::End)
     {
-      remove_count++;
+      // if end of longnote, pop all invalid tapnotes
+      int remove_count = 0;
+      while (end - remove_count != notes_.begin()
+        && (end - remove_count - 1)->chain_status() == NoteChainStatus::Tap)
+      {
+        remove_count++;
+      }
+      notes_.erase(end - remove_count, end);
     }
-    notes_.erase(end - remove_count, end);
+    else {
+      // if tapnote / LN start, then check overlapping with other longnotes.
+      unsigned l = 1;
+      while (end + l != notes_.end() && (end + l)->chain_status() != NoteChainStatus::Tap)
+        l++;
+      notes_.erase(end + 1, end + l);
+      l = 0;
+      while (end - l != notes_.begin() && (end - l - 1)->chain_status() != NoteChainStatus::Tap)
+        l++;
+      notes_.erase(end - l, end);
+    }
   }
 }
 
@@ -561,7 +578,7 @@ void Track::clear()
 
 // ----------------------------------- NoteData
 
-TrackData::TrackData() {}
+TrackData::TrackData() : is_object_duplicable_(false) {}
 
 void TrackData::set_track_count(size_t track_count)
 {
@@ -651,6 +668,13 @@ void TrackData::ClearRange(double m_begin, double m_end)
     track.ClearRange(m_begin, m_end);
 }
 
+void TrackData::SetObjectDupliable(bool duplicable)
+{
+  is_object_duplicable_ = duplicable;
+  for (auto &track : tracks_)
+    track.SetObjectDupliable(duplicable);
+}
+
 void TrackData::CopyRange(const TrackData& from, double m_begin, double m_end)
 {
   ClearAll();
@@ -695,6 +719,28 @@ void TrackData::RemapTracks(size_t *track_map)
   {
     track_backup_[i].swap(get_track(track_map[i]));
   }
+}
+
+unsigned TrackData::GetNoteElementCount() const
+{
+  unsigned l = 0;
+  for (auto &track : tracks_) l += track.size();
+  return l;
+}
+
+unsigned TrackData::GetNoteCount() const
+{
+  unsigned l = 0;
+  for (auto &track : tracks_)
+  {
+    for (auto &n : track)
+    {
+      if (n.chain_status() == NoteChainStatus::Tap ||
+          n.chain_status() == NoteChainStatus::Start)
+        l++;
+    }
+  }
+  return l;
 }
 
 NoteElement* TrackData::front()
@@ -893,13 +939,12 @@ void TrackData::swap(TrackData &data)
   tracks_.swap(data.tracks_);
   std::swap(name_, data.name_);
   std::swap(track_datatype_default_, data.track_datatype_default_);
+  std::swap(is_object_duplicable_, data.is_object_duplicable_);
 }
 
 size_t TrackData::size() const {
-  size_t cnt = 0;
-  for (auto &track : tracks_)
-    cnt += track.size();
-  return cnt;
+  /* redirect */
+  return GetNoteElementCount();
 }
 
 bool TrackData::is_empty() const {
