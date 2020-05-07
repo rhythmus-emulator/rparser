@@ -31,11 +31,16 @@ namespace rparser
 {
   class RparserException : public std::exception
   {
-    using std::exception::exception;
+    public:
+      RparserException() {};
+      RparserException(const char *msg) : msg_(msg) {};
+      virtual const char* what() const noexcept { return msg_.c_str(); }
+    private:
+      std::string msg_;
   };
 }
 
 #define RPARSER_LOG(x) std::cerr << x << std::endl;
-#define RPARSER_ASSERT(x, m) if (!m) { throw rparser::RparserException(m); }
+#define RPARSER_ASSERT(x, m) if (!x) { throw rparser::RparserException(m); }
 
 #endif
