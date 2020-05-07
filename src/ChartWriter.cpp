@@ -11,7 +11,7 @@ bool ChartWriter::Write(Song* song)
 {
   if (!WriteMeta(song)) return false;
   Chart *c;
-  for (int i = 0; i < song->GetChartCount(); ++i)
+  for (unsigned i = 0; i < song->GetChartCount(); ++i)
   {
     c = song->GetChart(i);
     bool r = WriteChart(c);

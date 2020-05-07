@@ -24,7 +24,6 @@ enum class NoteChainStatus
 struct NoteSoundProperty
 {
   int type;
-  int channel;
   int length;
   int key;
   float volume;

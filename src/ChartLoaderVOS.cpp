@@ -524,7 +524,7 @@ bool ChartLoaderVOS::ParseNoteDataV2()
       sprop.volume = p->volume / 127.0f;
       sprop.key = p->pitch;
       sprop.length = p->duration;
-      sprop.channel = p->inst;
+      ne.set_value(p->inst);
       if (p->islongnote)
       {
         ne.set_chain_status(NoteChainStatus::Start);
@@ -547,7 +547,7 @@ bool ChartLoaderVOS::ParseNoteDataV2()
       sprop.volume = p->volume / 127.0f;
       sprop.key = p->pitch;
       sprop.length = p->duration;
-      sprop.channel = p->inst;
+      ne.set_value(p->inst);
       bgm[0].AddNoteElement(ne);
     }
   }
@@ -591,7 +591,8 @@ bool ChartLoaderVOS::ParseNoteDataV3()
       sprop.volume = note.vol / 127.0f;
       sprop.key = note.midikey;
       sprop.length = note.duration;
-      sprop.channel = channel;
+      ne.set_value(channel);
+      //sprop.channel = channel;
 
       if (is_tap)
       {

@@ -24,11 +24,7 @@ private:
 
 HTMLExporter::HTMLExporter() {}
 
-HTMLExporter::~HTMLExporter()
-{
-  // check all tags are finished for safety.
-  RPARSER_ASSERT(tag_stack_.empty(), "Tag stack is not emptied.");
-}
+HTMLExporter::~HTMLExporter() {}
 
 void HTMLExporter::AddNode(const char *name, const char *id_, const char *class_)
 {
@@ -87,6 +83,9 @@ void HTMLExporter::PopNode()
 
 std::string HTMLExporter::str() const
 {
+  // check all tags are finished for safety.
+  RPARSER_ASSERT(tag_stack_.empty(), "Tag stack is not emptied.");
+
   return ss_.str();
 }
 
@@ -204,7 +203,7 @@ void ExportNoteToHTML(const Chart &c, HTMLExporter &e)
       for (size_t i = 0; i < td.get_track_count(); ++i) if (iter_tobj.get(i))
       {
         note_cls = "chartobject tempoobject tempotype0";
-        note_cls.back() += i;
+        note_cls.back() += (char)i;
         auto &n = iter_tobj[i];
         double ypos = n.measure() - (double)measure_idx;
         DrawTapnote(e.ss(), td_idx, i, note_cls, n, ypos);
@@ -619,7 +618,7 @@ void Mirror(Chart &c, const EffectorParam& param)
   }
 
   track_new.set_track_count(c.GetNoteData().get_track_count());
-  for (auto i = 0; i < track_new.get_track_count(); ++i)
+  for (unsigned i = 0; i < track_new.get_track_count(); ++i)
     track_new[new_col[i]].swap(c.GetNoteData()[i]);
   c.GetNoteData().swap(track_new);
 }
@@ -650,7 +649,7 @@ void AllSC(Chart &c, const EffectorParam& param)
     /* scratch column should be empty. */
     if (rowiter.get(sc_idx) != nullptr)
       continue;
-    for (size_t i = 0; i < param.lanesize; ++i)
+    for (int i = 0; i < param.lanesize; ++i)
     {
       bool is_sc_filled = false;
       int colidx = (i + scan_col_start) % param.lanesize;
@@ -687,7 +686,7 @@ void Flip(Chart &c, const EffectorParam& param)
   }
 
   track_new.set_track_count(c.GetNoteData().get_track_count());
-  for (auto i = 0; i < track_new.get_track_count(); ++i)
+  for (unsigned i = 0; i < track_new.get_track_count(); ++i)
     track_new[new_col[i]].swap(c.GetNoteData()[i]);
   c.GetNoteData().swap(track_new);
 }
