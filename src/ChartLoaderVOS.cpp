@@ -520,7 +520,7 @@ bool ChartLoaderVOS::ParseNoteDataV2()
     {
       // midi time --> beat position
       ne.set_measure(p->time / (double)timedivision_ / 4.0);
-      auto &sprop = ne.get_value_sprop();
+      auto &sprop = ne.get_property_sound();
       sprop.volume = p->volume / 127.0f;
       sprop.key = p->pitch;
       sprop.length = p->duration;
@@ -543,7 +543,7 @@ bool ChartLoaderVOS::ParseNoteDataV2()
     else
     {
       ne.set_measure(p->time / (double)timedivision_ / 4.0);
-      auto &sprop = ne.get_value_sprop();
+      auto &sprop = ne.get_property_sound();
       sprop.volume = p->volume / 127.0f;
       sprop.key = p->pitch;
       sprop.length = p->duration;
@@ -587,7 +587,7 @@ bool ChartLoaderVOS::ParseNoteDataV3()
       unsigned channel = (note.midicmd & 0x0F);
 
       ne.set_measure(note.time / (double)timedivision_ / 4.0);
-      auto &sprop = ne.get_value_sprop();
+      auto &sprop = ne.get_property_sound();
       sprop.volume = note.vol / 127.0f;
       sprop.key = note.midikey;
       sprop.length = note.duration;

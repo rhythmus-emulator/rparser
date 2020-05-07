@@ -84,6 +84,7 @@ NoteElement::NoteElement()
 {
   memset(&point_, 0, sizeof(point_));
   memset(&v_, 0, sizeof(v_));
+  memset(&prop_, 0, sizeof(prop_));
 }
 
 void NoteElement::SetRowPos(int measure, RowPos deno, RowPos num)
@@ -205,11 +206,6 @@ void NoteElement::set_value(double v)
   v_.f = v;
 }
 
-void NoteElement::set_value(NoteSoundProperty &sprop)
-{
-  v_.sprop = sprop;
-}
-
 void NoteElement::get_value(int &v)
 {
   v = v_.i[0];
@@ -230,14 +226,19 @@ double NoteElement::get_value_f() const
   return v_.f;
 }
 
-const NoteSoundProperty& NoteElement::get_value_sprop() const
+void NoteElement::set_property(NoteSoundProperty &sprop)
 {
-  return v_.sprop;
+  prop_.sound = sprop;
 }
 
-NoteSoundProperty& NoteElement::get_value_sprop()
+const NoteSoundProperty& NoteElement::get_property_sound() const
 {
-  return v_.sprop;
+  return prop_.sound;
+}
+
+NoteSoundProperty& NoteElement::get_property_sound()
+{
+  return prop_.sound;
 }
 
 // --------------------------------------- Note

@@ -66,13 +66,14 @@ public:
   void set_value(int v);
   void set_value(unsigned v);
   void set_value(double v);
-  void set_value(NoteSoundProperty &sprop);
   void get_value(int &v);
   int get_value_i() const;
   unsigned int get_value_u() const;
   double get_value_f() const;
-  const NoteSoundProperty& get_value_sprop() const;
-  NoteSoundProperty& get_value_sprop();
+
+  void set_property(NoteSoundProperty &sprop);
+  const NoteSoundProperty& get_property_sound() const;
+  NoteSoundProperty& get_property_sound();
 
 private:
   // Note time/beat position.
@@ -87,15 +88,19 @@ private:
     int x, y, z;
   } point_;
 
-  // Property of the note.
+  // Value of the note.
   union NoteValue {
     int i[4];
     unsigned u[4];
     int64_t li;
     uint64_t lu;
     double f;
-    NoteSoundProperty sprop;
   } v_;
+
+  // Property of the note.
+  union NoteProperty {
+    NoteSoundProperty sound;
+  } prop_;
 };
 
 /* @brief Types of tracks
