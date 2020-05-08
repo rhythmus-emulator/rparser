@@ -729,6 +729,7 @@ bool ChartLoaderVOS::ParseMIDI()
       case MIDISIG::MIDISIG_PROGRAM:
       case MIDISIG::MIDISIG_OTHERS:
         // all of other metas & program info
+        ne.set_value(trackidx);
         ne.set_point(mprog.cmd, mprog.a, mprog.b);
         cd[CommandTrackTypes::kMidi].AddNoteElement(ne);
         break;
