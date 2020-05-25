@@ -160,9 +160,9 @@ const char* GetCodepageString(int cp)
   case E_SHIFT_JIS:
     return "shift-jis";
   case E_UTF8:  // utf-8
-    return "utf-8";
+    return "UTF-8";
   case E_UTF32:
-    return "utf-32";
+    return "UTF-32";
   default:
     // unsupported
     return 0;
@@ -216,6 +216,10 @@ std::string ConvertEncoding(const std::string &s, int to_codepage, int from_code
     return std::string(); /* Conversion failed */
 
   sBuf.resize( sBuf.size()-iOutLeft );
+
+  /* Delete 'BOM' character */
+  if (to_codepage == E_UTF32 && *(uint32_t*)(sBuf.c_str()) == 65279)
+    sBuf = sBuf.substr(4);
 
   return sBuf;
 }
