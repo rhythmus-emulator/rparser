@@ -1033,7 +1033,7 @@ bool wild_match(const std::string& str, const std::string& pat) {
       return false;
     }
     default:
-      if (*str_it != *pat_it) {
+      if (str_it == str.end() || *str_it != *pat_it) {
         return false;
       }
 
