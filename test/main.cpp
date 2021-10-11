@@ -627,6 +627,39 @@ TEST(RPARSER, BMS_HTML_EXPORT)
   song.Close();
 }
 
+TEST(RPARSER, SERIALIZER)
+{
+  Chart c;
+  auto &nd = c.GetNoteData();
+  auto &md = c.GetMetaData();
+  nd.set_track_count(7);
+
+  {
+    NoteElement n;
+    n.set_measure(0.0);
+    n.set_value(1);
+    nd[0].AddNoteElement(n);
+
+    n.set_measure(0.125);
+    n.set_value(2);
+    nd[1].AddNoteElement(n);
+
+    n.set_measure(0.25);
+    n.set_value(3);
+    nd[2].AddNoteElement(n);
+
+    n.set_measure(0.375);
+    n.set_value(4);
+    nd[3].AddNoteElement(n);
+
+    n.set_measure(0.5);
+    n.set_value(5);
+    nd[4].AddNoteElement(n);
+  }
+
+  printf(nd.Serialize().c_str());
+}
+
 int main(int argc, char **argv)
 {
 	::testing::InitGoogleTest(&argc, argv);

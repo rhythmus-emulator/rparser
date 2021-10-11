@@ -515,7 +515,7 @@ bool ChartLoaderBMS::ParseMeasureLength()
 {
   std::string v(current_line_->value, current_line_->value_len);
   NoteElement ne;
-  ne.SetRowPos(current_line_->measure, 1, 0);
+  ne.SetRowPos(current_line_->measure, RowPos{ 0, 1 });
   ne.set_value((double)atof(v.c_str()));
   chart_context_->GetTimingData()[TimingTrackTypes::kMeasure].AddNoteElement(ne);
   return true;
@@ -589,7 +589,7 @@ bool ChartLoaderBMS::ParseBgaNote()
   if (curr_note_syntax_.value_u == 0) return true;
   unsigned track_idx = 0;
   NoteElement ne;
-  ne.SetRowPos(curr_note_syntax_.measure, curr_note_syntax_.deno, curr_note_syntax_.num);
+  ne.SetRowPos(curr_note_syntax_.measure, RowPos{ curr_note_syntax_.num, curr_note_syntax_.deno });
   ne.set_value((int)curr_note_syntax_.value_u);
   switch (curr_note_syntax_.channel)
   {
@@ -619,7 +619,7 @@ bool ChartLoaderBMS::ParseBgmNote()
   unsigned track = bgm_column_idx_per_measure_[current_line_->measure];
   NoteElement ne;
 
-  ne.SetRowPos(curr_note_syntax_.measure, curr_note_syntax_.deno, curr_note_syntax_.num);
+  ne.SetRowPos(curr_note_syntax_.measure, RowPos{ curr_note_syntax_.num, curr_note_syntax_.deno });
   ne.set_value((int)curr_note_syntax_.value_u);
 
   chart_context_->GetBgmData()[track].AddNoteElement(ne);
@@ -635,7 +635,7 @@ bool ChartLoaderBMS::ParseEffectNote()
   unsigned track = 0;
   const int bmsargb_per_bms_channel[] = { 11, 12, 13, 14 };
 
-  ne.SetRowPos(curr_note_syntax_.measure, curr_note_syntax_.deno, curr_note_syntax_.num);
+  ne.SetRowPos(curr_note_syntax_.measure, RowPos{ curr_note_syntax_.num, curr_note_syntax_.deno });
 
   switch (channel)
   {
@@ -720,7 +720,7 @@ bool ChartLoaderBMS::ParseSoundNote()
     return true;
   }
 
-  ne.SetRowPos(curr_note_syntax_.measure, curr_note_syntax_.deno, curr_note_syntax_.num);
+  ne.SetRowPos(curr_note_syntax_.measure, RowPos{ curr_note_syntax_.num, curr_note_syntax_.deno });
   ne.set_value(valu);
 
   /** Longnote check */
@@ -740,7 +740,7 @@ bool ChartLoaderBMS::ParseSoundNote()
       else
       {
         /* Don't add note, only change ending position. */
-        track.back().SetRowPos(curr_note_syntax_.measure, curr_note_syntax_.deno, curr_note_syntax_.num);
+        track.back().SetRowPos(curr_note_syntax_.measure, RowPos{ curr_note_syntax_.num, curr_note_syntax_.deno });
       }
     }
     /** LNTYPE 1 (default) or LNOBJ */
@@ -776,7 +776,7 @@ bool ChartLoaderBMS::ParseTimingNote()
   NoteElement ne;
   unsigned channel = curr_note_syntax_.channel;
   unsigned track = 0;
-  ne.SetRowPos(curr_note_syntax_.measure, curr_note_syntax_.deno, curr_note_syntax_.num);
+  ne.SetRowPos(curr_note_syntax_.measure, RowPos{ curr_note_syntax_.num, curr_note_syntax_.deno });
 
   switch (channel)
   {

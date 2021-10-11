@@ -7,7 +7,10 @@
 namespace rparser
 {
 
-typedef uint16_t RowPos;
+typedef struct {
+  unsigned num;
+  unsigned deno;
+} RowPos;
 typedef uint8_t NoteType;
 typedef uint32_t Channel;
 
@@ -50,7 +53,8 @@ public:
   double measure() const;
   double time() const;
   NoteChainStatus chain_status() const;
-  void SetRowPos(int measure, RowPos deno, RowPos num);
+  void SetRowPos(int measure, const RowPos& rpos);
+  const RowPos& GetRowPos() const;
   void SetDenominator(uint32_t denominator);
   bool operator==(const NoteElement &other) const noexcept;
   bool operator<(const NoteElement &other) const noexcept;
@@ -79,7 +83,7 @@ private:
   // Note time/beat position.
   double measure_;
   double time_msec_;
-  RowPos num_, deno_;
+  RowPos rpos_;
   NoteChainStatus chain_status_;
 
   // Note location. used for tapping note, or BGM Note column.
@@ -208,6 +212,8 @@ public:
   Track();
   ~Track();
 
+  void set_name(const std::string& name);
+  const std::string& name() const;
   void AddNoteElement(const NoteElement& object);
   void RemoveNoteElement(const NoteElement& object);
   NoteElement* GetNoteElementByPos(int measure, int nu, int de);
@@ -248,6 +254,7 @@ public:
   void clear();
 
 protected:
+  std::string name_;
   std::vector<NoteElement> notes_;
   std::string track_datatype_;
   bool is_object_duplicable_;
@@ -354,6 +361,7 @@ public:
   size_t size() const;
   bool is_empty() const;
   std::string toString() const;
+  std::string Serialize() const;
 
 private:
   std::string name_;

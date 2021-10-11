@@ -80,28 +80,29 @@ const char **pNoteSubtypeStr[] = {
 // ------------------------------ class NotePos
 
 NoteElement::NoteElement()
-  : time_msec_(0), measure_(.0), num_(0), deno_(0), chain_status_(NoteChainStatus::Tap)
+  : time_msec_(0), measure_(.0), rpos_({ 0, 0 }), chain_status_(NoteChainStatus::Tap)
 {
   memset(&point_, 0, sizeof(point_));
   memset(&v_, 0, sizeof(v_));
   memset(&prop_, 0, sizeof(prop_));
 }
 
-void NoteElement::SetRowPos(int measure, RowPos deno, RowPos num)
+void NoteElement::SetRowPos(int measure, const RowPos& rpos)
 {
-  ASSERT(deno > 0);
-  this->measure_ = measure + (double)num / deno;
-  this->deno_ = deno;
-  this->num_ = num;
+  ASSERT(rpos.deno > 0);
+  this->measure_ = measure + (double)rpos.num / rpos.deno;
+  this->rpos_ = rpos;
 }
+
+const RowPos& NoteElement::GetRowPos() const { return rpos_; }
 
 /* @warn acually it uses measure value */
 void NoteElement::set_measure(double measure)
 {
   this->measure_ = measure;
   // row pos is set in 16th note if no denominator is set.
-  if (deno_ == 0) deno_ = 16;
-  num_ = static_cast<uint16_t>((this->measure_ - measure) * deno_);
+  if (rpos_.deno == 0) rpos_.deno = 16;
+  rpos_.num = static_cast<unsigned>((measure - (int)this->measure_) * rpos_.deno);
 }
 
 void NoteElement::set_time(double time_msec)
@@ -116,14 +117,15 @@ void NoteElement::set_chain_status(NoteChainStatus cstat)
 
 void NoteElement::SetDenominator(uint32_t denominator)
 {
-  this->deno_ = denominator;
-  num_ = static_cast<uint16_t>(fmod(measure_, 1.0) * deno_);
+  this->rpos_.deno = denominator;
+  rpos_.num = static_cast<uint16_t>(fmod(measure_, 1.0) * rpos_.deno);
 }
 
 std::string NoteElement::toString() const
 {
   std::stringstream ss;
-  ss << "Measure: " << measure_ << " / Time: " << time_msec_ << " (" << num_ << " / " << deno_ << ")" << std::endl;
+  ss << "Measure: " << measure_ << " / Time: " << time_msec_
+     << " (" << rpos_.num << " / " << rpos_.deno << ")" << std::endl;
   return ss.str();
 }
 
@@ -304,6 +306,10 @@ Track::Track() : is_object_duplicable_(true) {}
 
 Track::~Track() {}
 
+
+void Track::set_name(const std::string& name) { name_ = name; }
+
+const std::string& Track::name() const { return name_; }
 
 void Track::AddNoteElement(const NoteElement& object)
 {
@@ -959,6 +965,49 @@ std::string TrackData::toString() const
   std::stringstream ss;
   ss << "Total track count: " << tracks_.size() << std::endl;
   ss << "Total note count: " << size() << std::endl;
+  return ss.str();
+}
+
+std::string TrackData::Serialize() const
+{
+  /*
+   * For fast serialization:
+   * 1. for each track,
+   * 2. If measure is not set,
+   * then get denominator of note and set it as base denominator of the measure.
+   * (fill all row as '00')
+   * 3. Fill note key data at row.
+   * 4. Merge all columns.
+   *
+   * XXX: if stepmania,
+   * then denominator should be fixed & output need to be transposed.
+   */
+  std::stringstream ss;
+  std::map<unsigned, std::map<unsigned, std::string> > rows;
+  char tmp[16];
+
+  for (unsigned i = 0; i < tracks_.size(); ++i) {
+    const auto& track = tracks_[i];
+    for (const auto& note : track) {
+      const auto &rpos = note.GetRowPos();
+      unsigned measure = static_cast<unsigned>(note.measure());
+      if (rows[measure][i].empty()) {
+        rows[measure][i] = std::string(rpos.deno * 2, '0');
+      }
+      sprintf(tmp, "%02X", note.get_value_u());
+      rows[measure][i][rpos.num * 2] = tmp[0];
+      rows[measure][i][rpos.num * 2 + 1] = tmp[1];
+    }
+  }
+
+  for (const auto& s_row : rows) {
+    ss << "#R" << s_row.first << "\n";
+    for (const auto& s_col : s_row.second) {
+      sprintf(tmp, "%03u", s_col.first);
+      ss << "#" << tmp << ":" << s_col.second << "\n";
+    }
+  }
+
   return ss.str();
 }
 
