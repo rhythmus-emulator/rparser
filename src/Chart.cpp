@@ -17,10 +17,6 @@ Chart::Chart() : parent_song_(nullptr), charttype_(CHARTTYPE::None)
   trackdata_[TrackTypes::kTrackBGM].set_track_count(128);
 
   memset(&shared_data_, 0, sizeof(shared_data_));
-  hash_ = "00000000"
-    "00000000"
-    "00000000"
-    "00000000";
   seed_ = 0;
 }
 
@@ -139,16 +135,13 @@ void InvalidateTrackDataTiming(TrackData& td, const TimingSegmentData& tsd)
 {
   size_t i = 0, p1 = 0, p2 = 0;
   double t = 0;
-  auto iter = td.GetRowIterator();
-  while (!iter.is_end())
-  {
-    t = tsd.GetTimeFromMeasure(iter.get_measure(), p1, p2);
-    for (size_t n = 0; n < td.get_track_count(); ++n)
-    {
-      auto *ne = iter.get(n);
-      if (ne) ne->set_time(t);
+  auto rows = RowCollection(td);
+  for (auto &row : rows) {
+    t = tsd.GetTimeFromMeasure(row.pos, p1, p2);
+    for (auto &p : row.notes) {
+      auto* note = p.second;
+      note->set_time(t);
     }
-    ++iter;
   }
 }
 
@@ -215,13 +208,17 @@ std::string Chart::toString() const
   return ss.str();
 }
 
-bool Chart::IsEmpty()
+bool Chart::IsEmpty() const
 {
   return GetNoteData().is_empty();
 }
 
 const std::string &Chart::GetHash() const
 {
+  if (hash_.empty() && !IsEmpty()) {
+    std::string nd_serialized = GetNoteData().Serialize();
+    hash_ = md5_str(nd_serialized.c_str(), nd_serialized.size());
+  }
   return hash_;
 }
 

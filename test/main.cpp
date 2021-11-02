@@ -535,12 +535,10 @@ TEST(RPARSER, BMS_STRESS)
 
     // is timingobj is in order
     double m = -1;
-    auto iter = c->GetTimingData().GetRowIterator();
-    while (!iter.is_end())
-    {
-      EXPECT_TRUE(m <= iter.get_measure());
-      m = iter.get_measure();
-      ++iter;
+    auto rows = RowCollection(c->GetTimingData());
+    for (auto &row : rows) {
+      EXPECT_TRUE(m <= row.pos);
+      m = row.pos;
     }
 
     std::cout << "Total time of song " << md.title.c_str() << " is: " << c->GetSongLastObjectTime() << std::endl;
@@ -570,8 +568,8 @@ TEST(RPARSER, VOS_HTML_EXPORT)
   ASSERT_TRUE(c);
   c->Update();
 
-  std::string html;
-  ExportToHTML(*c, html);
+  ChartExporter htmlexporter(*c);
+  std::string html = htmlexporter.toHTML();
 
   FILE *fp = rutil::fopen_utf8(BASE_DIR + "out_to_html.html", "wb");
   ASSERT_TRUE(fp);
@@ -603,8 +601,8 @@ TEST(RPARSER, BMS_HTML_EXPORT)
   ASSERT_TRUE(c);
   c->Update();
 
-  std::string html;
-  ExportToHTML(*c, html);
+  ChartExporter htmlexporter(*c);
+  std::string html = htmlexporter.toHTML();
 
   FILE *fp = rutil::fopen_utf8(BASE_DIR + "out_to_html_bms.html", "wb");
   ASSERT_TRUE(fp);
@@ -657,7 +655,8 @@ TEST(RPARSER, SERIALIZER)
     nd[4].AddNoteElement(n);
   }
 
-  printf(nd.Serialize().c_str());
+  printf("%s\n", nd.Serialize().c_str());
+  printf("%s\n", c.GetHash().c_str());
 }
 
 int main(int argc, char **argv)

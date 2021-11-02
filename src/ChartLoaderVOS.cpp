@@ -9,6 +9,7 @@
 
 #include "ChartLoader.h"
 #include "Chart.h"
+#include "ChartUtil.h"
 #include "common.h"
 
 #define MAX_READ_SIZE 512000
@@ -659,12 +660,12 @@ bool ChartLoaderVOS::ParseMIDI()
   if (timedivision_ != timedivision)
   {
     double ratio = (double)timedivision_ / timedivision;
-    auto alliter = chart_->GetNoteData().GetRowIterator();
-    while (!alliter.is_end())
-    {
-      for (size_t i = 0; i < chart_->GetNoteData().get_track_count(); ++i)
-        if (alliter.get(i)) alliter[i].set_measure(alliter[i].measure() * ratio);
-      ++alliter;
+    auto rows = RowCollection(chart_->GetNoteData());
+    for (auto &row : rows) {
+      for (auto &p : row.notes) {
+        auto *note = p.second;
+        note->set_measure(note->measure() * ratio);
+      }
     }
     timedivision_ = timedivision;
   }

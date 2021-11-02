@@ -91,7 +91,7 @@ public:
   void UpdateCharttype();
   void Update();
 
-  bool IsEmpty();
+  bool IsEmpty() const;
   std::string GetFilename() const;
   void SetFilename(const std::string& filename);
   void SetParent(Song *song);
@@ -126,7 +126,7 @@ private:
   } shared_data_;
   Song* parent_song_;
   int seed_;
-  std::string hash_;
+  mutable std::string hash_;
   std::string filename_;
   CHARTTYPE charttype_;
 };

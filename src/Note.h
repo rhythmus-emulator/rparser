@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <list>
 
 namespace rparser
 {
@@ -13,6 +14,8 @@ typedef struct {
 } RowPos;
 typedef uint8_t NoteType;
 typedef uint32_t Channel;
+class NoteElement;
+using NoteWithTrack = std::pair<unsigned, NoteElement*>;
 
 /* @brief Description about note chain status */
 enum class NoteChainStatus
@@ -231,6 +234,8 @@ public:
   bool HasLongnote() const;
 
   // If ranged note is spanned, then all NoteElement are returned.
+  void GetNoteElementsByRange(double m_start, double m_end, std::vector<const NoteElement*> &out) const;
+  void GetAllNoteElements(std::vector<const NoteElement*> &out) const;
   void GetNoteElementsByRange(double m_start, double m_end, std::vector<NoteElement*> &out);
   void GetAllNoteElements(std::vector<NoteElement*> &out);
 
@@ -246,6 +251,10 @@ public:
   iterator end();
   const_iterator begin() const;
   const_iterator end() const;
+  iterator begin(double measure);
+  iterator end(double measure);
+  const_iterator begin(double measure) const;
+  const_iterator end(double measure) const;
   NoteElement& front();
   NoteElement& back();
   void swap(Track &track);
@@ -307,55 +316,48 @@ public:
   const NoteElement* back() const;
   void clear();
 
-  /* all notes iterator */
-  class all_track_iterator
+  /* iterators for notes in all tracks */
+  template <typename TD, typename T, typename IT> class all_track_iterator
   {
   public:
-    all_track_iterator(TrackData *td);
-    all_track_iterator(TrackData *td, double m_start, double m_end);
+    all_track_iterator();
+    all_track_iterator(TD& td);
+    all_track_iterator(TD& td, double m_start, double m_end);
     all_track_iterator &operator++();
     all_track_iterator operator++(int) { return operator++(); }
-    double get_measure() const;
-    size_t get_track() const;
-    NoteElement* get();
-    NoteElement& operator*();
-    const NoteElement& operator*() const;
-    void next();
-    bool is_end() const;
-  private:
-    std::vector<NoteElement*> all_notes_;
-    std::vector<size_t> track_numbers_;
-    size_t idx_;
-  };
-  all_track_iterator GetAllTrackIterator();
-  all_track_iterator GetAllTrackIterator(double m_start, double m_end);
+    bool operator==(all_track_iterator& it) const;
+    bool operator!=(all_track_iterator& it) const;
+    T* get();
+    std::pair<unsigned, T*> operator*();
 
-  /* row number iterator */
-  class row_iterator : public all_track_iterator
-  {
-  public:
-    row_iterator(TrackData *td); // TODO: set start measure properly (not always zero; call next() by default.)
-    row_iterator(TrackData *td, double m_start, double m_end);
-    double get_measure() const;
+    // return negative if iterator is finished
+    int track() const;
+
+    // for backward compatibility
     void next();
     bool is_end() const;
-    bool is_longnote() const;
-    row_iterator &operator++();
-    row_iterator operator++(int) { return operator++(); }
-    NoteElement* get(size_t column);
-    NoteElement& operator[](size_t column);
-    const NoteElement& operator[](size_t i) const;
-    double operator*() const;
-    friend class TrackData;
   private:
-    bool is_row_iter_end;
-    size_t track_count;
-    double measure;
-    NoteElement* curr_row_note_elem[kMaxTrackSize];
-    bool curr_row_longnote[kMaxTrackSize];
+    std::vector<IT> begin_iters_;
+    std::vector<IT> end_iters_;
+    std::vector<IT> curr_iters_;
+    int track_;
+    double pos_;
   };
-  row_iterator GetRowIterator();
-  row_iterator GetRowIterator(double m_start, double m_end);
+  typedef all_track_iterator<TrackData, NoteElement, Track::iterator>
+          iterator;
+  typedef all_track_iterator<const TrackData, const NoteElement, Track::const_iterator> 
+          const_iterator;
+
+  iterator begin();
+  iterator begin(double m_start, double m_end);
+  iterator end();
+  const_iterator cbegin() const;
+  const_iterator cbegin(double m_start, double m_end) const;
+  const_iterator cend() const;
+
+  // XXX: backward compatibility
+  iterator GetAllTrackIterator();
+  iterator GetAllTrackIterator(double m_start, double m_end);
 
   void swap(TrackData &data);
   size_t size() const;
@@ -366,6 +368,10 @@ public:
 private:
   std::string name_;
   std::vector<Track> tracks_;
+
+  // tracking iterators for notedata revalidation
+  std::list<iterator*> iterators_;
+
   std::string track_datatype_default_;
   bool is_object_duplicable_;
 };

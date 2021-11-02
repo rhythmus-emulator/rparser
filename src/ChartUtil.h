@@ -12,7 +12,24 @@ constexpr int kMaxSizeLane = 20;
  * Export chart data (metadata, notedata, events etc ...) to HTML format.
  * CSS and other necessary things should be made by oneself ...
  */
-void ExportToHTML(const Chart &c, std::string& out);
+class ChartExporter
+{
+public:
+  ChartExporter();
+  ChartExporter(const Chart& c);
+  const std::string& toHTML();
+private:
+  void Analyze(const Chart& c);
+  void GenerateHTML(const Chart& c);
+  struct Measure
+  {
+    double length;
+    std::vector<std::pair<unsigned, const NoteElement*> > nd_;
+    std::vector<std::pair<unsigned, const NoteElement*> > td_;
+  };
+  std::vector<Measure> measures_;
+  std::string html_;
+};
 
 namespace effector
 {
@@ -55,6 +72,63 @@ namespace effector
   void AllSC(Chart &c, const EffectorParam& param);
   void Flip(Chart &c, const EffectorParam& param);
 }
+
+template <typename T>
+struct RowElement
+{
+public:
+  std::vector<std::pair<unsigned, T*> > notes;
+  double pos;
+  NoteElement* get(size_t column);
+  const NoteElement* get(size_t column) const;
+};
+
+/* for note iterating by row
+ * XXX: Do not edit NoteData while using RowIterator. may access to corrupted memory. */
+template <typename TD, typename T>
+class RowElementCollection
+{
+public:
+  RowElementCollection(TD& td);
+  RowElementCollection(TD& td, double m_start, double m_end);
+  typename std::vector<RowElement<T> >::iterator begin();
+  typename std::vector<RowElement<T> >::iterator end();
+  typename std::vector<RowElement<T> >::const_iterator begin() const;
+  typename std::vector<RowElement<T> >::const_iterator end() const;
+private:
+  std::vector<RowElement<T> > rows_;
+};
+
+typedef RowElementCollection<TrackData, NoteElement> RowCollection;
+typedef RowElementCollection<const TrackData, const NoteElement> ConstRowCollection;
+
+struct ProfileSegment
+{
+  double time;
+  double delta_time;
+  double pos;
+  double delta_pos;
+  float bpm;
+  unsigned notes;
+  std::string pattern;
+  uint32_t pattern_i[2];
+};
+
+class ChartProfiler
+{
+public:
+  ChartProfiler();
+  ChartProfiler(const Chart& c);
+  void Profile(const Chart& c);
+  std::string toString() const;
+  void Save(const std::string& path) const;
+
+private:
+  std::string name_;
+  std::vector<ProfileSegment> row_segments_;
+  int stop_count_;
+  int bpm_change_;
+};
 
 }
 

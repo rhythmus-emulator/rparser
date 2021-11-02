@@ -117,66 +117,52 @@ void TimingSegmentData::Update(const MetaData *md, TrackData& timingtrack)
    * -- all_track_iterator automatically do this, so no need to care about it here.
    */
 
-  auto titer = timingtrack.GetRowIterator();
+  auto rows = RowCollection(timingtrack);
   double curr_time = 0;
-  NoteElement *nelem;
 
   // Make tempo segments
-  while (!titer.is_end())
-  {
+  for (auto &row : rows) {
     // seek for next tempo segment object and update note object beat value.
-    SeekByMeasure(titer.get_measure());
+    SeekByMeasure(row.pos);
     curr_time = timingsegments_.back().time_;
 
-    if (nelem = titer.get(TimingTrackTypes::kMeasure))
-    {
-      SetMeasureLengthChange(static_cast<uint32_t>(nelem->measure()), nelem->get_value_f());
+    for (auto &p : row.notes) {
+      auto nelem = p.second;
+      switch (p.first) {
+      case TimingTrackTypes::kMeasure:
+        SetMeasureLengthChange(static_cast<uint32_t>(nelem->measure()), nelem->get_value_f());
+        break;
+      case TimingTrackTypes::kScroll:
+        SetScrollSpeedChange(nelem->get_value_f());
+        break;
+      case TimingTrackTypes::kBpm:
+        SetBPMChange(nelem->get_value_f());
+        break;
+      case TimingTrackTypes::kBmsBpm:
+        RPARSER_ASSERT(md, "Metadata is nullptr while BmsBpm exists...");
+        if (md->GetBPMChannel()->GetBpm(nelem->get_value_u(), v))
+          SetBPMChange(v);
+        else
+          RPARSER_LOG("Failed to fetch BPM information from Metadata while TimingSegmentData::Update.");
+        break;
+      case TimingTrackTypes::kStop:
+        SetSTOP(nelem->get_value_f());
+        break;
+      case TimingTrackTypes::kBmsStop:
+        RPARSER_ASSERT(md, "Metadata is nullptr while BmsStop exists...");
+        if (md->GetSTOPChannel()->GetStop(nelem->get_value_u(), v))
+          SetSTOP(v / 192.0 * 4.0);
+        else
+          RPARSER_LOG("Failed to fetch STOP information from Metadata while TimingSegmentData::Update.");
+        break;
+      case TimingTrackTypes::kTick:
+        SetTick(nelem->get_value_i());
+        break;
+      case TimingTrackTypes::kWarp:
+        SetWarp(nelem->get_value_f());
+        break;
+      }
     }
-
-    if (nelem = titer.get(TimingTrackTypes::kScroll))
-    {
-      SetScrollSpeedChange(nelem->get_value_f());
-    }
-
-    if (nelem = titer.get(TimingTrackTypes::kBpm))
-    {
-      SetBPMChange(nelem->get_value_f());
-    }
-
-    if (nelem = titer.get(TimingTrackTypes::kBmsBpm))
-    {
-      RPARSER_ASSERT(md, "Metadata is nullptr while BmsBpm exists...");
-      if (md->GetBPMChannel()->GetBpm(nelem->get_value_u(), v))
-        SetBPMChange(v);
-      else
-        RPARSER_LOG("Failed to fetch BPM information from Metadata while TimingSegmentData::Update.");
-    }
-
-    if (nelem = titer.get(TimingTrackTypes::kStop))
-    {
-      SetSTOP(nelem->get_value_f());
-    }
-
-    if (nelem = titer.get(TimingTrackTypes::kBmsStop))
-    {
-      RPARSER_ASSERT(md, "Metadata is nullptr while BmsStop exists...");
-      if (md->GetSTOPChannel()->GetStop(nelem->get_value_u(), v))
-        SetSTOP(v / 192.0 * 4.0);
-      else
-        RPARSER_LOG("Failed to fetch STOP information from Metadata while TimingSegmentData::Update.");
-    }
-
-    if (nelem = titer.get(TimingTrackTypes::kTick))
-    {
-      SetTick(nelem->get_value_i());
-    }
-
-    if (nelem = titer.get(TimingTrackTypes::kWarp))
-    {
-      SetWarp(nelem->get_value_f());
-    }
-
-    ++titer;
   }
 }
 

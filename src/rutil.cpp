@@ -1157,9 +1157,8 @@ bool md5(const void* p, int iLen, unsigned char* out)
   MD5((unsigned char*)p, iLen, reinterpret_cast<unsigned char*>(out));
   return true;
 #else
-  for (size_t i = 0; i < 32; ++i)
+  for (size_t i = 0; i < 16; ++i)
     out[i] = '0';
-  out[32] = 0;
   return false;
 #endif
 }
