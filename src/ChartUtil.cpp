@@ -8,11 +8,11 @@ namespace rparser
 
 const char *ChartTypeToStringSafe(CHARTTYPE charttype);
 
-class HTMLExporter
+class HTMLWriter
 {
 public:
-  HTMLExporter();
-  ~HTMLExporter();
+  HTMLWriter();
+  ~HTMLWriter();
   void AddNode(const char *name, const char *id_ = 0, const char *class_ = 0);
   void AddNodeWithNoChildren(const char *name, const char *id_ = 0, const char *class_ = 0, const char *text_ = 0);
   void AddNodeWithNoChildren(const char *name, const char *id_, const char *class_, const std::string &s);
@@ -25,11 +25,11 @@ private:
   std::list<std::string> tag_stack_;
 };
 
-HTMLExporter::HTMLExporter() {}
+HTMLWriter::HTMLWriter() {}
 
-HTMLExporter::~HTMLExporter() {}
+HTMLWriter::~HTMLWriter() {}
 
-void HTMLExporter::AddNode(const char *name, const char *id_, const char *class_)
+void HTMLWriter::AddNode(const char *name, const char *id_, const char *class_)
 {
   for (unsigned i = 0; i < tag_stack_.size(); ++i)
     ss_ << "\t";
@@ -42,7 +42,7 @@ void HTMLExporter::AddNode(const char *name, const char *id_, const char *class_
   tag_stack_.push_back(name);
 }
 
-void HTMLExporter::AddNodeWithNoChildren(const char *name, const char *id_, const char *class_, const char *text_)
+void HTMLWriter::AddNodeWithNoChildren(const char *name, const char *id_, const char *class_, const char *text_)
 {
   for (unsigned i = 0; i < tag_stack_.size(); ++i)
     ss_ << "\t";
@@ -58,24 +58,24 @@ void HTMLExporter::AddNodeWithNoChildren(const char *name, const char *id_, cons
   ss_ << "/>" << std::endl;
 }
 
-void HTMLExporter::AddNodeWithNoChildren(const char *name, const char *id_, const char *class_, const std::string &s)
+void HTMLWriter::AddNodeWithNoChildren(const char *name, const char *id_, const char *class_, const std::string &s)
 {
   AddNodeWithNoChildren(name, id_, class_, s.c_str());
 }
 
-void HTMLExporter::AddRawText(const char *text)
+void HTMLWriter::AddRawText(const char *text)
 {
   ss() << text << std::endl;
 }
 
-std::stringstream &HTMLExporter::ss()
+std::stringstream &HTMLWriter::ss()
 {
   for (unsigned i = 0; i < tag_stack_.size(); ++i)
     ss_ << "\t";
   return ss_;
 }
 
-void HTMLExporter::PopNode()
+void HTMLWriter::PopNode()
 {
   ASSERT(!tag_stack_.empty());
   for (unsigned i = 0; i < tag_stack_.size(); ++i)
@@ -84,7 +84,7 @@ void HTMLExporter::PopNode()
   tag_stack_.pop_back();
 }
 
-std::string HTMLExporter::str() const
+std::string HTMLWriter::str() const
 {
   // check all tags are finished for safety.
   RPARSER_ASSERT(tag_stack_.empty(), "Tag stack is not emptied.");
@@ -123,15 +123,15 @@ static inline void DrawTapnote(std::stringstream &ss, size_t &nd_idx, int track,
     "></div>";
 }
 
-ChartExporter::ChartExporter() {}
+HTMLExporter::HTMLExporter() {}
 
-ChartExporter::ChartExporter(const Chart& c)
+HTMLExporter::HTMLExporter(const Chart& c)
 {
   Analyze(c);
   GenerateHTML(c);
 }
 
-void ChartExporter::Analyze(const Chart& c)
+void HTMLExporter::Analyze(const Chart& c)
 {
   auto &nd = c.GetNoteData();
   auto &tsd = c.GetTimingSegmentData();
@@ -144,7 +144,7 @@ void ChartExporter::Analyze(const Chart& c)
   last_measure = std::max(
     nd.back() ? nd.back()->measure() : 0,
     td.back() ? td.back()->measure() : 0);
-  measures_.reserve((unsigned)last_measure);
+  measures_.resize((unsigned)last_measure + 1);
   for (unsigned i = 0; i < measures_.size(); ++i) {
     measures_[i].length = tsd.GetBarLength(i);
     measures_[i].nd_.clear();
@@ -166,9 +166,9 @@ void ChartExporter::Analyze(const Chart& c)
   }
 }
 
-void ChartExporter::GenerateHTML(const Chart& c)
+void HTMLExporter::GenerateHTML(const Chart& c)
 {
-  HTMLExporter e;
+  HTMLWriter e;
 
   bool is_longnote[256];
   uint32_t longnote_start_measure[256];
@@ -300,7 +300,7 @@ void ChartExporter::GenerateHTML(const Chart& c)
       unsigned lane = p.first;
       const auto &n = *p.second;
       double ypos = n.measure() - (double)i;
-      last_note[i] = &n;
+      last_note[lane] = &n;
 
       /* if longnote_start, then remember starting position, then don't draw anything. */
       if (n.chain_status() == NoteChainStatus::Start) {
@@ -321,10 +321,10 @@ void ChartExporter::GenerateHTML(const Chart& c)
     }
 
     /* check for continuing longnote */
-    for (size_t i = 0; i < nd.get_track_count(); ++i) {
-      if (is_longnote[i])
-        DrawLongnote(e.ss(), nd_idx, i, "chartobject noteobject", *last_note[i], longnote_startpos[i], 1.0);
-      longnote_startpos[0] = 0;
+    for (size_t llane = 0; llane < nd.get_track_count(); ++llane) {
+      if (is_longnote[llane])
+        DrawLongnote(e.ss(), nd_idx, llane, "chartobject noteobject", *last_note[llane], longnote_startpos[llane], 1.0);
+      longnote_startpos[llane] = 0;
     }
 
     // STEP 2-2. TempoData
@@ -350,7 +350,7 @@ void ChartExporter::GenerateHTML(const Chart& c)
   html_ = e.str();
 }
 
-const std::string& ChartExporter::toHTML()
+const std::string& HTMLExporter::toHTML()
 {
   return html_;
 }

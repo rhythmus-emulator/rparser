@@ -12,11 +12,11 @@ constexpr int kMaxSizeLane = 20;
  * Export chart data (metadata, notedata, events etc ...) to HTML format.
  * CSS and other necessary things should be made by oneself ...
  */
-class ChartExporter
+class HTMLExporter
 {
 public:
-  ChartExporter();
-  ChartExporter(const Chart& c);
+  HTMLExporter();
+  HTMLExporter(const Chart& c);
   const std::string& toHTML();
 private:
   void Analyze(const Chart& c);
