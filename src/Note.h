@@ -351,9 +351,9 @@ public:
   iterator begin();
   iterator begin(double m_start, double m_end);
   iterator end();
-  const_iterator cbegin() const;
-  const_iterator cbegin(double m_start, double m_end) const;
-  const_iterator cend() const;
+  const_iterator begin() const;
+  const_iterator begin(double m_start, double m_end) const;
+  const_iterator end() const;
 
   // XXX: backward compatibility
   iterator GetAllTrackIterator();

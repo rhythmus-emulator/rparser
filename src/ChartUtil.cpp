@@ -152,14 +152,14 @@ void ChartExporter::Analyze(const Chart& c)
   }
 
   // add note elements by measure
-  for (auto it = nd.cbegin(); it != nd.cend(); ++it) {
+  for (auto it = nd.begin(); it != nd.end(); ++it) {
     unsigned umeasure = static_cast<unsigned>(it.get()->measure());
     unsigned track = it.track();
     measures_[umeasure].nd_.push_back(std::make_pair(track, it.get()));
   }
 
   // add note elements by measure
-  for (auto it = td.cbegin(); it != td.cend(); ++it) {
+  for (auto it = td.begin(); it != td.end(); ++it) {
     unsigned umeasure = static_cast<unsigned>(it.get()->measure());
     unsigned track = it.track();
     measures_[umeasure].td_.push_back(std::make_pair(track, it.get()));
@@ -734,8 +734,9 @@ RowElementCollection<TD, T>::RowElementCollection(TD& td, double m_start, double
 {
   double pos = 0;
   RowElement<T> row;
-  for (const auto& iter = td.begin(m_start, m_end); iter != td.end(); ++iter) {
-    const auto& n = *iter;
+  for (auto iter = td.begin(m_start, m_end); iter != td.end(); ++iter) {
+    unsigned track = (unsigned)iter.track();
+    auto& n = *iter.get();
     if (pos != n.measure()) {
       if (!row.notes.empty()) {
         rows_.push_back(row);
@@ -743,7 +744,7 @@ RowElementCollection<TD, T>::RowElementCollection(TD& td, double m_start, double
       }
       pos = n.measure();
     }
-    row.notes.push_back(std::make_pair(iter.track(), n));
+    row.notes.push_back(std::make_pair(track, &n));
   }
   if (!row.notes.empty())
     rows_.push_back(row);
@@ -762,6 +763,9 @@ template <typename TD, typename T>
 typename std::vector<RowElement<T> >::const_iterator RowElementCollection<TD, T>::end() const
 { return rows_.end(); }
 
+// Explicit instantiation
+template class RowElementCollection<TrackData, NoteElement>;
+template class RowElementCollection<const TrackData, const NoteElement>;
 
 
 ChartProfiler::ChartProfiler() : stop_count_(0), bpm_change_(0) { }

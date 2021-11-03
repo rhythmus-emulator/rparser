@@ -896,17 +896,17 @@ TrackData::iterator TrackData::end()
   return iterator();
 }
 
-TrackData::const_iterator TrackData::cbegin() const
+TrackData::const_iterator TrackData::begin() const
 {
   return const_iterator(*this);
 }
 
-TrackData::const_iterator TrackData::cbegin(double m_start, double m_end) const
+TrackData::const_iterator TrackData::begin(double m_start, double m_end) const
 {
   return const_iterator(*this, m_start, m_end);
 }
 
-TrackData::const_iterator TrackData::cend() const
+TrackData::const_iterator TrackData::end() const
 {
   return const_iterator();
 }
