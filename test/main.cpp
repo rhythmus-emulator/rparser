@@ -217,25 +217,30 @@ TEST(RPARSER, ND_ROW_ITERATOR)
 
   EXPECT_EQ(iter->notes.size(), 1);
   EXPECT_EQ(iter->notes[0].first, 0);
-  EXPECT_EQ(iter->notes[0].second->measure(), 0.0);
+  EXPECT_EQ(iter->pos, 0.0);
+  EXPECT_EQ(iter->get(0)->measure(), 0.0);
   ++iter;
   EXPECT_EQ(iter->notes.size(), 1);
   EXPECT_EQ(iter->notes[0].first, 1);
-  EXPECT_EQ(iter->notes[0].second->measure(), 0.125);
+  EXPECT_EQ(iter->pos, 0.125);
+  EXPECT_EQ(iter->get(1)->measure(), 0.125);
   ++iter;
   EXPECT_EQ(iter->notes.size(), 2);
   EXPECT_EQ(iter->notes[0].first, 1);
-  EXPECT_EQ(iter->notes[0].second->measure(), 0.25);
   EXPECT_EQ(iter->notes[1].first, 2);
-  EXPECT_EQ(iter->notes[1].second->measure(), 0.25);
+  EXPECT_EQ(iter->pos, 0.25);
+  EXPECT_EQ(iter->get(1)->measure(), 0.25);
+  EXPECT_EQ(iter->get(2)->measure(), 0.25);
   ++iter;
   EXPECT_EQ(iter->notes.size(), 1);
   EXPECT_EQ(iter->notes[0].first, 3);
-  EXPECT_EQ(iter->notes[0].second->measure(), 0.375);
+  EXPECT_EQ(iter->pos, 0.375);
+  EXPECT_EQ(iter->get(3)->measure(), 0.375);
   ++iter;
   EXPECT_EQ(iter->notes.size(), 1);
   EXPECT_EQ(iter->notes[0].first, 4);
-  EXPECT_EQ(iter->notes[0].second->measure(), 0.5);
+  EXPECT_EQ(iter->pos, 0.5);
+  EXPECT_EQ(iter->get(4)->measure(), 0.5);
   ++iter;
 
   EXPECT_EQ(iter, rows.end());
