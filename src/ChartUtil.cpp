@@ -712,16 +712,16 @@ template <typename T> const NoteElement* RowElement<T>::get(size_t column) const
 template <typename TD, typename T>
 RowElementCollection<TD, T>::RowElementCollection(TD& td)
 {
-  double pos = 0;
   RowElement<T> row;
+  row.pos = 0;
   for (auto &p : td) {
     auto &n = *p.second;
-    if (pos != n.measure()) {
+    if (row.pos != n.measure()) {
       if (!row.notes.empty()) {
         rows_.push_back(row);
         row.notes.clear();
       }
-      pos = n.measure();
+      row.pos = n.measure();
     }
     row.notes.push_back(std::make_pair(p.first, &n));
   }
@@ -732,17 +732,17 @@ RowElementCollection<TD, T>::RowElementCollection(TD& td)
 template <typename TD, typename T>
 RowElementCollection<TD, T>::RowElementCollection(TD& td, double m_start, double m_end)
 {
-  double pos = 0;
   RowElement<T> row;
+  row.pos = 0;
   for (auto iter = td.begin(m_start, m_end); iter != td.end(); ++iter) {
     unsigned track = (unsigned)iter.track();
     auto& n = *iter.get();
-    if (pos != n.measure()) {
+    if (row.pos != n.measure()) {
       if (!row.notes.empty()) {
         rows_.push_back(row);
         row.notes.clear();
       }
-      pos = n.measure();
+      row.pos = n.measure();
     }
     row.notes.push_back(std::make_pair(track, &n));
   }
