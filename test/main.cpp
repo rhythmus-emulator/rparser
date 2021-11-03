@@ -126,6 +126,121 @@ TEST(RPARSER, DIRECTORY_MANAGER)
   DirectoryManager::CloseDirectory(BASE_DIR + "bms_sample_angelico.zip");
 }
 
+TEST(RPARSER, ND_ITERATOR)
+{
+  Chart c;
+  auto &nd = c.GetNoteData();
+  nd.set_track_count(7);
+
+  {
+    NoteElement n;
+    n.set_measure(0.0);
+    n.set_value(1);
+    nd[0].AddNoteElement(n);
+
+    n.set_measure(0.125);
+    n.set_value(2);
+    nd[1].AddNoteElement(n);
+
+    n.set_measure(0.25);
+    n.set_value(3);
+    nd[2].AddNoteElement(n);
+
+    n.set_measure(0.25);
+    n.set_value(3);
+    nd[1].AddNoteElement(n);
+
+    n.set_measure(0.375);
+    n.set_value(4);
+    nd[3].AddNoteElement(n);
+
+    n.set_measure(0.5);
+    n.set_value(5);
+    nd[4].AddNoteElement(n);
+  }
+
+  auto iter = nd.begin();
+
+  EXPECT_EQ(iter.get()->measure(), 0.0);
+  ++iter;
+  EXPECT_EQ(iter.get()->measure(), 0.125);
+  ++iter;
+  EXPECT_EQ(iter.track(), 1);
+  EXPECT_EQ(iter.get()->measure(), 0.25);
+  ++iter;
+  EXPECT_EQ(iter.track(), 2);
+  EXPECT_EQ(iter.get()->measure(), 0.25);
+  ++iter;
+  EXPECT_EQ(iter.get()->measure(), 0.375);
+  ++iter;
+  EXPECT_EQ(iter.get()->measure(), 0.5);
+  ++iter;
+
+  EXPECT_EQ(iter, nd.end());
+}
+
+TEST(RPARSER, ND_ROW_ITERATOR)
+{
+  Chart c;
+  auto &nd = c.GetNoteData();
+  nd.set_track_count(7);
+
+  {
+    NoteElement n;
+    n.set_measure(0.0);
+    n.set_value(1);
+    nd[0].AddNoteElement(n);
+
+    n.set_measure(0.125);
+    n.set_value(2);
+    nd[1].AddNoteElement(n);
+
+    n.set_measure(0.25);
+    n.set_value(3);
+    nd[2].AddNoteElement(n);
+
+    n.set_measure(0.25);
+    n.set_value(3);
+    nd[1].AddNoteElement(n);
+
+    n.set_measure(0.375);
+    n.set_value(4);
+    nd[3].AddNoteElement(n);
+
+    n.set_measure(0.5);
+    n.set_value(5);
+    nd[4].AddNoteElement(n);
+  }
+
+  auto rows = RowCollection(nd);
+  auto iter = rows.begin();
+
+  EXPECT_EQ(iter->notes.size(), 1);
+  EXPECT_EQ(iter->notes[0].first, 0);
+  EXPECT_EQ(iter->notes[0].second->measure(), 0.0);
+  ++iter;
+  EXPECT_EQ(iter->notes.size(), 1);
+  EXPECT_EQ(iter->notes[0].first, 1);
+  EXPECT_EQ(iter->notes[0].second->measure(), 0.125);
+  ++iter;
+  EXPECT_EQ(iter->notes.size(), 2);
+  EXPECT_EQ(iter->notes[0].first, 1);
+  EXPECT_EQ(iter->notes[0].second->measure(), 0.25);
+  EXPECT_EQ(iter->notes[1].first, 2);
+  EXPECT_EQ(iter->notes[1].second->measure(), 0.25);
+  ++iter;
+  EXPECT_EQ(iter->notes.size(), 1);
+  EXPECT_EQ(iter->notes[0].first, 3);
+  EXPECT_EQ(iter->notes[0].second->measure(), 0.375);
+  ++iter;
+  EXPECT_EQ(iter->notes.size(), 1);
+  EXPECT_EQ(iter->notes[0].first, 4);
+  EXPECT_EQ(iter->notes[0].second->measure(), 0.5);
+  ++iter;
+
+  EXPECT_EQ(iter, rows.end());
+}
+
 TEST(RPARSER, TIMINGDATA)
 {
   Chart c;
