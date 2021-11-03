@@ -325,8 +325,8 @@ public:
     all_track_iterator(TD& td, double m_start, double m_end);
     all_track_iterator &operator++();
     all_track_iterator operator++(int) { return operator++(); }
-    bool operator==(all_track_iterator& it) const;
-    bool operator!=(all_track_iterator& it) const;
+    bool operator==(const all_track_iterator& it) const;
+    bool operator!=(const all_track_iterator& it) const;
     T* get();
     std::pair<unsigned, T*> operator*();
 
@@ -337,6 +337,7 @@ public:
     void next();
     bool is_end() const;
   private:
+    void set_current_track();
     std::vector<IT> begin_iters_;
     std::vector<IT> end_iters_;
     std::vector<IT> curr_iters_;

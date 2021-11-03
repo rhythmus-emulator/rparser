@@ -1,6 +1,7 @@
 #include "Note.h"
 #include "common.h"
 #include <math.h>
+#include <limits>
 
 namespace rparser
 {
@@ -814,6 +815,7 @@ TrackData::all_track_iterator<TD, T, IT>::all_track_iterator(TD& td)
     curr_iters_.push_back(begin_iters_.back());
     end_iters_.push_back(td.get_track(i).end());
   }
+  set_current_track();
 }
 
 template <typename TD, typename T, typename IT>
@@ -825,6 +827,7 @@ TrackData::all_track_iterator<TD, T, IT>::all_track_iterator(TD& td, double m_st
     curr_iters_.push_back(begin_iters_.back());
     end_iters_.push_back(td.get_track(i).end(m_end));
   }
+  set_current_track();
 }
 
 template <typename TD, typename T, typename IT>
@@ -835,7 +838,7 @@ TrackData::all_track_iterator<TD, T, IT> &TrackData::all_track_iterator<TD, T, I
 { next(); return *this; }
 
 template <typename TD, typename T, typename IT>
-bool TrackData::all_track_iterator<TD, T, IT>::operator==(all_track_iterator& it) const
+bool TrackData::all_track_iterator<TD, T, IT>::operator==(const all_track_iterator& it) const
 {
   if (track_ == -1 && it.track_ == -1) return true;
   else if (curr_iters_.size() == it.curr_iters_.size()) {
@@ -849,7 +852,7 @@ bool TrackData::all_track_iterator<TD, T, IT>::operator==(all_track_iterator& it
 }
 
 template <typename TD, typename T, typename IT>
-bool TrackData::all_track_iterator<TD, T, IT>::operator!=(all_track_iterator& it) const
+bool TrackData::all_track_iterator<TD, T, IT>::operator!=(const all_track_iterator& it) const
 { return !operator==(it); }
 
 template <typename TD, typename T, typename IT>
@@ -867,8 +870,16 @@ T* TrackData::all_track_iterator<TD, T, IT>::get()
 template <typename TD, typename T, typename IT>
 void TrackData::all_track_iterator<TD, T, IT>::next()
 {
+  ASSERT(track_ >= 0);
+  ++curr_iters_[track_];
+  set_current_track();
+}
+
+template <typename TD, typename T, typename IT>
+void TrackData::all_track_iterator<TD, T, IT>::set_current_track()
+{
   track_ = -1;
-  pos_ = .0;
+  pos_ = std::numeric_limits<double>::max();
   for (unsigned i = 0; i < curr_iters_.size(); ++i) {
     if (curr_iters_[i] != end_iters_[i] && curr_iters_[i]->measure() < pos_) {
       track_ = (int)i;
