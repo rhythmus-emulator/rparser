@@ -688,7 +688,7 @@ TEST(RPARSER, VOS_HTML_EXPORT)
   ASSERT_TRUE(c);
   c->Update();
 
-  ChartExporter htmlexporter(*c);
+  HTMLExporter htmlexporter(*c);
   std::string html = htmlexporter.toHTML();
 
   FILE *fp = rutil::fopen_utf8(BASE_DIR + "out_to_html.html", "wb");
@@ -721,7 +721,7 @@ TEST(RPARSER, BMS_HTML_EXPORT)
   ASSERT_TRUE(c);
   c->Update();
 
-  ChartExporter htmlexporter(*c);
+  HTMLExporter htmlexporter(*c);
   std::string html = htmlexporter.toHTML();
 
   FILE *fp = rutil::fopen_utf8(BASE_DIR + "out_to_html_bms.html", "wb");
