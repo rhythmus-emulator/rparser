@@ -67,6 +67,9 @@ add_subdirectory("${PROJECT_SOURCE_DIR}/src")
 # (if not, just add src)
 add_subdirectory("${PROJECT_SOURCE_DIR}/test")
 
+# util program
+add_subdirectory("${PROJECT_SOURCE_DIR}/util")
+
 # project: python lib
 if (PYTHONLIB)
   add_subdirectory("${PROJECT_SOURCE_DIR}/pythonlib")

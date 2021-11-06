@@ -679,72 +679,6 @@ TEST(RPARSER, BMS_STRESS)
   song.Close();
 }
 
-TEST(RPARSER, VOS_HTML_EXPORT)
-{
-  const auto songpath = "chart_sample/24.vos";
-  Song song;
-  ASSERT_TRUE(song.Open(BASE_DIR + songpath));
-  Chart *c = song.GetChart(0);
-  ASSERT_TRUE(c);
-  c->Update();
-
-  HTMLExporter htmlexporter(*c);
-  std::string html = htmlexporter.toHTML();
-
-  FILE *fp = rutil::fopen_utf8(BASE_DIR + "out_to_html.html", "wb");
-  ASSERT_TRUE(fp);
-
-  std::string t;
-  t = "<html><head>"\
-    "<link rel='stylesheet' href='rhythmus.css' type='text/css'>"\
-    "<script src='http://code.jquery.com/jquery-latest.min.js'></script>"\
-    "<script src='rhythmus.js'></script>"\
-    "</head><body>";
-  fwrite(t.c_str(), 1, t.size(), fp);
-
-  fwrite(html.c_str(), 1, html.size(), fp);
-
-  t = "</body></html>";
-  fwrite(t.c_str(), 1, t.size(), fp);
-
-  fclose(fp);
-
-  song.Close();
-}
-
-TEST(RPARSER, BMS_HTML_EXPORT)
-{
-  const auto songpath = "bms_sample_angelico.zip";
-  Song song;
-  ASSERT_TRUE(song.Open(BASE_DIR + songpath));
-  Chart *c = song.GetChart(0);
-  ASSERT_TRUE(c);
-  c->Update();
-
-  HTMLExporter htmlexporter(*c);
-  std::string html = htmlexporter.toHTML();
-
-  FILE *fp = rutil::fopen_utf8(BASE_DIR + "out_to_html_bms.html", "wb");
-  ASSERT_TRUE(fp);
-
-  std::string t;
-  t = "<html><head>"\
-    "<link rel='stylesheet' href='rhythmus.css' type='text/css'>"\
-    "<script src='http://code.jquery.com/jquery-latest.min.js'></script>"\
-    "<script src='rhythmus.js'></script>"\
-    "</head><body>";
-  fwrite(t.c_str(), 1, t.size(), fp);
-
-  fwrite(html.c_str(), 1, html.size(), fp);
-
-  t = "</body></html>";
-  fwrite(t.c_str(), 1, t.size(), fp);
-
-  fclose(fp);
-
-  song.Close();
-}
-
 TEST(RPARSER, SERIALIZER)
 {
   Chart c;
@@ -777,6 +711,115 @@ TEST(RPARSER, SERIALIZER)
 
   printf("%s\n", nd.Serialize().c_str());
   printf("%s\n", c.GetHash().c_str());
+}
+
+TEST(CHARTUTIL, VOS_HTML_EXPORT)
+{
+  const auto songpath = "chart_sample/24.vos";
+  Song song;
+  ASSERT_TRUE(song.Open(BASE_DIR + songpath));
+  Chart *c = song.GetChart(0);
+  ASSERT_TRUE(c);
+  c->Update();
+
+  HTMLExporter htmlexporter(*c);
+  std::string html = htmlexporter.toHTML();
+
+  FILE *fp = rutil::fopen_utf8(BASE_DIR + "out_to_html.html", "wb");
+  ASSERT_TRUE(fp);
+
+  std::string t;
+  t = "<html><head>"\
+    "<link rel='stylesheet' href='rhythmus.css' type='text/css'>"\
+    "<script src='http://code.jquery.com/jquery-latest.min.js'></script>"\
+    "<script src='rhythmus.js'></script>"\
+    "</head><body>";
+  fwrite(t.c_str(), 1, t.size(), fp);
+
+  fwrite(html.c_str(), 1, html.size(), fp);
+
+  t = "</body></html>";
+  fwrite(t.c_str(), 1, t.size(), fp);
+
+  fclose(fp);
+
+  song.Close();
+}
+
+TEST(CHARTUTIL, BMS_HTML_EXPORT)
+{
+  const auto songpath = "bms_sample_angelico.zip";
+  Song song;
+  ASSERT_TRUE(song.Open(BASE_DIR + songpath));
+  Chart *c = song.GetChart(0);
+  ASSERT_TRUE(c);
+  c->Update();
+
+  HTMLExporter htmlexporter(*c);
+  std::string html = htmlexporter.toHTML();
+
+  FILE *fp = rutil::fopen_utf8(BASE_DIR + "out_to_html_bms.html", "wb");
+  ASSERT_TRUE(fp);
+
+  std::string t;
+  t = "<html><head>"\
+    "<link rel='stylesheet' href='rhythmus.css' type='text/css'>"\
+    "<script src='http://code.jquery.com/jquery-latest.min.js'></script>"\
+    "<script src='rhythmus.js'></script>"\
+    "</head><body>";
+  fwrite(t.c_str(), 1, t.size(), fp);
+
+  fwrite(html.c_str(), 1, html.size(), fp);
+
+  t = "</body></html>";
+  fwrite(t.c_str(), 1, t.size(), fp);
+
+  fclose(fp);
+
+  song.Close();
+}
+
+TEST(CHARTUTIL, PROFILER)
+{
+  Chart c;
+  auto &nd = c.GetNoteData();
+  auto &md = c.GetMetaData();
+  nd.set_track_count(7);
+
+  {
+    NoteElement n;
+    n.set_measure(0.0);
+    n.set_value(1);
+    nd[0].AddNoteElement(n);
+
+    n.set_measure(0.125);
+    n.set_value(2);
+    nd[1].AddNoteElement(n);
+
+    n.set_measure(0.25);
+    n.set_value(3);
+    nd[2].AddNoteElement(n);
+
+    n.set_measure(0.25);
+    n.set_value(3);
+    nd[1].AddNoteElement(n);
+
+    n.set_measure(0.375);
+    n.set_value(4);
+    nd[3].AddNoteElement(n);
+
+    n.set_measure(0.5);
+    n.set_value(5);
+    nd[4].AddNoteElement(n);
+  }
+
+  ChartProfiler prof(c);
+  ASSERT_TRUE(prof.GetSegmentCount() == 5);
+  EXPECT_EQ(prof.GetSegment(0)->pos, 0.0);
+  EXPECT_EQ(prof.GetSegment(1)->pos, 0.125);
+  EXPECT_EQ(prof.GetSegment(2)->pos, 0.25);
+  EXPECT_EQ(prof.GetSegment(3)->pos, 0.375);
+  EXPECT_EQ(prof.GetSegment(4)->pos, 0.5);
 }
 
 int main(int argc, char **argv)

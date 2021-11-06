@@ -123,11 +123,17 @@ public:
   std::string toString() const;
   void Save(const std::string& path) const;
 
+  unsigned GetSegmentCount() const;
+  const ProfileSegment* GetSegment(unsigned i) const;
+
 private:
   std::string name_;
   std::vector<ProfileSegment> row_segments_;
   int stop_count_;
   int bpm_change_;
+
+  double avg_density_;
+  double max_density_;
 };
 
 }

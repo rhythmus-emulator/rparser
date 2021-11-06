@@ -816,4 +816,14 @@ void ChartProfiler::Save(const std::string& path) const
   fclose(fp);
 }
 
+unsigned ChartProfiler::GetSegmentCount() const
+{
+  return row_segments_.size();
+}
+
+const ProfileSegment* ChartProfiler::GetSegment(unsigned i) const
+{
+  return &row_segments_[i];
+}
+
 } /* namespace rparser */
